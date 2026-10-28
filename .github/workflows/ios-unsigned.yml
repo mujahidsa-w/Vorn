@@ -1,0 +1,70 @@
+name: iOS unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch project parts from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download source-1 --repo "$GITHUB_REPOSITORY" --pattern 'VORN_part*.bin' --dir parts
+          cat parts/VORN_part*.bin > VORN_repo.zip
+          unzip -oq VORN_repo.zip -d .
+          rm -rf parts VORN_repo.zip
+
+      - name: Set iOS settings for export
+        run: |
+          sed -i '' 's/application\/app_store_team_id=""/application\/app_store_team_id="ABCDE12345"/' export_presets.cfg
+          sed -i '' '/^\[rendering\]/a\
+          textures/vram_compression/import_etc2_astc=true
+          ' project.godot
+
+      - name: Install Godot 4.3 and export templates
+        run: |
+          G=https://github.com/godotengine/godot/releases/download/4.3-stable
+          curl -fL -o godot.zip "$G/Godot_v4.3-stable_macos.universal.zip"
+          unzip -q godot.zip -d godot_bin
+          echo "$PWD/godot_bin/Godot.app/Contents/MacOS" >> "$GITHUB_PATH"
+          curl -fL -o templates.tpz "$G/Godot_v4.3-stable_export_templates.tpz"
+          unzip -q templates.tpz -d tpz
+          mkdir -p "$HOME/Library/Application Support/Godot/export_templates/4.3.stable"
+          mv tpz/templates/* "$HOME/Library/Application Support/Godot/export_templates/4.3.stable/"
+
+      - name: Import project
+        run: godot --headless --import || true
+
+      - name: Export iOS Xcode project
+        run: |
+          mkdir -p build_ios
+          godot --headless --export-release "iOS" build_ios/VORN || true
+          test -d build_ios/VORN.xcodeproj
+
+      - name: Build unsigned app with Xcode
+        working-directory: build_ios
+        run: |
+          PROJ=$(find . -maxdepth 2 -name "*.xcodeproj" | head -1)
+          SCHEME=$(xcodebuild -project "$PROJ" -list | awk '/Schemes:/{f=1;next} f&&NF{print $1;exit}')
+          xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            SYMROOT="$PWD/out" build
+
+      - name: Package IPA (unsigned)
+        working-directory: build_ios
+        run: |
+          APP=$(find out -name "*.app" -path "*iphoneos*" | head -1)
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qr VORN-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VORN-unsigned-ipa
+          path: build_ios/VORN-unsigned.ipa
