@@ -26,6 +26,9 @@ var enemy = null
 var fire_cd := 0.0
 var weapon_node: Node3D
 var _kick := Vector3.ZERO
+var _last_push := Vector3.ZERO   # the last strong push (a car hit), used to launch the body on death
+var _launch := -1.0               # seconds since launched (-1 when not flying)
+var _fling_dir := 1.0             # which way the body tumbles (back when pushed forward)
 var _lod_t := 0.0
 var _route: Array = []
 var corpse_t := 0.0
@@ -69,6 +72,13 @@ func _ready() -> void:
 
 func push(v: Vector3) -> void:
 	_kick += v
+	_last_push = v
+
+
+## A car ran this person over: knock them out and launch them.
+func run_over(v: Vector3) -> void:
+	push(v)
+	take_damage(hp + 1.0, null, v)
 
 
 func take_damage(amount: float, attacker, dir := Vector3.ZERO) -> void:
@@ -95,6 +105,13 @@ func _die() -> void:
 	collision_mask = 1
 	velocity = Vector3.ZERO
 	corpse_t = 90.0
+	if _last_push.length() > 6.0:
+		var bl := global_transform.basis
+		velocity = Vector3(_last_push.x, 3.5 + _last_push.length() * 0.2, _last_push.z)
+		_launch = 0.0
+		_fling_dir = 1.0 if _last_push.dot(-bl.z) >= 0.0 else -1.0
+	else:
+		_launch = -1.0
 	if world:
 		world.alert(global_position, 25.0, null)
 
@@ -129,10 +146,22 @@ func _goto(p: Vector3) -> void:
 func _physics_process(delta: float) -> void:
 	if state == DEAD:
 		corpse_t -= delta
-		velocity.x = move_toward(velocity.x, 0, 6 * delta)
-		velocity.z = move_toward(velocity.z, 0, 6 * delta)
-		velocity.y -= 18.0 * delta
-		move_and_slide()
+		if _launch >= 0.0:
+			# flying after a car hit: arc through the air, tumble, then land and lie down
+			_launch += delta
+			velocity.x = move_toward(velocity.x, 0, 2.0 * delta)
+			velocity.z = move_toward(velocity.z, 0, 2.0 * delta)
+			velocity.y -= 18.0 * delta
+			move_and_slide()
+			rotation.x = clampf(_launch / 0.5, 0.0, 1.0) * (PI / 2.0) * _fling_dir
+			if is_on_floor() and _launch > 0.35:
+				_launch = -1.0
+				velocity = Vector3.ZERO
+		else:
+			velocity.x = move_toward(velocity.x, 0, 6 * delta)
+			velocity.z = move_toward(velocity.z, 0, 6 * delta)
+			velocity.y -= 18.0 * delta
+			move_and_slide()
 		if corpse_t <= 0.0:
 			queue_free()
 		return

@@ -38,6 +38,18 @@ func run() -> void:
 	world.hud.help_t = 0.0
 	var pl = world.player
 	await _w(3.0)
+	if world.npcs.size() > 0:
+		var n = world.npcs[0]
+		pl.global_position = n.global_position + Vector3(0, 0.5, 3.5)
+		await _w(0.8)
+		n.run_over(Vector3(0, 0, -14))
+		await _w(0.25)
+		await _shot("08_launch")
+		await _w(1.5)
+		await _shot("09_landed")
+		print("RAGDOLL state=", n.state, " rot=", n.rotation.x, " launch=", n._launch)
+		pl.global_position = n.global_position + Vector3(0, 0.5, 3.5)
+		await _w(0.6)
 	await _shot("01_unarmed")
 	pl.give_weapon("akm")
 	pl.equip("akm")
