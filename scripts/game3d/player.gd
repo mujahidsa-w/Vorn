@@ -494,8 +494,8 @@ func _combat_tick(delta: float) -> void:
 	var mp := muzzle_pos()
 	match d.type:
 		"pistol", "rifle":
-				if not world or not world.audio_world:
-					Game.play_sfx(d.sound, randf_range(0.95, 1.05), 4.0)
+			if not world or not world.audio_world:
+				Game.play_sfx(d.sound, randf_range(0.95, 1.05), 4.0)
 			if world:
 				world.fx.muzzle(mp, dir)
 				world.fire_bullet(self, origin, dir, mp, float(d.get("damage", 25.0)))

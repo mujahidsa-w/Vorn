@@ -22,13 +22,13 @@ func _ready() -> void:
 func _build_district() -> void:
 	if world == null or world.spawn_xf == Transform3D():
 		return
-	var origin := world.spawn_xf.origin
-	var forward := -world.spawn_xf.basis.z.normalized()
-	var side := world.spawn_xf.basis.x.normalized()
+	var origin: Vector3 = world.spawn_xf.origin
+	var forward: Vector3 = -world.spawn_xf.basis.z.normalized()
+	var side: Vector3 = world.spawn_xf.basis.x.normalized()
 	for i in BUSINESS_DATA.size():
 		var data: Dictionary = BUSINESS_DATA[i]
-		var pos := origin + forward * 13.0 + side * ((i - 1.5) * 14.0)
-		var g := world._ground(pos + Vector3(0, 40, 0))
+		var pos: Vector3 = origin + forward * 13.0 + side * ((i - 1.5) * 14.0)
+		var g: Dictionary = world._ground(pos + Vector3(0, 40, 0))
 		if not g.is_empty():
 			pos.y = g.position.y
 		_build_store(data, pos, forward)

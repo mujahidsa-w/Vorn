@@ -149,24 +149,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif (event.physical_keycode == KEY_F11 or (event.physical_keycode == KEY_M and not (map_open and bigmap.search.has_focus()))) and not pause_root.visible:
 			_toggle_map()
 			get_viewport().set_input_as_handled()
-			elif event.physical_keycode == KEY_F1:
-				show_help = not show_help
-				help_t = 0.0
-			elif event.physical_keycode == KEY_P:
-				phone.toggle()
-				get_viewport().set_input_as_handled()
-			elif event.physical_keycode == KEY_J and not pause_root.visible and not map_open:
-				if Roleplay.shift_active:
-					Roleplay.end_shift()
-				else:
-					Roleplay.start_shift()
-				get_viewport().set_input_as_handled()
-			elif event.physical_keycode == KEY_N and not pause_root.visible and not map_open:
-				Roleplay.eat()
-				Roleplay.drink()
-				get_viewport().set_input_as_handled()
-			elif wasted and event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]:
-				world.spectate_next(1 if event.physical_keycode in [KEY_RIGHT, KEY_D] else -1)
+		elif event.physical_keycode == KEY_F1:
+			show_help = not show_help
+			help_t = 0.0
+		elif event.physical_keycode == KEY_P:
+			phone.toggle()
+			get_viewport().set_input_as_handled()
+		elif event.physical_keycode == KEY_J and not pause_root.visible and not map_open:
+			if Roleplay.shift_active:
+				Roleplay.end_shift()
+			else:
+				Roleplay.start_shift()
+			get_viewport().set_input_as_handled()
+		elif event.physical_keycode == KEY_N and not pause_root.visible and not map_open:
+			Roleplay.eat()
+			Roleplay.drink()
+			get_viewport().set_input_as_handled()
+		elif wasted and event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]:
+			world.spectate_next(1 if event.physical_keycode in [KEY_RIGHT, KEY_D] else -1)
 	elif event is InputEventMouseButton and event.pressed and not get_tree().paused and not map_open:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -593,40 +593,38 @@ func _draw_hud() -> void:
 	_box(Rect2(24, 24, 390, 78), Game.C_CYAN)
 	Game.dtext(paint, "VORN CITY", Vector2(46, 64), 34, Color.WHITE, Game.font_wide)
 	var clock := ""
-		if world.sky:
-			var hh := int(world.sky.hour)
-			clock = "%02d:%02d  •  %s  •  %s" % [hh, int(fmod(world.sky.hour, 1.0) * 60.0), world.sky.phase_name(), world.sky.weather_name]
-			var territory: Dictionary = Gangs.territory_at(pl.global_position)
-			var zone_name := str(territory.get("name", "NEUTRAL DISTRICT"))
-			Game.dtext(paint, zone_name.to_upper() + "  •  CITIZEN  •  " + clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
-		# compact roleplay status: job, bank and daily needs
-			var rp := Rect2(430, 24, 330, 146)
-		_box(rp, Game.C_CYAN)
-		Game.dtext(paint, str(Game.player.get("job", "Unemployed")).to_upper(), rp.position + Vector2(18, 30), 20, Color.WHITE, Game.font_bold)
-		Game.dtext(paint, str(Game.player.get("company", "Independent")), rp.position + Vector2(18, 51), 14, Game.C_CYAN, Game.font_tag)
-			Game.dtext(paint, "BANK  $" + Game.fmt(int(Game.player.get("bank", 0))), rp.position + Vector2(18, 76), 18, Game.C_GOLD, Game.font_semi)
-			Game.dtext(paint, "ON DUTY" if Roleplay.shift_active else "OFF DUTY", rp.position + Vector2(230, 76), 14, Game.C_GREEN if Roleplay.shift_active else Game.C_DIM, Game.font_tag)
-				Game.dtext(paint, Security.wanted_text(), rp.position + Vector2(18, 98), 15, Game.C_RED if Security.wanted_level > 0 else Game.C_GREEN, Game.font_tag)
-				Game.dtext(paint, "NEXT " + world.sky.weather_forecast, rp.position + Vector2(205, 98), 13, Game.C_CYAN, Game.font_tag)
-			var needs: Dictionary = Game.player.get("needs", {})
-		var nx := rp.position.x + 18.0
-		for item in [["H", "hunger", Color(1.0, 0.55, 0.25)], ["T", "thirst", Color(0.25, 0.75, 1.0)], ["E", "energy", Color(0.55, 1.0, 0.45)]]:
-			var value := clampf(float(needs.get(item[1], 0.0)) / 100.0, 0.0, 1.0)
-			Game.dtext(paint, item[0], Vector2(nx, rp.position.y + 136), 15, item[2], Game.font_bold)
-			paint.draw_rect(Rect2(nx + 18, rp.position.y + 125, 74, 8), Color(1, 1, 1, 0.12))
-			paint.draw_rect(Rect2(nx + 18, rp.position.y + 125, 74 * value, 8), item[2])
-			nx += 102.0
-		# hints
+	if world.sky:
+		var hh := int(world.sky.hour)
+		clock = "%02d:%02d  •  %s  •  %s" % [hh, int(fmod(world.sky.hour, 1.0) * 60.0), world.sky.phase_name(), world.sky.weather_name]
+		var territory: Dictionary = Gangs.territory_at(pl.global_position)
+		var zone_name := str(territory.get("name", "NEUTRAL DISTRICT"))
+		Game.dtext(paint, zone_name.to_upper() + "  •  CITIZEN  •  " + clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
+	var status_box := Rect2(430, 24, 330, 146)
+	_box(status_box, Game.C_CYAN)
+	Game.dtext(paint, str(Game.player.get("job", "Unemployed")).to_upper(), status_box.position + Vector2(18, 30), 20, Color.WHITE, Game.font_bold)
+	Game.dtext(paint, str(Game.player.get("company", "Independent")), status_box.position + Vector2(18, 51), 14, Game.C_CYAN, Game.font_tag)
+	Game.dtext(paint, "BANK  $" + Game.fmt(int(Game.player.get("bank", 0))), status_box.position + Vector2(18, 76), 18, Game.C_GOLD, Game.font_semi)
+	Game.dtext(paint, "ON DUTY" if Roleplay.shift_active else "OFF DUTY", status_box.position + Vector2(230, 76), 14, Game.C_GREEN if Roleplay.shift_active else Game.C_DIM, Game.font_tag)
+	Game.dtext(paint, Security.wanted_text(), status_box.position + Vector2(18, 98), 15, Game.C_RED if Security.wanted_level > 0 else Game.C_GREEN, Game.font_tag)
+	Game.dtext(paint, "NEXT " + world.sky.weather_forecast, status_box.position + Vector2(205, 98), 13, Game.C_CYAN, Game.font_tag)
+	var needs: Dictionary = Game.player.get("needs", {})
+	var nx := status_box.position.x + 18.0
+	for item in [["H", "hunger", Color(1.0, 0.55, 0.25)], ["T", "thirst", Color(0.25, 0.75, 1.0)], ["E", "energy", Color(0.55, 1.0, 0.45)]]:
+		var value := clampf(float(needs.get(item[1], 0.0)) / 100.0, 0.0, 1.0)
+		Game.dtext(paint, item[0], Vector2(nx, status_box.position.y + 136), 15, item[2], Game.font_bold)
+		paint.draw_rect(Rect2(nx + 18, status_box.position.y + 125, 74, 8), Color(1, 1, 1, 0.12))
+		paint.draw_rect(Rect2(nx + 18, status_box.position.y + 125, 74 * value, 8), item[2])
+		nx += 102.0
 	var hint := ""
-		if pl.dead:
-			hint = ""
-		elif car == null:
-			var business := world.businesses.nearest(pl.global_position, 6.0) if world.businesses else {}
-			var pk = world.nearest_pickup(1.9)
-			if not business.is_empty():
-				hint = "[E]  ENTER  " + str(business.data.name)
-			elif world.near_switch():
-				hint = "[E]  LIGHTS " + ("OFF" if world.bank.lights_on else "ON")
+	if pl.dead:
+		hint = ""
+	elif car == null:
+		var business: Dictionary = world.businesses.nearest(pl.global_position, 6.0) if world.businesses else {}
+		var pk = world.nearest_pickup(1.9)
+		if not business.is_empty():
+			hint = "[E]  ENTER  " + str(business.data.name)
+		elif world.near_switch():
+			hint = "[E]  LIGHTS " + ("OFF" if world.bank.lights_on else "ON")
 		elif pk:
 			hint = "[E]  TAKE  " + ("BODY ARMOR" if pk.id == "armor" else str(Weapons.DATA[pk.id].name))
 		else:

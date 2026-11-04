@@ -188,13 +188,13 @@ func _update_weather(delta: float) -> void:
 	else:
 		wet = maxf(0.0, wet - delta / 120.0)
 	wind = 0.25 + clouds * 0.35 + rain * 0.5
-		if kind == 4:
+	if kind == 4:
 		_next_bolt -= delta
 		if _next_bolt <= 0.0:
 			_next_bolt = randf_range(9.0, 22.0)
 			flash = 1.0
 			var dl := randf_range(0.6, 2.8)
-				get_tree().create_timer(dl).timeout.connect(func(): _thunder_audio(dl))
+			get_tree().create_timer(dl).timeout.connect(func(): _thunder_audio(dl))
 	flash = maxf(0.0, flash - delta * 2.6)
 
 func _thunder_audio(delay: float) -> void:
@@ -297,8 +297,8 @@ func _process(delta: float) -> void:
 		_sky_t = 0.0
 		_apply()
 		if world and world.rain:
-		var dp: ParticleProcessMaterial = world.rain.process_material
-		world.rain.amount_ratio = clampf(rain, 0.0, 1.0)
+			var dp: ParticleProcessMaterial = world.rain.process_material
+			world.rain.amount_ratio = clampf(rain, 0.0, 1.0)
 			dp.direction = Vector3(0.12 + wind * 0.25, -1, 0.05)
 		if world and Game._rain:
 			Game._rain.volume_db = lerpf(-22.0, -5.0, rain) if Game.settings.rain else -40.0
