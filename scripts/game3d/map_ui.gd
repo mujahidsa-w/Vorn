@@ -5,6 +5,8 @@ extends Control
 
 const MM_PX_PER_M := 0.55
 
+signal close_requested
+
 var world
 var hud
 var tex: Texture2D
@@ -31,6 +33,17 @@ func _ready() -> void:
 	panel.add_theme_stylebox_override("panel", sb)
 	Game.lay(panel, [0, 0, 0, 0], [30, 120, 410, 700])
 	add_child(panel)
+	var close := Button.new()
+	close.text = "×"
+	close.tooltip_text = "Close map"
+	close.add_theme_font_override("font", Game.font_wide)
+	close.add_theme_font_size_override("font_size", 42)
+	close.add_theme_color_override("font_color", Color.WHITE)
+	close.add_theme_color_override("font_hover_color", Game.C_GOLD)
+	close.focus_mode = Control.FOCUS_NONE
+	Game.lay(close, [1, 0, 1, 0], [-112, 24, -32, 100])
+	close.pressed.connect(func(): close_requested.emit())
+	add_child(close)
 	var lbl := Game.label("SEARCH PLACES", 18, Game.font_bold, Game.C_DIM)
 	Game.lay(lbl, [0, 0, 0, 0], [48, 132, 400, 160])
 	add_child(lbl)

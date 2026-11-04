@@ -35,10 +35,16 @@ func _ready() -> void:
 	# the city arrival cinematic plays while the world loads
 	Game.stop_music()
 	video = IntroVideo.new()
-	video.can_skip = false
+	# Mobile video decoding can produce a black frame and never emit finished.
+	# Skip the cinematic on iOS/Android so entering the city is deterministic.
+	video.can_skip = true
 	video.set_anchors_preset(Control.PRESET_FULL_RECT)
 	video.finished.connect(func(): video_over = true; video.visible = false)
 	add_child(video)
+	if Game.touch:
+		video_over = true
+		video.visible = false
+		video.player.stop()
 	if OS.get_cmdline_user_args().has("--nettest"):
 		video_over = true
 		video.visible = false

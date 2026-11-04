@@ -80,13 +80,15 @@ void fragment() {
 	Justice.notification.connect(_on_roleplay_notification)
 	minimap = Control.new()
 	minimap.clip_contents = true
-	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	minimap.mouse_filter = Control.MOUSE_FILTER_STOP
 	Game.lay(minimap, [0, 1, 0, 1], [28, -28 - MM_SIZE.y - 22, 28 + MM_SIZE.x, -28 - 22])
 	minimap.draw.connect(_draw_minimap)
+	minimap.gui_input.connect(_on_minimap_input)
 	root.add_child(minimap)
 	bigmap = MapUI.new()
 	bigmap.world = world
 	bigmap.hud = self
+	bigmap.close_requested.connect(_toggle_map)
 	Game.lay(bigmap, [0, 0, 1, 1], [0, 0, 0, 0])
 	bigmap.visible = false
 	root.add_child(bigmap)
@@ -181,6 +183,13 @@ func _toggle_map() -> void:
 	if Game.touch:
 		Input.emulate_mouse_from_touch = map_open
 	Game.play_sfx("click" if map_open else "back")
+
+
+func _on_minimap_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if not pause_root.visible and not wasted:
+			_toggle_map()
+			get_viewport().set_input_as_handled()
 
 
 # ---------------------------------------------------------------- pause + settings
@@ -702,7 +711,7 @@ func _draw_hud() -> void:
 		var lines := [["W A S D", "Walk"], ["SHIFT", "Run"], ["SPACE", "Jump  •  Handbrake"], ["MOUSE", "Look / Aim (RMB)"], ["LMB", "Shoot / Punch combo"],
 			["C", "Crouch"], ["V", "First person"], ["E", "Take item / car"], ["1-4  X", "Switch / holster"],
 			["R   G", "Reload / Detonate C4"], ["W / I", "Start engine (car)"], ["Q   H", "Siren / Horn"],
-			["F11 / M", "Map + GPS"], ["F5", "Reset position"], ["F1  ESC", "Help / Pause + Settings"]]
+				["TAP GPS", "Open map + GPS"], ["F11 / M", "Map shortcut"], ["F5", "Reset position"], ["F1  ESC", "Help / Pause + Settings"]]
 		var rr := Rect2(24, 120, 360, 40 + lines.size() * 27)
 		_box(rr)
 		Game.dtext(paint, "CONTROLS", Vector2(44, 148), 16, Game.C_DIM, Game.font_tag)
