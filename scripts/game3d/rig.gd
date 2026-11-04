@@ -297,6 +297,7 @@ func setup(cop_team) -> void:
 	else:
 		visual = hero
 		vis_sk = hero_sk
+	_no_cull(visual)
 	var q: int = clampi(int(Game.settings.quality), 0, 2)
 	for mi in visual.find_children("*", "MeshInstance3D", true, false):
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if q > 0 else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -355,6 +356,21 @@ func _normalize_height(n: Node3D) -> void:
 			ab = ab.merge(a)
 	if ab.size.y > 0.5:
 		n.scale = Vector3.ONE * (1.82 / ab.size.y)
+
+
+## Character meshes were back-face culled, so from some angles the inside of the
+## body showed through (looked hollow). Draw both sides of every surface.
+func _no_cull(n: Node) -> void:
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m3 := mi as MeshInstance3D
+		if m3.mesh == null:
+			continue
+		for si in m3.mesh.get_surface_count():
+			var m = m3.get_active_material(si)
+			if m is BaseMaterial3D:
+				var m2: BaseMaterial3D = m.duplicate()
+				m2.cull_mode = BaseMaterial3D.CULL_DISABLED
+				m3.set_surface_override_material(si, m2)
 
 
 func _tint(mi: MeshInstance3D, col: Color) -> void:
@@ -624,7 +640,10 @@ func update(delta: float, vel_local: Vector2, on_floor: bool, weapon_type: Strin
 		var pw2 := lerpf(0.3, 0.55, _armed_w)
 		_add("CC_Base_Spine01", Quaternion(X, -pk * pw2 * 0.5))
 		_add("CC_Base_Spine02", Quaternion(X, -pk * pw2 * 0.5))
-		_add("CC_Base_Head", Quaternion(X, -pk * 0.3))
+		# head stays closer to level: the neck should not dip when the rifle is up
+		_add("CC_Base_Head", Quaternion(X, -clampf(pk, -0.5, 0.25) * 0.1))
+		# counter the neck dip of the rifle-ready clips so the head stays up while armed
+		_add("CC_Base_NeckTwist01", Quaternion(X, -0.25 * _armed_w))
 		if recoil > 0.0:
 			_add("CC_Base_Spine02", Quaternion(X, -recoil * 0.1))
 			recoil = maxf(0.0, recoil - delta * 9.0)

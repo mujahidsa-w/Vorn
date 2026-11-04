@@ -20,6 +20,8 @@ var pause_menu: Control
 var settings_root: Control
 var gray: ColorRect
 var gray_mat: ShaderMaterial
+var scope_fx: ColorRect
+var scope_mat: ShaderMaterial
 var t := 0.0
 var help_t := 14.0
 var show_help := true
@@ -66,6 +68,37 @@ void fragment() {
 	gray.material = gray_mat
 	gray.visible = false
 	root.add_child(gray)
+	# sniper scope: the screen is blurred and darkened only around the scope; the centre stays clear
+	scope_fx = ColorRect.new()
+	Game.lay(scope_fx, [0, 0, 1, 1], [0, 0, 0, 0])
+	scope_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ssh := Shader.new()
+	ssh.code = """shader_type canvas_item;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
+uniform float radius = 0.42;
+uniform float aspect = 1.7778;
+void fragment() {
+	vec2 d = (SCREEN_UV - 0.5) * vec2(aspect, 1.0);
+	float edge = smoothstep(radius * 0.97, radius * 1.16, length(d));
+	vec2 step_px = SCREEN_PIXEL_SIZE * (1.0 + edge * 5.0);
+	vec3 acc = vec3(0.0);
+	float wsum = 0.0;
+	for (int i = -2; i <= 2; i++) {
+		for (int j = -2; j <= 2; j++) {
+			vec2 o = vec2(float(i), float(j));
+			float w = 1.0 - length(o) / 3.2;
+			acc += texture(screen_tex, SCREEN_UV + o * step_px).rgb * w;
+			wsum += w;
+		}
+	}
+	vec3 blur = acc / wsum;
+	COLOR = vec4(blur * (1.0 - 0.2 * edge), edge * 0.85);
+}"""
+	scope_mat = ShaderMaterial.new()
+	scope_mat.shader = ssh
+	scope_fx.material = scope_mat
+	scope_fx.visible = false
+	root.add_child(scope_fx)
 	paint = Control.new()
 	Game.lay(paint, [0, 0, 1, 1], [0, 0, 0, 0])
 	paint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -102,6 +135,7 @@ func _prepare_route() -> void:
 
 func _process(delta: float) -> void:
 	t += delta
+	scope_fx.visible = _scoped()
 	if help_t > 0.0:
 		help_t -= delta
 		if help_t <= 0.0:
@@ -113,6 +147,13 @@ func _process(delta: float) -> void:
 	_prepare_route()
 	paint.queue_redraw()
 	minimap.queue_redraw()
+
+
+func _scoped() -> bool:
+	if world == null or world.player == null or world.active_car != null:
+		return false
+	var pl = world.player
+	return pl.aiming and pl.current == "sniper" and pl.cam.fov < 25.0
 
 
 func blocks_mouse() -> bool:
@@ -531,14 +572,11 @@ func _draw_hud() -> void:
 		if l.length() > 0.05:
 			var ang: float = atan2(l.x, -l.y)
 			paint.draw_arc(sz * 0.5, 150, ang - PI / 2 - 0.35, ang - PI / 2 + 0.35, 24, Color(1, 0.1, 0.1, _dmg_t), 10.0, true)
-	# sniper scope
-	if car == null and pl.aiming and pl.current == "sniper" and pl.cam.fov < 25.0:
+	# sniper scope reticle (the blur and edge darkening come from scope_fx)
+	if _scoped():
 		var cc := sz * 0.5
 		var rad := sz.y * 0.42
-		var dark := Color(0, 0, 0, 0.92)
-		paint.draw_rect(Rect2(0, 0, cc.x - rad, sz.y), dark)
-		paint.draw_rect(Rect2(cc.x + rad, 0, sz.x - cc.x - rad, sz.y), dark)
-		paint.draw_arc(cc, rad + 60, 0, TAU, 96, dark, 120.0)
+		paint.draw_arc(cc, rad, 0, TAU, 128, Color(0, 0, 0, 0.85), 3.0, true)
 		paint.draw_line(Vector2(cc.x - rad, cc.y), Vector2(cc.x + rad, cc.y), Color(0, 0, 0, 0.8), 1.5)
 		paint.draw_line(Vector2(cc.x, cc.y - rad), Vector2(cc.x, cc.y + rad), Color(0, 0, 0, 0.8), 1.5)
 		paint.draw_circle(cc, 2.5, Color(1, 0.1, 0.1))
