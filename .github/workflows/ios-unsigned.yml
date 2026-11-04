@@ -38,6 +38,8 @@ jobs:
       - name: Export Xcode project from Godot
         run: |
           "$GODOT" --headless --path . --import || true
+          # Generate the Xcode project only; xcodebuild below performs the unsigned build.
+          sed -i '' 's/application\/export_project_only=false/application\/export_project_only=true/' export_presets.cfg
           mkdir -p build/ios
           "$GODOT" --headless --path . --export-release "iOS" build/ios/CopsAndRobbers.xcodeproj
           PROJ=$(find build/ios -maxdepth 2 -name "*.xcodeproj" | head -1)
