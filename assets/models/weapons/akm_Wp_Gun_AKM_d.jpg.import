@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://dtru48ajd7fyu"
+path="res://.godot/imported/akm_Wp_Gun_AKM_d.jpg-82a88c5ac11d3c2eab2afd0314e5dfca.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "afd8f0fa464b7b59001528cde770c140"
+}
+
+[deps]
+
+source_file="res://assets/models/weapons/akm_Wp_Gun_AKM_d.jpg"
+dest_files=["res://.godot/imported/akm_Wp_Gun_AKM_d.jpg-82a88c5ac11d3c2eab2afd0314e5dfca.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=512
+detect_3d/compress_to=1

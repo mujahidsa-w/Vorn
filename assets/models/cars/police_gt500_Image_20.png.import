@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://c07s4qf0dl025"
+path="res://.godot/imported/police_gt500_Image_20.png-a265927200a6d7833b26ed0c20a23e88.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "66144907c8c8e109a55303697fbbb38a"
+}
+
+[deps]
+
+source_file="res://assets/models/cars/police_gt500_Image_20.png"
+dest_files=["res://.godot/imported/police_gt500_Image_20.png-a265927200a6d7833b26ed0c20a23e88.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1

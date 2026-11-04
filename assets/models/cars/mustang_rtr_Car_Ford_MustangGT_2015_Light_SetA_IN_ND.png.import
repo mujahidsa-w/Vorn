@@ -1,0 +1,37 @@
+[remap]
+
+importer="texture"
+type="CompressedTexture2D"
+uid="uid://c7ws75an25ncv"
+path="res://.godot/imported/mustang_rtr_Car_Ford_MustangGT_2015_Light_SetA_IN_ND.png-d8417d35cd4e3af854b57dbe3ce83994.ctex"
+metadata={
+"vram_texture": false
+}
+generator_parameters={
+"md5": "0dc1c0ee3325714836c838569138bcfd"
+}
+
+[deps]
+
+source_file="res://assets/models/cars/mustang_rtr_Car_Ford_MustangGT_2015_Light_SetA_IN_ND.png"
+dest_files=["res://.godot/imported/mustang_rtr_Car_Ford_MustangGT_2015_Light_SetA_IN_ND.png-d8417d35cd4e3af854b57dbe3ce83994.ctex"]
+
+[params]
+
+compress/mode=0
+compress/high_quality=false
+compress/lossy_quality=0.7
+compress/hdr_compression=1
+compress/normal_map=0
+compress/channel_pack=0
+mipmaps/generate=true
+mipmaps/limit=-1
+roughness/mode=0
+roughness/src_normal=""
+process/fix_alpha_border=true
+process/premult_alpha=false
+process/normal_map_invert_y=false
+process/hdr_as_srgb=false
+process/hdr_clamp_exposure=false
+process/size_limit=1024
+detect_3d/compress_to=1

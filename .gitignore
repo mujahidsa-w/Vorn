@@ -1,0 +1,11 @@
+# Godot cache and local builds
+.godot/
+build/
+*.import.bak
+
+# Secrets: never commit signing keys or certificates
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.cer
