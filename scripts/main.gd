@@ -8,14 +8,18 @@ const NeonButton = preload("res://scripts/ui/neon_button.gd")
 
 const SCREENS := {
 	"menu": preload("res://scripts/screens/main_menu.gd"),
-	"team": preload("res://scripts/screens/team_select.gd"),
-	"match": preload("res://scripts/screens/match_lobby.gd"),
+		"match": preload("res://scripts/screens/match_lobby.gd"),
 	"loading": preload("res://scripts/screens/loading.gd"),
 	"customize": preload("res://scripts/screens/customize.gd"),
-	"shop": preload("res://scripts/screens/shop.gd"),
-	"friends": preload("res://scripts/screens/friends.gd"),
+		"shop": preload("res://scripts/screens/shop.gd"),
+		"jobs": preload("res://scripts/screens/jobs.gd"),
+		"market": preload("res://scripts/screens/market.gd"),
+		"gangs": preload("res://scripts/screens/gangs.gd"),
+		"security": preload("res://scripts/screens/security.gd"),
+		"admin": preload("res://scripts/screens/admin.gd"),
+		"court": preload("res://scripts/screens/court.gd"),
+		"friends": preload("res://scripts/screens/friends.gd"),
 	"settings": preload("res://scripts/screens/settings.gd"),
-	"layout": preload("res://scripts/screens/layout_editor.gd"),
 	"login": preload("res://scripts/screens/login.gd"),
 }
 
@@ -65,18 +69,25 @@ func _ready() -> void:
 
 	Game.settings_changed.connect(_on_settings)
 	_on_settings()
-	# the startup video was removed (the loading screen still plays the chase cutscene)
+	if not Game.intro_shown and OS.get_cmdline_user_args().is_empty():
+		Game.intro_shown = true
+		var iv: Control = load("res://scripts/ui/intro_video.gd").new()
+		_full(iv)
+		add_child(iv)
+		await iv.finished
+		iv.queue_free()
 	Game.start_ambience()
 	if OS.get_cmdline_user_args().has("--nettest"):
-		Game.player.team = "robbers"
-		go("match")
+		go("loading", {"roleplay": true})
 		return
-	go("menu" if Online.is_signed_in() or Online.offline_mode else "login")
+	var start_screen := Game.next_screen if Game.next_screen != "" else ("menu" if Online.is_signed_in() or Online.offline_mode else "login")
+	Game.next_screen = ""
+	go(start_screen)
 	if Online.is_signed_in():
 		_check_session()
 	create_tween().tween_property(fade, "color:a", 0.0, 1.4).set_delay(0.15)
 	var args := OS.get_cmdline_user_args()
-	var tool_scripts := {"--tour": "res://tools/tour.gd", "--flow": "res://tools/flow.gd", "--offline": "res://tools/offline_flow.gd", "--uishots": "res://tools/ui_shots_flow.gd", "--menushot": "res://tools/menu_shot.gd"}
+	var tool_scripts := {"--tour": "res://tools/tour.gd", "--flow": "res://tools/flow.gd", "--offline": "res://tools/offline_flow.gd"}
 	if args.size() >= 2 and tool_scripts.has(args[0]) and ResourceLoader.exists(tool_scripts[args[0]]):
 		var tour: Node = load(tool_scripts[args[0]]).new()
 		tour.set("main", self)

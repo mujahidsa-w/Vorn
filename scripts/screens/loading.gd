@@ -18,11 +18,11 @@ var _real := 0.0
 var video: Control
 var video_over := false
 const TIPS := [
-	"ROBBERS: break line of sight before you hide — cops track your last seen position.",
-	"COPS: coordinate road blocks with your team to trap getaway cars.",
-	"Loot is heavier than it looks. Big bags slow you down.",
-	"Press M during a match to open the full city map.",
-	"Arrested robbers can be broken out of prison by their teammates.",
+"Find work, earn money and shape your own story.",
+"Use E near a car to enter it and explore the city.",
+"Press M to open the city map and set a GPS destination.",
+"The city changes with the time of day and the weather.",
+"Your home, job and finances are the foundation of your life.",
 ]
 
 
@@ -32,7 +32,7 @@ func _ready() -> void:
 	ResourceLoader.load_threaded_request(MAP_PATH)
 	var p := UI.paint(self, _paint, Rect2(0, 0, 0, 0), true)
 	Game.lay(p, [0, 0, 1, 1], [0, 0, 0, 0])
-	# the chase cinematic plays while the city loads
+	# the city arrival cinematic plays while the world loads
 	Game.stop_music()
 	video = IntroVideo.new()
 	video.can_skip = false
@@ -100,14 +100,12 @@ func _paint_bar(c: Control) -> void:
 
 func _paint(c: Control) -> void:
 	var cx := c.size.x * 0.5
-	var team := str(data.get("team", Game.player.team))
-	var tc := Game.C_BLUE if team == "cops" else Game.C_RED
-	Game.dtext(c, "DOWNTOWN HEIST", Vector2(cx, 420), 120, Color.WHITE, Game.font_wide, HORIZONTAL_ALIGNMENT_CENTER)
-	Game.dtext(c, "CLASSIC  •  4 VS 4  •  NIGHT  •  RAIN", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
-	var tt := "YOU ARE PLAYING AS  " + team.to_upper()
+	Game.dtext(c, "VORN CITY", Vector2(cx, 420), 120, Color.WHITE, Game.font_wide, HORIZONTAL_ALIGNMENT_CENTER)
+	Game.dtext(c, "REAL LIFE ROLEPLAY  •  CITY CENTER  •  ONLINE WORLD", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
+	var tt := "CITIZEN  •  " + str(Game.player.get("job", "UNEMPLOYED")).to_upper()
 	var tw := Game.font_tag.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
-	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(tc, 0.2))
-	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(tc, 0.8), false, 1.5)
+	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(Game.C_CYAN, 0.2))
+	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(Game.C_CYAN, 0.8), false, 1.5)
 	Game.dtext(c, tt, Vector2(cx, 552), 24, Color.WHITE, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
 	if not done:
 		var bw := 900.0
@@ -119,7 +117,7 @@ func _paint(c: Control) -> void:
 		Game.dtext(c, "TIP:  " + TIPS[_tip], Vector2(cx, 930), 20, Color(1, 1, 1, 0.55), Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
 		Game.dtext(c, "LOBBY BUILD COMPLETE", Vector2(cx, 700), 40, Game.C_CYAN, Game.font_wide, HORIZONTAL_ALIGNMENT_CENTER)
-		Game.dtext(c, "Gameplay — the heist, the chase and the arrests — arrives in the next build.", Vector2(cx, 748), 24, Game.C_TEXT, Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
+		Game.dtext(c, "Your life in Vorn City starts in the Downtown district.", Vector2(cx, 748), 24, Game.C_TEXT, Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func on_back() -> void:

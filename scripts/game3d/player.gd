@@ -245,7 +245,10 @@ func _footstep(running: bool) -> void:
 				kind = "wet"
 				if running and randf() < 0.6:
 					world.fx.splash(global_position + Vector3(0, 0.05, 0))
-	Game.play_sfx("step_%s_%d" % [kind, randi_range(1, 3)], randf_range(0.9, 1.1), (-11.0 if running else -14.0) + (2.0 if kind == "wet" else 0.0))
+	if world and world.audio_world:
+		world.audio_world.play_footstep(global_position, kind, running)
+	else:
+		Game.play_sfx("step_%s_%d" % [kind, randi_range(1, 3)], randf_range(0.9, 1.1), (-11.0 if running else -14.0) + (2.0 if kind == "wet" else 0.0))
 
 
 func _process(delta: float) -> void:
@@ -491,7 +494,8 @@ func _combat_tick(delta: float) -> void:
 	var mp := muzzle_pos()
 	match d.type:
 		"pistol", "rifle":
-			Game.play_sfx(d.sound, randf_range(0.95, 1.05), 4.0)
+				if not world or not world.audio_world:
+					Game.play_sfx(d.sound, randf_range(0.95, 1.05), 4.0)
 			if world:
 				world.fx.muzzle(mp, dir)
 				world.fire_bullet(self, origin, dir, mp, float(d.get("damage", 25.0)))

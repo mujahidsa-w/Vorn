@@ -624,10 +624,7 @@ func update(delta: float, vel_local: Vector2, on_floor: bool, weapon_type: Strin
 		var pw2 := lerpf(0.3, 0.55, _armed_w)
 		_add("CC_Base_Spine01", Quaternion(X, -pk * pw2 * 0.5))
 		_add("CC_Base_Spine02", Quaternion(X, -pk * pw2 * 0.5))
-		# head stays closer to level: the neck should not dip when the rifle is up
-		_add("CC_Base_Head", Quaternion(X, -clampf(pk, -0.5, 0.25) * 0.1))
-		# counter the neck dip of the rifle-ready clips so the head stays up while armed
-		_add("CC_Base_NeckTwist01", Quaternion(X, -0.25 * _armed_w))
+		_add("CC_Base_Head", Quaternion(X, -pk * 0.3))
 		if recoil > 0.0:
 			_add("CC_Base_Spine02", Quaternion(X, -recoil * 0.1))
 			recoil = maxf(0.0, recoil - delta * 9.0)

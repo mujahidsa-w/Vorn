@@ -11,6 +11,8 @@ const SkyCycle = preload("res://scripts/game3d/sky_cycle.gd")
 const StreetLife = preload("res://scripts/game3d/street_life.gd")
 const Country = preload("res://scripts/game3d/country.gd")
 const Gps = preload("res://scripts/game3d/gps.gd")
+const CityBusinesses = preload("res://scripts/game3d/city_businesses.gd")
+const WorldAudio = preload("res://scripts/game3d/world_audio.gd")
 
 const MAP_PATH := "res://assets/models/map/la.glb"
 const MAP_SCALE := 0.01
@@ -23,7 +25,8 @@ var player
 var cars: Array = []
 var hud
 var active_car = null
-var team := "robbers"
+var team := "citizen"
+var roleplay := true
 var spawn_xf := Transform3D()
 var rain: GPUParticles3D
 var space: PhysicsDirectSpaceState3D
@@ -35,6 +38,8 @@ var country                  # open world outside the city ring (terrain, roads,
 var gps                      # road graph, routing, zone names
 var last_car = null          # the car the player drove last (shown on the map)
 var bank
+var businesses
+var audio_world
 var npcs: Array = []
 var poi: Array = []          # map points of interest {name,pos,color}
 var spec_cam: Camera3D
@@ -48,17 +53,18 @@ var Q := 1
 
 func _ready() -> void:
 	Q = clampi(int(Game.settings.quality), 0, 2)
-	team = str(Game.player.team) if str(Game.player.team) != "" else "robbers"
-	if "--cops" in OS.get_cmdline_user_args():
-		team = "cops"
-	if Online.match_id != "" and Online.match_team != "":
-		team = Online.match_team
+	# Legacy team data remains only as an internal compatibility bridge while RP systems replace it.
+	team = "robbers"
+	roleplay = true
 	Game.stop_music()
 	Engine.time_scale = 1.0
 	fx = Effects.new()
 	fx.world = self
 	add_child(fx)
 	_setup_env()
+	audio_world = WorldAudio.new()
+	audio_world.world = self
+	add_child(audio_world)
 	_load_map()
 	await get_tree().physics_frame
 	space = get_world_3d().direct_space_state
@@ -66,6 +72,8 @@ func _ready() -> void:
 	_spawn_lights()
 	sky.refresh()
 	_spawn_actors()
+	Gangs.configure_world(self)
+	_businesses_setup()
 	_build_bank()
 	_setup_rain()
 	if not OS.get_cmdline_user_args().has("--nocountry"):
@@ -737,6 +745,12 @@ func _spawn_actors() -> void:
 	player.cam.current = true
 
 
+func _businesses_setup() -> void:
+	businesses = CityBusinesses.new()
+	businesses.world = self
+	add_child(businesses)
+
+
 # ---------------------------------------------------------------- bank
 func _build_bank() -> void:
 	# choose the flattest spot along the route, away from both bases
@@ -911,6 +925,11 @@ func alert(pos: Vector3, radius: float, attacker) -> void:
 
 
 func fire_bullet(shooter, origin: Vector3, dir: Vector3, muzzle: Vector3, dmg: float) -> Vector3:
+	if shooter == player:
+		var territory := Gangs.territory_at(player.global_position)
+		Security.record_player_shot(str(territory.get("id", "")))
+	if audio_world:
+		audio_world.play_gunshot(muzzle, shooter.current if shooter and shooter.get("current") != null else "shot_pistol")
 	var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * 600.0)
 	q.collision_mask = 1 | 2 | 8 | 16
 	var ex: Array[RID] = [shooter.get_rid()]
@@ -1171,6 +1190,7 @@ func _notification(what: int) -> void:
 
 
 func _process(_d: float) -> void:
+	Driving.update_vehicle(self, _d)
 	_spectate_tick(_d / maxf(Engine.time_scale, 0.01))
 	var c := current_camera()
 	if c and rain:
@@ -1208,6 +1228,8 @@ func near_switch() -> bool:
 func interact() -> void:
 	if near_switch():
 		bank.toggle_lights()
+		return
+	if businesses and active_car == null and businesses.interact(player.global_position):
 		return
 	if active_car == null:
 		var pk = nearest_pickup(1.9)

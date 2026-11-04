@@ -1,33 +1,27 @@
 extends CanvasLayer
-## On-screen controls for phones. On foot: joystick, fire, aim and actions.
-## In a car: driving controls and the map only. Button positions can be moved
-## from Settings > Controls > Button layout (saved in Game.settings["btn_layout"]).
+## On-screen controls for phones: movement joystick, camera drag, action buttons,
+## and driving controls. They feed the same inputs the keyboard and mouse use.
 
 const W = preload("res://scripts/game3d/weapons.gd")
-const JOY_R := 140.0
-const LAYOUT_KEY := "btn_layout"
-const EDIT_BAR_H := 150.0          # top strip reserved for the layout editor's own buttons
 
 var world
 var pad: Control
 var t := 0.0
-var editing := false               # layout editor mode (works without a world)
 
 # joystick
-var joy_home := Vector2(560, 820)
 var joy_id := -1
 var joy_base := Vector2(560, 820)
 var joy_pos := Vector2(560, 820)
 var joy_vec := Vector2.ZERO
+const JOY_R := 140.0
 # camera drag
 var look_id := -1
 var look_last := Vector2.ZERO
-# buttons: id -> {pos, home, r, label, key, hold, mode, down}
+# buttons: id -> {pos, r, label, key, hold, mode}
 var buttons := {}
-var btn_touch := {}                # touch index -> button id
-var _held := {}                    # key -> bool (keys we currently hold down)
+var btn_touch := {}           # touch index -> button id
+var _held := {}               # key -> bool (keys we currently hold down)
 var _aim_on := false
-var _drag := {}                    # edit mode: touch index -> button id ("joy" for the stick)
 
 
 func _ready() -> void:
@@ -47,69 +41,23 @@ func _ready() -> void:
 	_btn("reload", Vector2(1490, 630), 50, "RELOAD", KEY_R, false, "foot")
 	_btn("use", Vector2(1665, 545), 58, "USE", KEY_E, false, "foot")
 	_btn("weapon", Vector2(1310, 985), 52, "WEAPON", "weapon", false, "foot")
-	_btn("c4", Vector2(1310, 830), 46, "BOOM", KEY_G, false, "foot")
-	# both: map and pause are always reachable
+	_btn("view", Vector2(1845, 400), 46, "VIEW", KEY_V, false, "both")
 	_btn("map", Vector2(1845, 280), 46, "MAP", KEY_F11, false, "both")
 	_btn("pause", Vector2(1845, 160), 46, "II", KEY_ESCAPE, false, "both")
-	# in a car: driving controls only (plus map and pause)
-	_btn("gas", Vector2(1480, 960), 100, "GAS", KEY_W, true, "car")
-	_btn("brake", Vector2(1290, 960), 78, "BRAKE", KEY_S, true, "car")
-	_btn("left", Vector2(470, 880), 88, "◀", KEY_A, true, "car")
-	_btn("right", Vector2(660, 880), 88, "▶", KEY_D, true, "car")
+	_btn("c4", Vector2(1310, 830), 46, "BOOM", KEY_G, false, "foot")
+	# in a car
+	_btn("gas", Vector2(1760, 860), 100, "GAS", KEY_W, true, "car")
+	_btn("brake", Vector2(1530, 920), 78, "BRAKE", KEY_S, true, "car")
+	_btn("left", Vector2(170, 880), 92, "◀", KEY_A, true, "car")
+	_btn("right", Vector2(420, 880), 92, "▶", KEY_D, true, "car")
 	_btn("hand", Vector2(1760, 620), 58, "HAND", KEY_SPACE, true, "car")
 	_btn("exit", Vector2(1560, 640), 58, "EXIT", KEY_E, false, "car")
-	_btn("siren", Vector2(1210, 820), 52, "SIREN", KEY_Q, false, "car")
-	_btn("horn", Vector2(1420, 760), 46, "HORN", KEY_H, false, "car")
-	_apply_layout()
+	_btn("siren", Vector2(1360, 980), 52, "SIREN", KEY_Q, false, "car")
+	_btn("horn", Vector2(1360, 820), 46, "HORN", KEY_H, false, "car")
 
 
 func _btn(id: String, p: Vector2, r: float, label: String, key, hold: bool, mode: String) -> void:
-	buttons[id] = {"pos": p, "home": p, "r": r, "label": label, "key": key, "hold": hold, "mode": mode, "down": false}
-
-
-## Positions the player saved from the layout editor.
-func _apply_layout() -> void:
-	var lay = Game.settings.get(LAYOUT_KEY, {})
-	if not (lay is Dictionary):
-		return
-	for id in lay:
-		var v = lay[id]
-		if not (v is Array) or v.size() < 2:
-			continue
-		var p := Vector2(float(v[0]), float(v[1]))
-		if id == "joy":
-			joy_home = p
-			joy_base = p
-			joy_pos = p
-		elif buttons.has(id):
-			buttons[id].pos = p
-
-
-func save_layout() -> void:
-	var lay := {"joy": [joy_home.x, joy_home.y]}
-	for id in buttons:
-		var p: Vector2 = buttons[id].pos
-		lay[id] = [p.x, p.y]
-	Game.set_setting(LAYOUT_KEY, lay)
-
-
-func reset_layout() -> void:
-	joy_home = Vector2(560, 820)
-	joy_base = joy_home
-	joy_pos = joy_home
-	for id in buttons:
-		buttons[id].pos = buttons[id].home
-	Game.set_setting(LAYOUT_KEY, {})
-
-
-func start_edit() -> void:
-	editing = true
-	_release_all()
-
-
-func stop_edit() -> void:
-	editing = false
-	_drag.clear()
+	buttons[id] = {"pos": p, "r": r, "label": label, "key": key, "hold": hold, "mode": mode, "down": false}
 
 
 func _in_car() -> bool:
@@ -117,8 +65,6 @@ func _in_car() -> bool:
 
 
 func _visible_btn(b: Dictionary) -> bool:
-	if editing:
-		return true
 	if b.mode == "both":
 		return true
 	var car := _in_car()
@@ -129,18 +75,17 @@ func _visible_btn(b: Dictionary) -> bool:
 	return true
 
 
+func _canvas_pos(screen_pos: Vector2) -> Vector2:
+	# touch positions are in window pixels; the UI is laid out on a 1920x1080 canvas
+	# Godot already maps touch positions onto the 1920x1080 canvas before _input
+	return screen_pos
+
+
 func _blocked() -> bool:
-	return get_tree().paused or (world != null and world.hud != null and world.hud.map_open)
-
-
-func _in_edit_bar(p: Vector2) -> bool:
-	return editing and p.y < EDIT_BAR_H
+	return get_tree().paused or (world and world.hud and world.hud.map_open)
 
 
 func _input(event: InputEvent) -> void:
-	if editing:
-		_edit_input(event)
-		return
 	if not (event is InputEventScreenTouch or event is InputEventScreenDrag):
 		return
 	if _blocked():
@@ -148,10 +93,10 @@ func _input(event: InputEvent) -> void:
 		if event is InputEventScreenTouch and not event.pressed:
 			_release_all()
 		var map_btn: Dictionary = buttons["map"]
-		if event is InputEventScreenTouch and event.pressed and world.hud.map_open and event.position.distance_to(map_btn.pos) < map_btn.r + 20:
+		if event is InputEventScreenTouch and event.pressed and world.hud.map_open and _canvas_pos(event.position).distance_to(map_btn.pos) < map_btn.r + 20:
 			_tap_key(KEY_F11)
 		return
-	var p: Vector2 = event.position
+	var p := _canvas_pos(event.position)
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_touch_down(event.index, p)
@@ -163,59 +108,6 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-# ---------------------------------------------------------------- layout editor input
-func _edit_input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch:
-		if _in_edit_bar(event.position):
-			return                           # the editor's own buttons get this touch
-		if event.pressed:
-			_edit_down(event.index, event.position)
-		else:
-			_drag.erase(event.index)
-		get_viewport().set_input_as_handled()
-	elif event is InputEventScreenDrag:
-		_edit_move(event.index, event.position)
-		get_viewport().set_input_as_handled()
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if _in_edit_bar(event.position):
-			return
-		if event.pressed:
-			_edit_down(99, event.position)
-		else:
-			_drag.erase(99)
-	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-		_edit_move(99, event.position)
-
-
-func _edit_down(idx: int, p: Vector2) -> void:
-	var best := ""
-	var best_d := INF
-	if p.distance_to(joy_home) < JOY_R:
-		best = "joy"
-		best_d = p.distance_to(joy_home)
-	for id in buttons:
-		var d: float = p.distance_to(buttons[id].pos) - buttons[id].r
-		if d < 30.0 and d < best_d:
-			best = id
-			best_d = d
-	if best != "":
-		_drag[idx] = best
-
-
-func _edit_move(idx: int, p: Vector2) -> void:
-	if not _drag.has(idx):
-		return
-	var id: String = _drag[idx]
-	var q := Vector2(clampf(p.x, 40.0, 1880.0), clampf(p.y, EDIT_BAR_H + 20.0, 1040.0))
-	if id == "joy":
-		joy_home = q
-		joy_base = q
-		joy_pos = q
-	else:
-		buttons[id].pos = q
-
-
-# ---------------------------------------------------------------- play input
 func _touch_down(idx: int, p: Vector2) -> void:
 	for id in buttons:
 		var b: Dictionary = buttons[id]
@@ -365,7 +257,7 @@ func _process(delta: float) -> void:
 		joy_id = -1
 		joy_vec = Vector2.ZERO
 		_apply_joystick()
-	pad.visible = editing or not get_tree().paused
+	pad.visible = not get_tree().paused
 	pad.queue_redraw()
 
 
@@ -392,53 +284,31 @@ func _label_for(id: String, b: Dictionary) -> String:
 	return str(b.label)
 
 
-# ---------------------------------------------------------------- drawing
-func _accent(id: String) -> Color:
-	match id:
-		"fire", "exit", "pause":
-			return Game.C_RED
-		"gas", "hand":
-			return Game.C_GREEN
-	return Game.C_CYAN
-
-
-func _draw_btn(c: Control, p: Vector2, r: float, label: String, accent: Color, down: bool, fs: int) -> void:
-	var rr := r * (0.95 if down else 1.0)
-	c.draw_circle(p + Vector2(0, 5), rr + 3, Color(0, 0, 0, 0.35))                       # drop shadow
-	c.draw_circle(p, rr, Color(0.05, 0.07, 0.11, 0.86 if down else 0.6))                 # glass body
-	c.draw_arc(p, rr - 5, PI * 1.08, PI * 1.62, 24, Color(1, 1, 1, 0.16), 3.0, true)     # gloss
-	c.draw_arc(p, rr, 0, TAU, 48, Color(accent, 0.95 if down else 0.6), 2.5, true)      # accent ring
-	Game.dtext(c, label, p + Vector2(0, fs * 0.36), fs, Color(1, 1, 1, 0.95), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
-
-
 func _draw_pad() -> void:
-	var pl = world.player if world else null
-	if not editing and (pl == null or pl.dead):
+	if world == null or world.player == null or world.player.dead:
 		return
 	var c := pad
-	var car := _in_car()
-	# joystick (on foot only)
-	if editing or not car:
-		var base := joy_base if joy_id != -1 else joy_home
+	# joystick
+	if not _in_car():
+		var base := joy_base if joy_id != -1 else Vector2(560, 820)
 		var knob := joy_pos if joy_id != -1 else base
-		c.draw_circle(base, JOY_R, Color(0.03, 0.05, 0.08, 0.3))
-		c.draw_arc(base, JOY_R, 0, TAU, 48, Color(1, 1, 1, 0.22), 2.5, true)
-		c.draw_circle(knob, 58, Color(0.6, 0.85, 1.0, 0.22 if joy_id != -1 else 0.14))
-		c.draw_arc(knob, 58, 0, TAU, 32, Color(0.6, 0.85, 1.0, 0.5), 2.0, true)
+		c.draw_circle(base, JOY_R, Color(0, 0, 0, 0.22))
+		c.draw_arc(base, JOY_R, 0, TAU, 48, Color(1, 1, 1, 0.25), 3.0, true)
+		c.draw_circle(knob, 58, Color(1, 1, 1, 0.28 if joy_id != -1 else 0.16))
+		c.draw_arc(knob, 58, 0, TAU, 32, Color(1, 1, 1, 0.5), 2.0, true)
 		if joy_vec.length() > 0.92:
 			Game.dtext(c, "RUN", base + Vector2(0, -JOY_R - 14), 18, Color(1, 1, 1, 0.7), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
-		if editing:
-			c.draw_arc(base, JOY_R + 8, 0, TAU, 48, Color(1, 0.85, 0.2, 0.9), 2.0, true)
 	for id in buttons:
 		var b: Dictionary = buttons[id]
 		if not _visible_btn(b):
 			continue
-		if not editing:
-			if id == "siren" and not (car and world.active_car.kind == "police"):
-				continue
-			if id == "c4" and not (pl.current == "c4" and pl.c4_list.size() > 0):
-				continue
+		if id == "siren" and not (_in_car() and world.active_car.kind == "police"):
+			continue
+		if id == "c4" and not (world.player.current == "c4" and world.player.c4_list.size() > 0):
+			continue
+		var accent := Game.C_RED if id == "fire" else (Game.C_GREEN if id == "gas" else Game.C_CYAN)
+		var a := 0.55 if b.down else 0.3
+		c.draw_circle(b.pos, b.r, Color(0.02, 0.04, 0.08, a))
+		c.draw_arc(b.pos, b.r, 0, TAU, 40, Color(accent, 0.85 if b.down else 0.55), 3.0, true)
 		var fs := 26 if b.r >= 90 else (18 if b.r >= 55 else 15)
-		_draw_btn(c, b.pos, b.r, _label_for(id, b), _accent(id), b.down, fs)
-		if editing:
-			c.draw_arc(b.pos, b.r + 8, 0, TAU, 48, Color(1, 0.85, 0.2, 0.9), 2.0, true)
+		Game.dtext(c, _label_for(id, b), b.pos + Vector2(0, fs * 0.36), fs, Color(1, 1, 1, 0.9), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)

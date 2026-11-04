@@ -8,7 +8,7 @@ metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "bed48f0b001801f37f98a4b545f519de"
+"md5": "2e5207198fe7e1b213f269e67a1b9b42"
 }
 
 [deps]
@@ -21,6 +21,8 @@ dest_files=["res://.godot/imported/c4_Image_0.jpg-9c9bb38db6a6c3602ac7f77bc1ce91
 compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
+compress/uastc_level=0
+compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -28,6 +30,10 @@ mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
+process/channel_remap/red=0
+process/channel_remap/green=1
+process/channel_remap/blue=2
+process/channel_remap/alpha=3
 process/fix_alpha_border=true
 process/premult_alpha=false
 process/normal_map_invert_y=false

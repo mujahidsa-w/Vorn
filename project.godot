@@ -6,12 +6,12 @@ config_version=5
 config/quit_on_go_back=false
 config/project_settings_override="user://override.cfg"
 
-config/name="VORN City"
-config/description="VORN City - Online roleplay city"
-config/version="0.8.0"
+config/name="Vorn City"
+config/description="Vorn City - Realistic open-world life roleplay"
+config/version="0.9.0-vorn-city"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
-config/icon="res://assets/img/icon.png"
+config/icon="res://assets/img/vorn_logo.png"
 boot_splash/bg_color=Color(0.01, 0.015, 0.03, 1)
 boot_splash/show_image=false
 config/windows_native_icon=""
@@ -20,6 +20,13 @@ config/windows_native_icon=""
 
 Game="*res://scripts/game.gd"
 Online="*res://scripts/online.gd"
+Roleplay="*res://scripts/roleplay.gd"
+Commerce="*res://scripts/commerce.gd"
+Gangs="*res://scripts/gangs.gd"
+Security="*res://scripts/security.gd"
+Driving="*res://scripts/driving.gd"
+Administration="*res://scripts/administration.gd"
+Justice="*res://scripts/justice.gd"
 
 [display]
 

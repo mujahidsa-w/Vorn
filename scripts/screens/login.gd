@@ -22,7 +22,7 @@ func _ready() -> void:
 	var title := Game.label("VORN CITY", 96, Game.font_wide, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	Game.lay(title, [0.5, 0, 0.5, 0], [-700, 170, 700, 290])
 	add_child(title)
-	var sub := Game.label("ONLINE  •  LOS ANGELES  •  NIGHT", 22, Game.font_tag, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	var sub := Game.label("ONLINE ROLEPLAY  •  CITY CENTER  •  DAY & NIGHT", 22, Game.font_tag, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	Game.lay(sub, [0.5, 0, 0.5, 0], [-700, 296, 700, 330])
 	add_child(sub)
 	var paint := UI.paint(self, _draw_panel, Rect2(0, 0, 0, 0), true)
@@ -42,7 +42,7 @@ func _ready() -> void:
 	b_guest.pressed.connect(_guest)
 	add_child(b_guest)
 	b_offline = NeonButton.new()
-	b_offline.setup("PLAY OFFLINE", "play", 26)
+	b_offline.setup("PLAY SOLO", "play", 26)
 	Game.lay(b_offline, [0.5, 0.5, 0.5, 0.5], [-200, 150, 200, 212])
 	b_offline.pressed.connect(_offline)
 	add_child(b_offline)
@@ -52,7 +52,7 @@ func _ready() -> void:
 	b_cancel.pressed.connect(_cancel)
 	b_cancel.visible = false
 	add_child(b_cancel)
-	status = Game.label("A browser page will open to sign in with your Google account.", 19, Game.font_med, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	status = Game.label("Sign in to meet other citizens and build your life in Vorn City.", 19, Game.font_med, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	Game.lay(status, [0.5, 0.5, 0.5, 0.5], [-310, 226, 310, 284])
 	add_child(status)

@@ -6,6 +6,7 @@ const NeonButton = preload("res://scripts/ui/neon_button.gd")
 const OptionRow = preload("res://scripts/ui/option_row.gd")
 const Weapons = preload("res://scripts/game3d/weapons.gd")
 const MapUI = preload("res://scripts/game3d/map_ui.gd")
+const Phone = preload("res://scripts/game3d/phone.gd")
 
 const MM_SIZE := Vector2(340, 210)
 const MM_RANGE := 0.55          # pixels per metre on the minimap
@@ -20,8 +21,6 @@ var pause_menu: Control
 var settings_root: Control
 var gray: ColorRect
 var gray_mat: ShaderMaterial
-var scope_fx: ColorRect
-var scope_mat: ShaderMaterial
 var t := 0.0
 var help_t := 14.0
 var show_help := true
@@ -35,6 +34,7 @@ var wasted_t := 0.0
 var suicide := false
 var _route2d: PackedVector2Array
 var _route_bounds := Rect2()
+var phone
 
 
 func _ready() -> void:
@@ -68,42 +68,16 @@ void fragment() {
 	gray.material = gray_mat
 	gray.visible = false
 	root.add_child(gray)
-	# sniper scope: the screen is blurred and darkened only around the scope; the centre stays clear
-	scope_fx = ColorRect.new()
-	Game.lay(scope_fx, [0, 0, 1, 1], [0, 0, 0, 0])
-	scope_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ssh := Shader.new()
-	ssh.code = """shader_type canvas_item;
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
-uniform float radius = 0.42;
-uniform float aspect = 1.7778;
-void fragment() {
-	vec2 d = (SCREEN_UV - 0.5) * vec2(aspect, 1.0);
-	float edge = smoothstep(radius * 0.97, radius * 1.16, length(d));
-	vec2 step_px = SCREEN_PIXEL_SIZE * (1.0 + edge * 5.0);
-	vec3 acc = vec3(0.0);
-	float wsum = 0.0;
-	for (int i = -2; i <= 2; i++) {
-		for (int j = -2; j <= 2; j++) {
-			vec2 o = vec2(float(i), float(j));
-			float w = 1.0 - length(o) / 3.2;
-			acc += texture(screen_tex, SCREEN_UV + o * step_px).rgb * w;
-			wsum += w;
-		}
-	}
-	vec3 blur = acc / wsum;
-	COLOR = vec4(blur * (1.0 - 0.2 * edge), edge * 0.85);
-}"""
-	scope_mat = ShaderMaterial.new()
-	scope_mat.shader = ssh
-	scope_fx.material = scope_mat
-	scope_fx.visible = false
-	root.add_child(scope_fx)
 	paint = Control.new()
 	Game.lay(paint, [0, 0, 1, 1], [0, 0, 0, 0])
 	paint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	paint.draw.connect(_draw_hud)
 	root.add_child(paint)
+	Roleplay.notification.connect(_on_roleplay_notification)
+	Security.notification.connect(_on_roleplay_notification)
+	Driving.notification.connect(_on_roleplay_notification)
+	Administration.notification.connect(_on_roleplay_notification)
+	Justice.notification.connect(_on_roleplay_notification)
 	minimap = Control.new()
 	minimap.clip_contents = true
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -117,6 +91,14 @@ void fragment() {
 	bigmap.visible = false
 	root.add_child(bigmap)
 	_build_pause()
+	phone = Phone.new()
+	phone.hud = self
+	root.add_child(phone)
+
+
+func _on_roleplay_notification(text: String) -> void:
+	_note = text
+	_note_t = 3.0
 
 
 func _prepare_route() -> void:
@@ -135,7 +117,6 @@ func _prepare_route() -> void:
 
 func _process(delta: float) -> void:
 	t += delta
-	scope_fx.visible = _scoped()
 	if help_t > 0.0:
 		help_t -= delta
 		if help_t <= 0.0:
@@ -147,13 +128,6 @@ func _process(delta: float) -> void:
 	_prepare_route()
 	paint.queue_redraw()
 	minimap.queue_redraw()
-
-
-func _scoped() -> bool:
-	if world == null or world.player == null or world.active_car != null:
-		return false
-	var pl = world.player
-	return pl.aiming and pl.current == "sniper" and pl.cam.fov < 25.0
 
 
 func blocks_mouse() -> bool:
@@ -173,11 +147,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif (event.physical_keycode == KEY_F11 or (event.physical_keycode == KEY_M and not (map_open and bigmap.search.has_focus()))) and not pause_root.visible:
 			_toggle_map()
 			get_viewport().set_input_as_handled()
-		elif event.physical_keycode == KEY_F1:
-			show_help = not show_help
-			help_t = 0.0
-		elif wasted and event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]:
-			world.spectate_next(1 if event.physical_keycode in [KEY_RIGHT, KEY_D] else -1)
+			elif event.physical_keycode == KEY_F1:
+				show_help = not show_help
+				help_t = 0.0
+			elif event.physical_keycode == KEY_P:
+				phone.toggle()
+				get_viewport().set_input_as_handled()
+			elif event.physical_keycode == KEY_J and not pause_root.visible and not map_open:
+				if Roleplay.shift_active:
+					Roleplay.end_shift()
+				else:
+					Roleplay.start_shift()
+				get_viewport().set_input_as_handled()
+			elif event.physical_keycode == KEY_N and not pause_root.visible and not map_open:
+				Roleplay.eat()
+				Roleplay.drink()
+				get_viewport().set_input_as_handled()
+			elif wasted and event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]:
+				world.spectate_next(1 if event.physical_keycode in [KEY_RIGHT, KEY_D] else -1)
 	elif event is InputEventMouseButton and event.pressed and not get_tree().paused and not map_open:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -572,11 +559,14 @@ func _draw_hud() -> void:
 		if l.length() > 0.05:
 			var ang: float = atan2(l.x, -l.y)
 			paint.draw_arc(sz * 0.5, 150, ang - PI / 2 - 0.35, ang - PI / 2 + 0.35, 24, Color(1, 0.1, 0.1, _dmg_t), 10.0, true)
-	# sniper scope reticle (the blur and edge darkening come from scope_fx)
-	if _scoped():
+	# sniper scope
+	if car == null and pl.aiming and pl.current == "sniper" and pl.cam.fov < 25.0:
 		var cc := sz * 0.5
 		var rad := sz.y * 0.42
-		paint.draw_arc(cc, rad, 0, TAU, 128, Color(0, 0, 0, 0.85), 3.0, true)
+		var dark := Color(0, 0, 0, 0.92)
+		paint.draw_rect(Rect2(0, 0, cc.x - rad, sz.y), dark)
+		paint.draw_rect(Rect2(cc.x + rad, 0, sz.x - cc.x - rad, sz.y), dark)
+		paint.draw_arc(cc, rad + 60, 0, TAU, 96, dark, 120.0)
 		paint.draw_line(Vector2(cc.x - rad, cc.y), Vector2(cc.x + rad, cc.y), Color(0, 0, 0, 0.8), 1.5)
 		paint.draw_line(Vector2(cc.x, cc.y - rad), Vector2(cc.x, cc.y + rad), Color(0, 0, 0, 0.8), 1.5)
 		paint.draw_circle(cc, 2.5, Color(1, 0.1, 0.1))
@@ -590,22 +580,44 @@ func _draw_hud() -> void:
 	paint.draw_rect(Rect2(mm.position.x + half + 4, by + 2, half - 2, 8), Color(0.12, 0.22, 0.38))
 	paint.draw_rect(Rect2(mm.position.x + half + 4, by + 2, (half - 2) * clampf(pl.armor / 50.0, 0, 1), 8), Color(0.3, 0.6, 1.0))
 	_draw_gps(mm, by)
-	# team badge
-	_box(Rect2(24, 24, 330, 78), tc)
-	Game.dtext(paint, world.team.to_upper(), Vector2(46, 64), 34, Color.WHITE, Game.font_wide)
+	# roleplay identity badge
+	_box(Rect2(24, 24, 390, 78), Game.C_CYAN)
+	Game.dtext(paint, "VORN CITY", Vector2(46, 64), 34, Color.WHITE, Game.font_wide)
 	var clock := ""
-	if world.sky:
-		var hh := int(world.sky.hour)
-		clock = "%02d:%02d  •  %s" % [hh, int(fmod(world.sky.hour, 1.0) * 60.0), world.sky.weather_name]
-	Game.dtext(paint, "FREE ROAM  •  LOS ANGELES  •  " + clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
-	# hints
+		if world.sky:
+			var hh := int(world.sky.hour)
+			clock = "%02d:%02d  •  %s  •  %s" % [hh, int(fmod(world.sky.hour, 1.0) * 60.0), world.sky.phase_name(), world.sky.weather_name]
+			var territory: Dictionary = Gangs.territory_at(pl.global_position)
+			var zone_name := str(territory.get("name", "NEUTRAL DISTRICT"))
+			Game.dtext(paint, zone_name.to_upper() + "  •  CITIZEN  •  " + clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
+		# compact roleplay status: job, bank and daily needs
+			var rp := Rect2(430, 24, 330, 146)
+		_box(rp, Game.C_CYAN)
+		Game.dtext(paint, str(Game.player.get("job", "Unemployed")).to_upper(), rp.position + Vector2(18, 30), 20, Color.WHITE, Game.font_bold)
+		Game.dtext(paint, str(Game.player.get("company", "Independent")), rp.position + Vector2(18, 51), 14, Game.C_CYAN, Game.font_tag)
+			Game.dtext(paint, "BANK  $" + Game.fmt(int(Game.player.get("bank", 0))), rp.position + Vector2(18, 76), 18, Game.C_GOLD, Game.font_semi)
+			Game.dtext(paint, "ON DUTY" if Roleplay.shift_active else "OFF DUTY", rp.position + Vector2(230, 76), 14, Game.C_GREEN if Roleplay.shift_active else Game.C_DIM, Game.font_tag)
+				Game.dtext(paint, Security.wanted_text(), rp.position + Vector2(18, 98), 15, Game.C_RED if Security.wanted_level > 0 else Game.C_GREEN, Game.font_tag)
+				Game.dtext(paint, "NEXT " + world.sky.weather_forecast, rp.position + Vector2(205, 98), 13, Game.C_CYAN, Game.font_tag)
+			var needs: Dictionary = Game.player.get("needs", {})
+		var nx := rp.position.x + 18.0
+		for item in [["H", "hunger", Color(1.0, 0.55, 0.25)], ["T", "thirst", Color(0.25, 0.75, 1.0)], ["E", "energy", Color(0.55, 1.0, 0.45)]]:
+			var value := clampf(float(needs.get(item[1], 0.0)) / 100.0, 0.0, 1.0)
+			Game.dtext(paint, item[0], Vector2(nx, rp.position.y + 136), 15, item[2], Game.font_bold)
+			paint.draw_rect(Rect2(nx + 18, rp.position.y + 125, 74, 8), Color(1, 1, 1, 0.12))
+			paint.draw_rect(Rect2(nx + 18, rp.position.y + 125, 74 * value, 8), item[2])
+			nx += 102.0
+		# hints
 	var hint := ""
-	if pl.dead:
-		hint = ""
-	elif car == null:
-		var pk = world.nearest_pickup(1.9)
-		if world.near_switch():
-			hint = "[E]  LIGHTS " + ("OFF" if world.bank.lights_on else "ON")
+		if pl.dead:
+			hint = ""
+		elif car == null:
+			var business := world.businesses.nearest(pl.global_position, 6.0) if world.businesses else {}
+			var pk = world.nearest_pickup(1.9)
+			if not business.is_empty():
+				hint = "[E]  ENTER  " + str(business.data.name)
+			elif world.near_switch():
+				hint = "[E]  LIGHTS " + ("OFF" if world.bank.lights_on else "ON")
 		elif pk:
 			hint = "[E]  TAKE  " + ("BODY ARMOR" if pk.id == "armor" else str(Weapons.DATA[pk.id].name))
 		else:

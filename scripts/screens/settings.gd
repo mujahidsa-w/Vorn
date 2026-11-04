@@ -83,7 +83,6 @@ func _set_tab(i: int) -> void:
 		2:
 			var p := UI.paint(content, _draw_keys, Rect2(0, 0, 1060, 660))
 			p.name = "keys"
-			UI.button(content, "EDIT BUTTON LAYOUT", "", 22, Rect2(0, 560, 420, 58), _open_layout, Game.C_CYAN)
 	await get_tree().process_frame
 	for c in content.get_children():
 		if c is Button and not c.is_queued_for_deletion():
@@ -133,10 +132,6 @@ func _draw_keys(c: Control) -> void:
 		Game.dtext(c, k, Vector2(x + kw * 0.5, y + 30), 20, Color.WHITE, Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
 		Game.dtext(c, KEYS[i][1], Vector2(x + kw + 18, y + 30), 22, Game.C_TEXT, Game.font_med)
 	Game.dtext(c, "Gameplay controls become active in the next build. Key rebinding coming soon.", Vector2(0, 640), 18, Game.C_DIM, Game.font_med)
-
-
-func _open_layout() -> void:
-	main.go("layout")
 
 
 func _reset() -> void:

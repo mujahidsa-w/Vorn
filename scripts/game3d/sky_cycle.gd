@@ -29,6 +29,8 @@ var _t_rain := 0.0
 var _t_fog := 0.0
 var forced_weather := -1           # test hook: 1 clear, 2 rain, 3 fog
 var weather_name := "CLEAR"
+var weather_forecast := "CLEAR"
+var weather_seconds_to_change := 0.0
 
 var lamps: Array = []              # OmniLight3D street lights
 var lamp_mats: Array = []          # emissive bulb materials
@@ -111,6 +113,15 @@ func refresh() -> void:
 func is_night() -> bool:
 	return night > 0.5
 
+func phase_name() -> String:
+	if hour >= 5.5 and hour < 7.0:
+		return "DAWN"
+	if hour >= 7.0 and hour < 17.5:
+		return "DAY"
+	if hour >= 17.5 and hour < 19.0:
+		return "DUSK"
+	return "NIGHT"
+
 
 # ---------------------------------------------------------------- time
 func _clock() -> float:
@@ -144,11 +155,16 @@ func _update_weather(delta: float) -> void:
 	if forced_weather > 0:
 		mode = forced_weather
 	var kind := 0      # 0 clear, 1 cloudy, 2 rain, 3 fog, 4 storm
+	var block := int(_clock() / WEATHER_BLOCK)
+	weather_seconds_to_change = WEATHER_BLOCK - fmod(_clock(), WEATHER_BLOCK)
 	if mode == 0:
-		var r := _hash(int(_clock() / WEATHER_BLOCK))
+		var r := _hash(block)
 		kind = 0 if r < 0.42 else (1 if r < 0.62 else (2 if r < 0.82 else (3 if r < 0.92 else 4)))
+		var nr := _hash(block + 1)
+		weather_forecast = "CLEAR" if nr < 0.42 else ("CLOUDY" if nr < 0.62 else ("RAIN" if nr < 0.82 else ("FOG" if nr < 0.92 else "THUNDERSTORM")))
 	else:
 		kind = [0, 0, 2, 3][mode]
+		weather_forecast = ["CLEAR", "CLEAR", "RAIN", "FOG"][mode]
 	if not bool(Game.settings.get("rain", true)) and (kind == 2 or kind == 4):
 		kind = 1
 	match kind:
@@ -172,14 +188,20 @@ func _update_weather(delta: float) -> void:
 	else:
 		wet = maxf(0.0, wet - delta / 120.0)
 	wind = 0.25 + clouds * 0.35 + rain * 0.5
-	if kind == 4:
+		if kind == 4:
 		_next_bolt -= delta
 		if _next_bolt <= 0.0:
 			_next_bolt = randf_range(9.0, 22.0)
 			flash = 1.0
 			var dl := randf_range(0.6, 2.8)
-			get_tree().create_timer(dl).timeout.connect(func(): Game.play_sfx("thunder", randf_range(0.85, 1.1), -2.0 - dl * 2.0))
+				get_tree().create_timer(dl).timeout.connect(func(): _thunder_audio(dl))
 	flash = maxf(0.0, flash - delta * 2.6)
+
+func _thunder_audio(delay: float) -> void:
+	if world and world.audio_world and world.player:
+		world.audio_world.play_at(world.player.global_position + Vector3(randf_range(-35, 35), 8, randf_range(-35, 35)), "thunder", randf_range(0.72, 0.9), -8.0 - delay * 2.0, 150.0)
+	else:
+		Game.play_sfx("thunder", randf_range(0.85, 1.1), -2.0 - delay * 2.0)
 
 
 # ---------------------------------------------------------------- apply
@@ -274,7 +296,9 @@ func _process(delta: float) -> void:
 	if _sky_t >= period:
 		_sky_t = 0.0
 		_apply()
-	if world and world.rain:
+		if world and world.rain:
 		var dp: ParticleProcessMaterial = world.rain.process_material
 		world.rain.amount_ratio = clampf(rain, 0.0, 1.0)
-		dp.direction = Vector3(0.12 + wind * 0.25, -1, 0.05)
+			dp.direction = Vector3(0.12 + wind * 0.25, -1, 0.05)
+		if world and Game._rain:
+			Game._rain.volume_db = lerpf(-22.0, -5.0, rain) if Game.settings.rain else -40.0
