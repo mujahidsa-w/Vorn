@@ -39,6 +39,7 @@ jobs:
       - name: Export Xcode project from Godot
         run: |
           "$GODOT" --headless --path . --import || true
+          mkdir -p build/ios
           "$GODOT" --headless --path . --export-release "iOS" build/ios/CopsAndRobbers.xcodeproj
           PROJ=$(find build/ios -maxdepth 2 -name "*.xcodeproj" | head -1)
           if [ -z "$PROJ" ]; then echo "Xcode project not found"; find build -maxdepth 3; exit 1; fi
