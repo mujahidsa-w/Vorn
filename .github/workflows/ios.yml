@@ -32,7 +32,9 @@ jobs:
 
       - name: Fill team ID in export preset
         run: |
-          sed -i '' "s/__TEAM_ID__/${IOS_TEAM_ID}/g" export_presets.cfg
+          # Godot requires a non-empty 10-character Team ID even for unsigned export.
+          TEAM="${IOS_TEAM_ID:-0000000000}"
+          sed -i '' "s/__TEAM_ID__/${TEAM}/g" export_presets.cfg
 
       - name: Export Xcode project from Godot
         run: |
