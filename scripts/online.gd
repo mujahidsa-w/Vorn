@@ -476,7 +476,7 @@ func _google_done(d: Dictionary) -> void:
 func _page() -> String:
 	var cfg := JSON.stringify({"apiKey": API_KEY, "authDomain": AUTH_DOMAIN, "projectId": PROJECT_ID, "appId": APP_ID, "messagingSenderId": SENDER_ID, "databaseURL": DB_URL})
 	return """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Cops & Robbers - Sign in</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>VORN City - Sign in</title>
 <style>
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#05080f;
 font-family:Segoe UI,Arial,sans-serif;color:#e6edf5}

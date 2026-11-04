@@ -19,7 +19,7 @@ var busy := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var title := Game.label("COPS  &  ROBBERS", 96, Game.font_wide, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var title := Game.label("VORN CITY", 96, Game.font_wide, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	Game.lay(title, [0.5, 0, 0.5, 0], [-700, 170, 700, 290])
 	add_child(title)
 	var sub := Game.label("ONLINE  •  LOS ANGELES  •  NIGHT", 22, Game.font_tag, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
