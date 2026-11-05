@@ -29,7 +29,7 @@ func _ready() -> void:
 
 	var nav := [["اللعب", "city", true], ["المتجر", "shop", false], ["الملابس", "customize", false],
 		["المهام", "jobs", false], ["الجوائز", "rewards", false], ["الإعدادات", "settings", false]]
-	var y := 300.0
+	var y := 580.0
 	for n in nav:
 		_button(str(n[0]), 24, y, 280, 66, str(n[1]), bool(n[2]), 26)
 		y += 78.0
