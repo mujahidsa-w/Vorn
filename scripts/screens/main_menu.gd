@@ -24,7 +24,8 @@ func _ready() -> void:
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place(pic, 0, 0, 1920, 1080)
+	# the box is wider than the screen and shifted left, so the logo on the left of the image is not cut
+	_place(pic, -200, 0, 1080.0 * 1670.0 / 588.0, 1080)
 	add_child(pic)
 
 	var nav := [["اللعب", "city", true], ["المتجر", "shop", false], ["الملابس", "customize", false],
