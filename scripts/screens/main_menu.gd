@@ -5,6 +5,8 @@ extends Control
 const IMG := preload("res://assets/img/lobby_design.jpg")
 const GOLD := Color(1.0, 0.76, 0.12)
 const CYAN := Color(0.25, 0.85, 1.0)
+# the design image is 1670x588; at full height the scale is 1080/588
+const S := 1080.0 / 588.0
 
 var main
 var data := {}
@@ -24,16 +26,27 @@ func _ready() -> void:
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the box is wider than the screen and shifted left, so the logo on the left of the image is not cut
-	_place(pic, -200, 0, 1080.0 * 1670.0 / 588.0, 1080)
+	# the image is placed at its own scale from the left edge: the profile, logo and menu sit where they are designed
+	_place(pic, 0, 0, 1670.0 * S, 1080)
 	add_child(pic)
 
-	var nav := [["اللعب", "city", true], ["المتجر", "shop", false], ["الملابس", "customize", false],
-		["المهام", "jobs", false], ["الجوائز", "rewards", false], ["الإعدادات", "settings", false]]
-	var y := 580.0
+	# the design's own menu rows sit at these image positions; the buttons cover them exactly
+	var nav := [["اللعب", "city", true, 222, 270], ["المتجر", "shop", false, 272, 320], ["الملابس", "customize", false, 322, 370],
+		["المهام", "jobs", false, 372, 420], ["الجوائز", "rewards", false, 422, 468], ["الإعدادات", "settings", false, 470, 516]]
 	for n in nav:
-		_button(str(n[0]), 24, y, 280, 66, str(n[1]), bool(n[2]), 26)
-		y += 78.0
+		var top := float(n[3]) * S + 3.0
+		var h := (float(n[4]) - float(n[3])) * S - 6.0
+		_button(str(n[0]), 26.0 * S, top, (210.0 - 26.0) * S, h, str(n[1]), bool(n[2]), 24)
+	# the design's chat line sits at the bottom left; cover it and show the same text
+	var chat := ColorRect.new()
+	chat.color = Color(0.02, 0.03, 0.06, 1.0)
+	chat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(chat, 24, 992, 520, 74)
+	add_child(chat)
+	var chat_text := Game.label("[عام]  KING  مرحباً بالجميع!", 18, Game.font_bold, Color.WHITE)
+	chat_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(chat_text, 42, 1012, 460, 36)
+	add_child(chat_text)
 	_button("بــدء اللعب  »", 1480, 880, 380, 120, "city", true, 40)
 	_button("⚙", 1760, 20, 64, 64, "settings", false, 30)
 	_button("⏻", 1836, 20, 64, 64, "exit", false, 30)
@@ -55,7 +68,7 @@ func _button(text: String, x: float, y: float, w: float, h: float, target: Strin
 	b.add_theme_color_override("font_hover_color", dark if primary else GOLD)
 	b.add_theme_color_override("font_focus_color", dark if primary else GOLD)
 	b.add_theme_color_override("font_pressed_color", dark if primary else GOLD)
-	b.add_theme_stylebox_override("normal", _style(GOLD if primary else Color(0.02, 0.03, 0.07, 0.8), GOLD if primary else Color(CYAN, 0.4)))
+	b.add_theme_stylebox_override("normal", _style(GOLD if primary else Color(0.02, 0.03, 0.06, 1.0), GOLD if primary else Color(CYAN, 0.4)))
 	b.add_theme_stylebox_override("hover", _style(Color(1.0, 0.84, 0.3) if primary else Color(0.06, 0.08, 0.13, 0.92), GOLD))
 	b.add_theme_stylebox_override("pressed", _style(Color(0.9, 0.66, 0.08) if primary else Color(0.02, 0.03, 0.06, 0.95), GOLD))
 	b.add_theme_stylebox_override("focus", _style(GOLD if primary else Color(0.06, 0.08, 0.13, 0.92), Color.WHITE, 2))
