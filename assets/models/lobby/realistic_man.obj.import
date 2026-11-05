@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://d2fx3rokk3jl1"
+path="res://.godot/imported/realistic_man.obj-a83e1c35d07482f05402ecc2462e278b.mesh"
+
+[deps]
+
+files=["res://.godot/imported/realistic_man.obj-a83e1c35d07482f05402ecc2462e278b.mesh"]
+
+source_file="res://assets/models/lobby/realistic_man.obj"
+dest_files=["res://.godot/imported/realistic_man.obj-a83e1c35d07482f05402ecc2462e278b.mesh", "res://.godot/imported/realistic_man.obj-a83e1c35d07482f05402ecc2462e278b.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false
