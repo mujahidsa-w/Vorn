@@ -10,6 +10,15 @@ var buttons: Array = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# hide the app-wide background and rain while the lobby is open
+	main.bg.visible = false
+	main.rain.visible = false
+
+
+func _exit_tree() -> void:
+	if main:
+		main.bg.visible = true
+		main.rain.visible = Game.settings.rain
 
 
 func on_back() -> void:
