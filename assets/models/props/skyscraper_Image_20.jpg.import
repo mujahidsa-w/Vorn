@@ -8,7 +8,7 @@ metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "965687ab7461eb4c53db9c9377a5a2e4"
+"md5": "5d328e6e3fc3051ae76a022445f9c2a9"
 }
 
 [deps]
@@ -21,8 +21,6 @@ dest_files=["res://.godot/imported/skyscraper_Image_20.jpg-83cebf026bd924a588171
 compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
-compress/uastc_level=0
-compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -30,10 +28,6 @@ mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
-process/channel_remap/red=0
-process/channel_remap/green=1
-process/channel_remap/blue=2
-process/channel_remap/alpha=3
 process/fix_alpha_border=true
 process/premult_alpha=false
 process/normal_map_invert_y=false

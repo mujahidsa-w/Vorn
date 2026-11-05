@@ -8,7 +8,7 @@ metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "87133ea3db16f64748b0d9285776adbf"
+"md5": "afd8f0fa464b7b59001528cde770c140"
 }
 
 [deps]
@@ -21,8 +21,6 @@ dest_files=["res://.godot/imported/akm_Wp_Gun_AKM_d.jpg-82a88c5ac11d3c2eab2afd03
 compress/mode=0
 compress/high_quality=false
 compress/lossy_quality=0.7
-compress/uastc_level=0
-compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
@@ -30,10 +28,6 @@ mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
-process/channel_remap/red=0
-process/channel_remap/green=1
-process/channel_remap/blue=2
-process/channel_remap/alpha=3
 process/fix_alpha_border=true
 process/premult_alpha=false
 process/normal_map_invert_y=false
