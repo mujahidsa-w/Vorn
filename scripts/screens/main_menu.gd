@@ -24,11 +24,16 @@ func _ready() -> void:
 	_s = 1920.0 / IMG_W
 	_y0 = (1080.0 - IMG_H * _s) * 0.5
 
-	var black := ColorRect.new()
-	black.color = Color.BLACK
-	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place(black, 0, 0, 1920, 1080)
-	add_child(black)
+	# full-screen backdrop: the same design stretched to the screen and heavily dimmed,
+	# so the screen is filled without cropping or distorting the sharp design in front
+	var backdrop := TextureRect.new()
+	backdrop.texture = IMG
+	backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	backdrop.stretch_mode = TextureRect.STRETCH_SCALE
+	backdrop.modulate = Color(0.28, 0.3, 0.38)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(backdrop, 0, 0, 1920, 1080)
+	add_child(backdrop)
 
 	var pic := TextureRect.new()
 	pic.texture = IMG
