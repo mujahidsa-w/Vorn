@@ -16,9 +16,8 @@ func run() -> void:
 	await _w(2.0)
 	main.current._offline()
 	await _w(1.5)
-	main.current._on_item("offline")
+	main.current._on_item("city")
 	await _w(1.5)
-	main.current._pick(0)
 	for k in 150:
 		await _w(2.0)
 		var cs := get_tree().current_scene

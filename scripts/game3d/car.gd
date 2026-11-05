@@ -467,7 +467,11 @@ func _physics_process(delta: float) -> void:
 				# hit a person or another car
 				if _hit_cd <= 0.0 and absf(speed) > 2.5:
 					_hit_cd = 0.4
-					if other is CharacterBody3D and other.has_method("push") and not other.has_method("hit_by_car"):
+					if other is CharacterBody3D and other.has_method("run_over") and imp > 5.0:
+						other.run_over(fwd * speed * 0.9)
+						speed *= 0.8
+						take_damage(imp * 0.2, null)
+					elif other is CharacterBody3D and other.has_method("push") and not other.has_method("hit_by_car"):
 						other.push(fwd * speed * 0.6)
 						other.take_damage(imp * 1.5, driver, fwd)
 						speed *= 0.55

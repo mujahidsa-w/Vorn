@@ -2,7 +2,6 @@ extends Control
 ## Match loading screen. Gameplay itself arrives in the next build.
 
 const UI = preload("res://scripts/ui/ui.gd")
-const IntroVideo = preload("res://scripts/ui/intro_video.gd")
 
 var main
 var data := {}
@@ -15,8 +14,7 @@ var _tip := 0
 var _tip_t := 0.0
 const MAP_PATH := "res://assets/models/map/la.glb"
 var _real := 0.0
-var video: Control
-var video_over := false
+var video_over := true
 const TIPS := [
 "Find work, earn money and shape your own story.",
 "Use E near a car to enter it and explore the city.",
@@ -32,23 +30,7 @@ func _ready() -> void:
 	ResourceLoader.load_threaded_request(MAP_PATH)
 	var p := UI.paint(self, _paint, Rect2(0, 0, 0, 0), true)
 	Game.lay(p, [0, 0, 1, 1], [0, 0, 0, 0])
-	# the city arrival cinematic plays while the world loads
 	Game.stop_music()
-	video = IntroVideo.new()
-	# Mobile video decoding can produce a black frame and never emit finished.
-	# Skip the cinematic on iOS/Android so entering the city is deterministic.
-	video.can_skip = true
-	video.set_anchors_preset(Control.PRESET_FULL_RECT)
-	video.finished.connect(func(): video_over = true; video.visible = false)
-	add_child(video)
-	if Game.touch:
-		video_over = true
-		video.visible = false
-		video.player.stop()
-	if OS.get_cmdline_user_args().has("--nettest"):
-		video_over = true
-		video.visible = false
-		video.player.stop()
 	var bar := UI.paint(self, _paint_bar, Rect2(0, 0, 0, 0), true)
 	Game.lay(bar, [0, 1, 1, 1], [0, -40, 0, 0])
 
@@ -70,7 +52,6 @@ func _process(delta: float) -> void:
 			_real = 1.0
 		prog = minf(prog + delta * 0.6, maxf(_real, minf(prog + delta * 0.08, 0.9)))
 		if prog >= 0.999 and _real >= 1.0:
-			video.can_skip = true
 			if video_over:
 				if st == ResourceLoader.THREAD_LOAD_LOADED:
 					ResourceLoader.load_threaded_get(MAP_PATH)
@@ -95,7 +76,7 @@ func _finish_old() -> void:
 
 
 func _paint_bar(c: Control) -> void:
-	if video_over or done:
+	if done:
 		return
 	var w := c.size.x
 	c.draw_rect(Rect2(0, c.size.y - 4, w, 4), Color(1, 1, 1, 0.12))

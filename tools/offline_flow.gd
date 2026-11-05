@@ -18,10 +18,9 @@ func run() -> void:
 	main.current._offline()
 	await _w(1.5)
 	await _shot("o2_menu")
-	main.current._on_item("offline")
+	main.current._on_item("city")
 	await _w(1.5)
-	await _shot("o3_team")
-	main.current._pick(0)
+	await _shot("o3_loading")
 	await _w(4.0)
 	print("screen: ", main.current.get_script().resource_path if main.current else "none", " match_id='", Online.match_id, "'")
 	for k in 120:

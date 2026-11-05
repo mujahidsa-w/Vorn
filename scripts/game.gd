@@ -91,6 +91,16 @@ func _ready() -> void:
 	font_tag = FontVariation.new()
 	font_tag.base_font = font_med
 	font_tag.spacing_glyph = 7
+	# Arabic glyphs: Rajdhani is Latin-only, so every UI font falls back to Cairo for Arabic text
+	var ar_bold: Font = load("res://assets/fonts/Cairo-Bold.woff")
+	var ar_semi: Font = load("res://assets/fonts/Cairo-SemiBold.woff")
+	var ar_med: Font = load("res://assets/fonts/Cairo-Regular.woff")
+	font_bold.fallbacks = [ar_bold]
+	font_semi.fallbacks = [ar_semi]
+	font_med.fallbacks = [ar_med]
+	font_wide.base_font = font_bold
+	font_wide.fallbacks = [ar_bold]
+	font_tag.fallbacks = [ar_med]
 	_setup_buses()
 	_setup_audio()
 	load_data()
