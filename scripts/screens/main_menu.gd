@@ -2,7 +2,9 @@ extends Control
 ## Vorn City lobby: the design image as a full-screen background (cover, sides cropped), with real
 ## buttons for navigation, PLAY and the top-right icons, since the cropped image hides them.
 
-const IMG := preload("res://assets/img/lobby_design.jpg")
+const IMG := preload("res://assets/img/lobby_design_clean.jpg")
+const FIGURE := preload("res://scripts/screens/lobby_figure.gd")
+const TURN_MAX := 1.2  # radians (about 70 degrees) either side
 const GOLD := Color(1.0, 0.76, 0.12)
 const CYAN := Color(0.25, 0.85, 1.0)
 # the design image is 1670x588; at full height the scale is 1080/588
@@ -13,6 +15,8 @@ var data := {}
 var bg_dim := 0.0
 var show_top := false
 var buttons: Array = []
+var _pivot: Node3D
+var _yaw := 0.0
 
 
 func _ready() -> void:
@@ -47,9 +51,61 @@ func _ready() -> void:
 	chat_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_place(chat_text, 42, 1012, 460, 36)
 	add_child(chat_text)
+	_build_figure()
 	_button("بــدء اللعب  »", 1480, 880, 380, 120, "city", true, 40)
 	_button("⚙", 1760, 20, 64, 64, "settings", false, 30)
 	_button("⏻", 1836, 20, 64, 64, "exit", false, 30)
+
+
+func _build_figure() -> void:
+	# the character is rendered in its own 3D view over the lobby; dragging turns it in place
+	var vp := SubViewport.new()
+	vp.size = Vector2i(460, 900)
+	vp.transparent_bg = true
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.55, 0.6, 0.72)
+	env.ambient_light_energy = 0.9
+	var we := WorldEnvironment.new()
+	we.environment = env
+	vp.add_child(we)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-30, 35, 0)
+	sun.light_energy = 1.6
+	vp.add_child(sun)
+	_pivot = Node3D.new()
+	_pivot.set_script(FIGURE)
+	vp.add_child(_pivot)
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	cam.position = Vector3(0, 0.95, 4.2)
+	vp.add_child(cam)
+	cam.look_at(Vector3(0, 0.95, 0), Vector3.UP)
+	cam.current = true
+	var view := TextureRect.new()
+	view.texture = vp.get_texture()
+	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	view.stretch_mode = TextureRect.STRETCH_SCALE
+	view.mouse_filter = Control.MOUSE_FILTER_STOP
+	view.gui_input.connect(_on_figure_input)
+	_place(view, 1270, 100, 460, 900)
+	add_child(view)
+
+
+func _on_figure_input(ev: InputEvent) -> void:
+	var dx := 0.0
+	if ev is InputEventScreenDrag:
+		dx = (ev as InputEventScreenDrag).relative.x
+	elif ev is InputEventMouseMotion and (ev as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT:
+		dx = (ev as InputEventMouseMotion).relative.x
+	if dx == 0.0:
+		return
+	_yaw = clampf(_yaw + dx * 0.01, -TURN_MAX, TURN_MAX)
+	_pivot.rotation.y = _yaw
 
 
 func _place(c: Control, x: float, y: float, w: float, h: float) -> void:
