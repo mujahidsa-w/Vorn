@@ -22,7 +22,7 @@ func run() -> void:
 	await _w(1.5)
 	await _shot("o3_loading")
 	await _w(4.0)
-	print("screen: ", main.current.get_script().resource_path if main.current else "none", " match_id='", Online.match_id, "'")
+	print("screen: match_id='", Online.match_id, "'")
 	for k in 120:
 		await _w(2.0)
 		if get_tree().current_scene and get_tree().current_scene.get("player") != null and get_tree().current_scene.player != null:
