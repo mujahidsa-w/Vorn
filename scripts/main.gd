@@ -87,7 +87,7 @@ func _ready() -> void:
 		_check_session()
 	create_tween().tween_property(fade, "color:a", 0.0, 1.4).set_delay(0.15)
 	var args := OS.get_cmdline_user_args()
-	var tool_scripts := {"--tour": "res://tools/tour.gd", "--flow": "res://tools/flow.gd", "--offline": "res://tools/offline_flow.gd", "--menushot": "res://tools/menu_shot.gd", "--uishots": "res://tools/ui_shots_flow.gd", "--charrender": "res://tools/char_render.gd"}
+	var tool_scripts := {"--tour": "res://tools/tour.gd", "--flow": "res://tools/flow.gd", "--offline": "res://tools/offline_flow.gd", "--menushot": "res://tools/menu_shot.gd", "--uishots": "res://tools/ui_shots_flow.gd", "--charrender": "res://tools/char_render.gd", "--centershot": "res://tools/center_shot.gd"}
 	if args.size() >= 2 and tool_scripts.has(args[0]) and ResourceLoader.exists(tool_scripts[args[0]]):
 		var tour: Node = load(tool_scripts[args[0]]).new()
 		tour.set("main", self)

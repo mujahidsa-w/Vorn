@@ -6,6 +6,7 @@ const Car = preload("res://scripts/game3d/car.gd")
 const Hud = preload("res://scripts/game3d/hud.gd")
 const Effects = preload("res://scripts/game3d/effects.gd")
 const Bank = preload("res://scripts/game3d/bank.gd")
+const CityCenter = preload("res://scripts/game3d/city_center.gd")
 const MatchNet = preload("res://scripts/net/match_net.gd")
 const SkyCycle = preload("res://scripts/game3d/sky_cycle.gd")
 const StreetLife = preload("res://scripts/game3d/street_life.gd")
@@ -75,6 +76,7 @@ func _ready() -> void:
 	Gangs.configure_world(self)
 	_businesses_setup()
 	_build_bank()
+	_build_city_center()
 	_setup_rain()
 	if not OS.get_cmdline_user_args().has("--nocountry"):
 		country = Country.new()
@@ -749,6 +751,68 @@ func _businesses_setup() -> void:
 	businesses = CityBusinesses.new()
 	businesses.world = self
 	add_child(businesses)
+
+
+# ---------------------------------------------------------------- city centre
+func _build_city_center() -> void:
+	# the centre of the race route is the middle of the map
+	if route.is_empty():
+		return
+	var mn := Vector3(INF, 0, INF)
+	var mx := Vector3(-INF, 0, -INF)
+	for p in route:
+		mn = mn.min(p)
+		mx = mx.max(p)
+	var mid := (mn + mx) * 0.5
+	# street level: the median height of the route; the centre must be flat, near that level and near the middle
+	var ys: Array = []
+	for p in route:
+		ys.append(p.y)
+	ys.sort()
+	var ref: float = ys[ys.size() / 2]
+	var best_s := INF
+	var c := mid
+	var step := 20.0
+	var half := maxf(mx.x - mn.x, mx.z - mn.z) * 0.35
+	for ix in range(-int(half / step), int(half / step) + 1):
+		for iz in range(-int(half / step), int(half / step) + 1):
+			# start the ground ray at street level so it reaches the terrain of the centre
+			var cand := Vector3(mid.x + ix * step, ref, mid.z + iz * step)
+			var score := 0.0
+			var ok := true
+			for gx in [-50.0, 0.0, 50.0]:
+				for gz in [-50.0, 0.0, 50.0]:
+					var g := _ground(cand + Vector3(gx, 0, gz))
+					if g.is_empty():
+						ok = false
+						break
+					score += absf(g.position.y - ref) * 3.0
+				if not ok:
+					break
+			if not ok:
+				continue
+			for bs in bases.values():
+				if cand.distance_to(bs.pos) < 170.0:
+					ok = false
+			if not ok:
+				continue
+			score += cand.distance_to(mid) * 0.05
+			if score < best_s:
+				best_s = score
+				c = cand
+	var gc := _ground(c + Vector3(0, 0, 0))
+	if not gc.is_empty():
+		c.y = gc.position.y
+	print("city centre search score ", best_s)
+	var cc := CityCenter.new()
+	cc.world = self
+	add_child(cc)
+	cc.global_transform = Transform3D(Basis(), c + Vector3(0, 0.05, 0))
+	# the garage sits east of the plaza, so the cleared area reaches that far
+	_clear_map_area(cc.global_transform, Rect2(-66, -66, 176, 132))
+	cc.build()
+	poi.append({"name": "CITY CENTER", "pos": c, "color": Color(0.4, 0.9, 1.0)})
+	print("city centre at ", c)
 
 
 # ---------------------------------------------------------------- bank
