@@ -104,7 +104,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: BackButton(onPressed: widget.onBack),
-        title: Text(widget.room.title),
+        title: Text(widget.room.titleFor(widget.me.uid)),
       ),
       body: Column(
         children: [

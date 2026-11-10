@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'countries.dart';
 import 'data.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool _signUp = false;
   bool _busy = false;
+  Country? _country;
   String? _error;
 
   @override
@@ -30,13 +32,17 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _submit() async {
+    if (_signUp && _country == null) {
+      setState(() => _error = 'اختار بلدك أولاً (إجباري)');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
       final profile = _signUp
-          ? await widget.auth.signUp(_user.text, _name.text, _pass.text)
+          ? await widget.auth.signUp(_user.text, _name.text, _pass.text, _country!)
           : await widget.auth.signIn(_user.text, _pass.text);
       if (!mounted) return;
       widget.onSignedIn(profile);
@@ -61,26 +67,11 @@ class _AuthScreenState extends State<AuthScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: LinearGradient(
-                        colors: [scheme.primary, const Color(0xFF22D3EE)],
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'V',
-                      style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white),
-                    ),
+                  Text(
+                    _signUp ? 'حساب جديد' : 'تسجيل الدخول',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                   ),
-                  const SizedBox(height: 14),
-                  Text('Vexo', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text('شات الجيمرز', style: TextStyle(color: scheme.onSurfaceVariant)),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 22),
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
@@ -109,6 +100,18 @@ class _AuthScreenState extends State<AuthScreen> {
                             onSubmitted: (_) => _submit(),
                             decoration: const InputDecoration(labelText: 'كلمة السر'),
                           ),
+                          if (_signUp) ...[
+                            const SizedBox(height: 12),
+                            DropdownButtonFormField<Country>(
+                              initialValue: _country,
+                              decoration: const InputDecoration(labelText: 'البلد (إجباري)'),
+                              items: [
+                                for (final c in countries)
+                                  DropdownMenuItem(value: c, child: Text(c.label)),
+                              ],
+                              onChanged: (c) => setState(() => _country = c),
+                            ),
+                          ],
                           const SizedBox(height: 18),
                           SizedBox(
                             width: double.infinity,
@@ -125,11 +128,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                           if (_error != null) ...[
                             const SizedBox(height: 12),
-                            Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: scheme.error),
-                            ),
+                            Text(_error!, textAlign: TextAlign.center, style: TextStyle(color: scheme.error)),
                           ],
                         ],
                       ),
