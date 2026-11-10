@@ -5,7 +5,9 @@ import 'auth_screen.dart';
 import 'chat_screen.dart';
 import 'data.dart';
 import 'firebase_options.dart';
-import 'rooms_screen.dart';
+import 'home_screen.dart';
+import 'splash_screen.dart';
+import 'welcome_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,8 +26,13 @@ class VexoApp extends StatelessWidget {
       title: 'Vexo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(colorSchemeSeed: _seed, useMaterial3: true, brightness: Brightness.light),
-      darkTheme: ThemeData(colorSchemeSeed: _seed, useMaterial3: true, brightness: Brightness.dark),
-      themeMode: ThemeMode.system,
+      darkTheme: ThemeData(
+        colorSchemeSeed: _seed,
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0B1020),
+      ),
+      themeMode: ThemeMode.dark,
       builder: (context, child) => Directionality(
         textDirection: TextDirection.rtl,
         child: child!,
@@ -34,6 +41,8 @@ class VexoApp extends StatelessWidget {
     );
   }
 }
+
+enum _Stage { splash, welcome, auth, home, chat }
 
 class RootGate extends StatefulWidget {
   const RootGate({super.key});
@@ -46,9 +55,11 @@ class _RootGateState extends State<RootGate> {
   final _auth = AuthService();
   final _chat = ChatService();
 
+  _Stage _stage = _Stage.splash;
   UserProfile? _me;
   Room? _room;
-  bool _loading = true;
+  bool _splashDone = false;
+  bool _sessionChecked = false;
 
   @override
   void initState() {
@@ -62,7 +73,19 @@ class _RootGateState extends State<RootGate> {
     } catch (_) {
       _me = null;
     }
-    if (mounted) setState(() => _loading = false);
+    _sessionChecked = true;
+    _maybeLeaveSplash();
+  }
+
+  void _onSplashDone() {
+    _splashDone = true;
+    _maybeLeaveSplash();
+  }
+
+  void _maybeLeaveSplash() {
+    if (!_splashDone || !_sessionChecked || !mounted) return;
+    if (_stage != _Stage.splash) return;
+    setState(() => _stage = _me != null ? _Stage.home : _Stage.welcome);
   }
 
   Future<void> _signOut() async {
@@ -71,34 +94,59 @@ class _RootGateState extends State<RootGate> {
     setState(() {
       _me = null;
       _room = null;
+      _stage = _Stage.welcome;
     });
+  }
+
+  Widget _screen() {
+    switch (_stage) {
+      case _Stage.splash:
+        return SplashScreen(key: const ValueKey('splash'), onDone: _onSplashDone);
+      case _Stage.welcome:
+        return WelcomeScreen(
+          key: const ValueKey('welcome'),
+          onStart: () => setState(() => _stage = _Stage.auth),
+        );
+      case _Stage.auth:
+        return AuthScreen(
+          key: const ValueKey('auth'),
+          auth: _auth,
+          onSignedIn: (profile) => setState(() {
+            _me = profile;
+            _stage = _Stage.home;
+          }),
+        );
+      case _Stage.home:
+        return HomeScreen(
+          key: const ValueKey('home'),
+          chat: _chat,
+          me: _me!,
+          onOpenRoom: (r) => setState(() {
+            _room = r;
+            _stage = _Stage.chat;
+          }),
+          onSignOut: _signOut,
+        );
+      case _Stage.chat:
+        return ChatScreen(
+          key: ValueKey('chat-${_room!.id}'),
+          room: _room!,
+          me: _me!,
+          chat: _chat,
+          onBack: () => setState(() {
+            _room = null;
+            _stage = _Stage.home;
+          }),
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    final me = _me;
-    if (me == null) {
-      return AuthScreen(
-        auth: _auth,
-        onSignedIn: (profile) => setState(() => _me = profile),
-      );
-    }
-    final room = _room;
-    if (room == null) {
-      return RoomsScreen(
-        chat: _chat,
-        onOpen: (r) => setState(() => _room = r),
-        onSignOut: _signOut,
-      );
-    }
-    return ChatScreen(
-      room: room,
-      me: me,
-      chat: _chat,
-      onBack: () => setState(() => _room = null),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      switchInCurve: Curves.easeOut,
+      child: _screen(),
     );
   }
 }
