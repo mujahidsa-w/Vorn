@@ -1,4 +1,4 @@
-name: Build Vexo (APK + iOS IPA)
+name: Build Vexo iOS IPA
 
 on:
   push:
@@ -6,30 +6,22 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Android is paused until the iOS build works. Set `if: true` to re-enable.
   android:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
-      - name: Generate Android project
-        run: flutter create --project-name vexo --org com.vexoapp --platforms android .
-
-      - name: Patch Android project
-        run: python3 tools/patch_android.py
-
+      - run: flutter create --project-name vexo --org com.vexoapp --platforms android .
+      - run: python3 tools/patch_android.py
       - run: flutter pub get
-
-      - name: Build debug APK
-        run: flutter build apk --debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - run: flutter build apk --debug
+      - uses: actions/upload-artifact@v4
         with:
           name: vexo-android-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
@@ -55,13 +47,23 @@ jobs:
 
       - run: flutter pub get
 
-      - name: Build unsigned app
-        run: flutter build ios --release --no-codesign
+      - name: Generate Flutter config and install pods
+        run: |
+          flutter build ios --config-only --release --no-codesign
+          cd ios && pod install
+
+      - name: Build app with xcodebuild (no signing)
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -sdk iphoneos -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_IDENTITY="" build
 
       - name: Package unsigned IPA
         run: |
+          APP=build/ios/Build/Products/Release-iphoneos/Runner.app
+          test -d "$APP" || { echo "Runner.app not found"; find build/ios -maxdepth 4 -name "*.app"; exit 1; }
           mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/
+          cp -R "$APP" Payload/
           zip -qr vexo-unsigned.ipa Payload
 
       - name: Upload IPA
