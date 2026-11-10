@@ -24,7 +24,7 @@ for gradle in glob.glob("android/app/build.gradle*"):
     t = open(gradle, encoding="utf-8").read()
     t = re.sub(r"minSdk(Version)?\s*=?\s*flutter\.minSdkVersion", "minSdk = 23", t)
     # flutter_webrtc's AndroidX dependencies require compiling against API 34+.
-    t = re.sub(r"compileSdk(Version)?\s*=?\s*(flutter\.compileSdkVersion|\d+)", "compileSdk = 35", t)
+    t = re.sub(r"compileSdk(Version)?\s*=?\s*(flutter\.compileSdkVersion|\d+)", "compileSdk = 36", t)
     open(gradle, "w", encoding="utf-8").write(t)
 
 print("Android project patched")
