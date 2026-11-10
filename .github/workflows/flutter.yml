@@ -1,0 +1,71 @@
+name: Build Vexo (APK + iOS IPA)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project
+        run: flutter create --project-name vexo --org com.vexoapp --platforms android .
+
+      - name: Patch Android project
+        run: python3 tools/patch_android.py
+
+      - run: flutter pub get
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vexo-android-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+
+  ios:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate iOS project
+        run: flutter create --project-name vexo --org com.vexoapp --platforms ios .
+
+      - name: Configure iOS permissions and deployment target
+        run: |
+          plutil -insert NSMicrophoneUsageDescription -string "Vexo uses the microphone for voice messages." ios/Runner/Info.plist
+          sed -i '' 's/# platform :ios, .*/platform :ios, '\''15.0'\''/' ios/Podfile
+
+      - run: flutter pub get
+
+      - name: Build unsigned app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr vexo-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: vexo-ios-unsigned-ipa
+          path: vexo-unsigned.ipa

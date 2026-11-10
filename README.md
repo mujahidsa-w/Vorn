@@ -1,33 +1,25 @@
-# Vexo: شات جيمنغ لأندرويد (MVP)
+# Vexo
 
-الميزات الحالية:
-- تسجيل دخول وإنشاء حساب باسم مستخدم وكلمة سر
-- غرف دردشة (حسب اللعبة)
-- رسائل نصية فورية
-- رسائل صوتية (اضغط مطولاً على 🎤 وأفلت للإرسال)
+شات جيمنغ بـ Flutter، يشتغل على أندرويد وآيفون.
 
-الميزات الجاية: الاتصال الصوتي والفيديو (WebRTC) والإشعارات.
+## الميزات
+- تسجيل دخول وإنشاء حساب باسم مستخدم وكلمة سر (Firebase Auth)
+- غرف دردشة حسب اللعبة
+- رسائل نصية فورية (Firestore)
+- رسائل صوتية: اضغط مطولاً على الميكروفون وأفلت للإرسال (Firebase Storage)
 
-## التشغيل
+## البناء
+الـ workflow في `.github/workflows/flutter.yml` بيبني:
+- **APK** للأندرويد (artifact: `vexo-android-apk`)
+- **IPA غير موقع** للآيفون (artifact: `vexo-ios-unsigned-ipa`)
 
-1. افتح مجلد `vexo-chat` في Android Studio (Ladybug أو أحدث).
-2. Android Studio بيولّد Gradle Wrapper تلقائياً عند أول فتح.
-3. في Firebase Console (مشروع `ms-company-e7166`):
-   - **Authentication** ← فعّل Email/Password
-   - **Firestore** ← أنشئ قاعدة بيانات، وانسخ محتوى `firestore.rules`
-   - **Storage** ← فعّل، وانسخ محتوى `storage.rules`
-   - (Storage يحتاج خطة Blaze)
-4. أنشئ غرفة تجريبية يدوياً: Firestore ← collection `rooms` ← document بحقول:
-   - `title` (string): مثلاً "عام - Valorant"
-   - `game` (string): "Valorant"
-5. اضغط Run.
+الـ workflow بيولّد مجلدات `android/` و`ios/` تلقائياً عن طريق `flutter create`، فما بنحتاج نرفعها.
 
-## ملاحظات أمان
+## Firebase
+- إعدادات Firebase بالكود في `lib/firebase_options.dart` (مشروع `ms-company-e7166`).
+- قواعد Firestore في `firestore.rules`، وقواعد Storage في `storage.rules`. انسخهم بالـ Console.
+- فعّل Email/Password من Authentication، وأنشئ Firestore وStorage.
+- أنشئ غرفة يدوياً في Firestore: collection `rooms` وفيه document بحقول `title` و`game`.
 
-- `app/google-services.json` فيه API key. لا ترفعه على GitHub عام. أضفه لـ `.gitignore`.
-- من Google Cloud Console قيّد الـ API key على package name `com.vexoapp.vexo`.
-- قواعد Firestore الحالية تمنع إنشاء الغرف من التطبيق؛ تنشئها من الـ Console.
-
-## ملاحظة عن التسجيل
-
-تسجيل الدخول باسم المستخدم يتم عبر Firebase Auth بإيميل وهمي `<username>@vexo.local`، فما تحتاج إيميل حقيقي. اسم المستخدم لازم يكون إنجليزي وفريد.
+## تنبيه أمني
+قيّد مفاتيح الـ API من Google Cloud Console (Android key على package `com.vexoapp.vexo`، وiOS key على bundle `com.vexoapp.vexo`).
