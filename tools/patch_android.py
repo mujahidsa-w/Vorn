@@ -23,9 +23,41 @@ open(MANIFEST, "w", encoding="utf-8").write(s)
 for gradle in glob.glob("android/app/build.gradle*"):
     t = open(gradle, encoding="utf-8").read()
     t = re.sub(r"minSdk(Version)?\s*=?\s*flutter\.minSdkVersion", "minSdk = 23", t)
-    # flutter_webrtc's AndroidX dependencies require compiling against API 34+.
     t = re.sub(r"compileSdk(Version)?\s*=?\s*(flutter\.compileSdkVersion|\d+)", "compileSdk = 36", t)
     open(gradle, "w", encoding="utf-8").write(t)
+
+# Plugins (e.g. flutter_webrtc) compile with their own compileSdk. Force every
+# Android module to 36, otherwise AAR checks fail. Insert before the template's
+# subprojects {} block: calling afterEvaluate after evaluationDependsOn is an error.
+KTS_BLOCK = """
+subprojects {
+    afterEvaluate {
+        extensions.findByName("android")?.let {
+            (it as com.android.build.gradle.BaseExtension).compileSdkVersion(36)
+        }
+    }
+}
+"""
+GROOVY_BLOCK = """
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android.compileSdkVersion 36
+        }
+    }
+}
+"""
+for root, block in (("android/build.gradle.kts", KTS_BLOCK), ("android/build.gradle", GROOVY_BLOCK)):
+    try:
+        rs = open(root, encoding="utf-8").read()
+    except FileNotFoundError:
+        continue
+    if "compileSdkVersion(36)" not in rs and "compileSdkVersion 36" not in rs:
+        i = rs.find("subprojects {")
+        rs = rs[:i] + block + "\n" + rs[i:] if i >= 0 else rs + block
+        open(root, "w", encoding="utf-8").write(rs)
+    print("root gradle patched:", root)
+    break
 
 print("Android project patched")
 
