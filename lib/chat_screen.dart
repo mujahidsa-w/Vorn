@@ -1,7 +1,9 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
@@ -70,6 +72,102 @@ class _ChatScreenState extends State<ChatScreen> {
         fullscreenDialog: true,
         builder: (_) => CallScreen(controller: controller, outgoing: true),
       ),
+    );
+  }
+
+  void _showAttachments() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Wrap(
+            spacing: 12,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: const Text('صورة من المعرض'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 80,
+      );
+      if (picked == null) return;
+      await widget.chat.sendImage(widget.room.id, widget.me, picked.path);
+    } catch (e) {
+      _showMessage('ما قدرنا نرسل الصورة');
+    }
+  }
+
+  void _showEmojiPicker() {
+    const emojis = [
+      '😀', '😂', '😍', '😎', '😭', '😡', '👍', '👏', '🙏', '🔥',
+      '❤️', '🎉', '😅', '🤔', '👀', '💯', '🎮', '🏆', '👋', '🤝',
+      '😴', '🥳', '😱', '🙌', '✅',
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: GridView.count(
+          shrinkWrap: true,
+          crossAxisCount: 7,
+          padding: const EdgeInsets.all(12),
+          children: [
+            for (final e in emojis)
+              InkWell(
+                onTap: () {
+                  _input.text = _input.text + e;
+                  _input.selection = TextSelection.collapsed(offset: _input.text.length);
+                  Navigator.pop(ctx);
+                },
+                child: Center(child: Text(e, style: const TextStyle(fontSize: 26))),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Shows "Online" when the other user was active in the last 3 minutes, otherwise the last-seen time.
+  Widget _subtitleWidget(String fallback) {
+    final other = _otherUser;
+    if (other == null) {
+      return Text(fallback, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, color: Colors.white60));
+    }
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(other.uid).snapshots(),
+      builder: (context, snap) {
+        final seen = (snap.data?.data()?['lastSeen'] as Timestamp?)?.toDate();
+        final online = seen != null && DateTime.now().difference(seen).inMinutes < 3;
+        final text = online
+            ? 'Online'
+            : seen == null
+                ? fallback
+                : 'آخر ظهور ${TimeOfDay.fromDateTime(seen).format(context)}';
+        return Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12, color: online ? const Color(0xFF4ADE80) : Colors.white60),
+        );
+      },
     );
   }
 
@@ -155,8 +253,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.white60)),
+                  _subtitleWidget(subtitle),
                 ],
               ),
             ),
@@ -221,7 +318,7 @@ class _ChatScreenState extends State<ChatScreen> {
               backgroundColor: _mineColor,
               child: IconButton(
                 icon: const Icon(Icons.add, color: Colors.white),
-                onPressed: () => _showMessage('المرفقات قريباً'),
+                onPressed: _showAttachments,
               ),
             ),
             const SizedBox(width: 8),
@@ -251,7 +348,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     IconButton(
                       icon: Icon(Icons.emoji_emotions_outlined, color: scheme.onSurfaceVariant),
-                      onPressed: () => _showMessage('الإيموجي قريباً'),
+                      onPressed: _showEmojiPicker,
                     ),
                   ],
                 ),
@@ -334,6 +431,8 @@ class _Bubble extends StatelessWidget {
     final maxW = MediaQuery.of(context).size.width * 0.72;
     final content = message.isAudio
         ? _VoiceContent(message: message, mine: mine)
+        : message.isImage
+            ? _ImageContent(url: message.mediaUrl)
         : Text(message.text, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.35));
 
     final bubble = Container(
@@ -469,6 +568,28 @@ class _VoiceContentState extends State<_VoiceContent> {
         const SizedBox(width: 8),
         Text(_fmt(widget.message.duration), style: const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
+    );
+  }
+}
+
+class _ImageContent extends StatelessWidget {
+  final String url;
+  const _ImageContent({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        url,
+        width: 220,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) => progress == null
+            ? child
+            : const SizedBox(width: 220, height: 160, child: Center(child: CircularProgressIndicator())),
+        errorBuilder: (context, error, stack) =>
+            const SizedBox(width: 220, height: 80, child: Center(child: Text('تعذّر تحميل الصورة'))),
+      ),
     );
   }
 }

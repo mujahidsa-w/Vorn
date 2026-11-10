@@ -115,6 +115,7 @@ class ChatMessage {
   final String text;
   final String audioUrl;
   final int duration; // seconds, for voice notes
+  final String mediaUrl; // image URL for IMAGE messages
   final DateTime? createdAt;
 
   const ChatMessage({
@@ -125,10 +126,12 @@ class ChatMessage {
     required this.text,
     required this.audioUrl,
     this.duration = 0,
+    this.mediaUrl = '',
     this.createdAt,
   });
 
   bool get isAudio => type == 'AUDIO';
+  bool get isImage => type == 'IMAGE';
 
   factory ChatMessage.fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data();
@@ -140,6 +143,7 @@ class ChatMessage {
       text: m['text'] as String? ?? '',
       audioUrl: m['audioUrl'] as String? ?? '',
       duration: (m['duration'] as num?)?.toInt() ?? 0,
+      mediaUrl: m['mediaUrl'] as String? ?? '',
       createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -339,6 +343,14 @@ class ChatService {
     await _post(roomId, me, type: 'AUDIO', text: '', audioUrl: url, duration: duration);
   }
 
+  Future<void> sendImage(String roomId, UserProfile me, String filePath) async {
+    final name = '${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final ref = _storage.ref('images/$roomId/$name');
+    await ref.putFile(File(filePath), SettableMetadata(contentType: 'image/jpeg'));
+    final url = await ref.getDownloadURL();
+    await _post(roomId, me, type: 'IMAGE', text: '', audioUrl: '', mediaUrl: url);
+  }
+
   Future<void> _post(
     String roomId,
     UserProfile me, {
@@ -346,6 +358,7 @@ class ChatService {
     required String text,
     required String audioUrl,
     int duration = 0,
+    String mediaUrl = '',
   }) async {
     await _db.collection('rooms').doc(roomId).collection('messages').add({
       'senderId': me.uid,
@@ -354,6 +367,7 @@ class ChatService {
       'text': text,
       'audioUrl': audioUrl,
       'duration': duration,
+      'mediaUrl': mediaUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
