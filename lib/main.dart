@@ -6,6 +6,7 @@ import 'chat_screen.dart';
 import 'data.dart';
 import 'firebase_options.dart';
 import 'home_screen.dart';
+import 'push.dart';
 import 'splash_screen.dart';
 import 'welcome_screen.dart';
 
@@ -74,6 +75,7 @@ class _RootGateState extends State<RootGate> {
       _me = null;
     }
     _sessionChecked = true;
+    if (_me != null) setupPush(_me!.uid);
     _maybeLeaveSplash();
   }
 
@@ -89,6 +91,7 @@ class _RootGateState extends State<RootGate> {
   }
 
   Future<void> _signOut() async {
+    if (_me != null) await clearPush(_me!.uid);
     await _auth.signOut();
     if (!mounted) return;
     setState(() {
@@ -111,10 +114,13 @@ class _RootGateState extends State<RootGate> {
         return AuthScreen(
           key: const ValueKey('auth'),
           auth: _auth,
-          onSignedIn: (profile) => setState(() {
-            _me = profile;
-            _stage = _Stage.home;
-          }),
+          onSignedIn: (profile) {
+            setupPush(profile.uid);
+            setState(() {
+              _me = profile;
+              _stage = _Stage.home;
+            });
+          },
         );
       case _Stage.home:
         return HomeScreen(

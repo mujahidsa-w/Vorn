@@ -24,3 +24,25 @@ for gradle in glob.glob("android/app/build.gradle*"):
     open(gradle, "w", encoding="utf-8").write(t)
 
 print("Android project patched")
+
+# Firebase Cloud Messaging on Android needs the google-services Gradle plugin.
+SETTINGS = "android/settings.gradle.kts"
+APP_GRADLE = "android/app/build.gradle.kts"
+try:
+    st = open(SETTINGS, encoding="utf-8").read()
+    if "com.google.gms.google-services" not in st:
+        st = re.sub(
+            r'(\s*id\("com\.android\.application"\)[^\n]*\n)',
+            r'\1    id("com.google.gms.google-services") version "4.4.2" apply false\n',
+            st, count=1)
+        open(SETTINGS, "w", encoding="utf-8").write(st)
+    ag = open(APP_GRADLE, encoding="utf-8").read()
+    if "com.google.gms.google-services" not in ag:
+        ag = re.sub(
+            r'(\s*id\("com\.android\.application"\)[^\n]*\n)',
+            r'\1    id("com.google.gms.google-services")\n',
+            ag, count=1)
+        open(APP_GRADLE, "w", encoding="utf-8").write(ag)
+    print("google-services plugin added")
+except FileNotFoundError as e:
+    print("skipped google-services patch:", e)

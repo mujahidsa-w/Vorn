@@ -17,6 +17,13 @@ jobs:
 
       - run: flutter create --project-name vexo --org com.vexoapp --platforms android .
 
+      - name: Add Firebase config for Android
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then echo "::error::Secret GOOGLE_SERVICES_JSON is missing"; exit 1; fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
       - run: python3 tools/patch_android.py
 
       - run: flutter pub get
