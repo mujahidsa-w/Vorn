@@ -1,0 +1,29 @@
+name: Vexo Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter create --project-name vexo --org com.vexoapp --platforms android .
+
+      - run: python3 tools/patch_android.py
+
+      - run: flutter pub get
+
+      - run: flutter build apk --debug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vexo-android-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk

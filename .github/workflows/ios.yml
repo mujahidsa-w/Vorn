@@ -1,136 +1,53 @@
-name: Build iOS IPA
+name: Vexo iOS IPA (unsigned)
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
-    runs-on: macos-14
-    timeout-minutes: 90
-    env:
-      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-      IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
-      IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
-      IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
-      IOS_SIGN_IDENTITY: ${{ secrets.IOS_SIGN_IDENTITY }}
-      IOS_EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }}
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Godot 4.3 and iOS export templates
-        run: |
-          set -e
-          BASE=https://github.com/godotengine/godot/releases/download/4.3-stable
-          curl -fL -o godot.zip "$BASE/Godot_v4.3-stable_macos.universal.zip"
-          unzip -q godot.zip -d "$HOME/godot"
-          curl -fL -o templates.tpz "$BASE/Godot_v4.3-stable_export_templates.tpz"
-          unzip -q templates.tpz -d tpl
-          TDIR="$HOME/Library/Application Support/Godot/export_templates/4.3.stable"
-          mkdir -p "$TDIR"
-          mv tpl/templates/* "$TDIR/"
-          echo "GODOT=$HOME/godot/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
 
-      - name: Fill team ID in export preset
-        run: |
-          # Godot requires a non-empty 10-character Team ID even for unsigned export.
-          TEAM="${IOS_TEAM_ID:-0000000000}"
-          sed -i '' "s/__TEAM_ID__/${TEAM}/g" export_presets.cfg
+      - name: Generate iOS project
+        run: flutter create --project-name vexo --org com.vexoapp --platforms ios .
 
-      - name: Export Xcode project from Godot
-        run: |
-          "$GODOT" --headless --path . --import || true
-          mkdir -p build/ios
-          # Export only the Xcode project; signing/building is handled below.
-          sed -i '' 's/application\/export_project_only=false/application\/export_project_only=true/' export_presets.cfg
-          "$GODOT" --headless --path . --export-release "iOS" build/ios/CopsAndRobbers.xcodeproj
-          PROJ=$(find build/ios -maxdepth 2 -name "*.xcodeproj" | head -1)
-          if [ -z "$PROJ" ]; then echo "Xcode project not found"; find build -maxdepth 3; exit 1; fi
-          echo "PROJ=$PROJ" >> "$GITHUB_ENV"
-          echo "TARGET=$(basename "$PROJ" .xcodeproj)" >> "$GITHUB_ENV"
+      - run: flutter pub get
 
-      - name: Detect signing mode
-        run: |
-          if [ -n "$IOS_P12_BASE64" ] && [ -n "$IOS_PROFILE_BASE64" ]; then
-            echo "SIGNED=true" >> "$GITHUB_ENV"
-          else
-            echo "SIGNED=false" >> "$GITHUB_ENV"
-            echo "No signing secrets found: building UNSIGNED IPA (sideload with Sideloadly/AltStore)."
-          fi
+      - name: Generate Flutter config and Podfile
+        run: flutter build ios --config-only --release --no-codesign
 
-      # ---------- UNSIGNED (no Apple account needed) ----------
-      - name: Build unsigned app
-        if: env.SIGNED == 'false'
+      - name: Configure permissions and iOS version
         run: |
-          xcodebuild -project "$PROJ" -scheme "$TARGET" -configuration Release -sdk iphoneos \
-            -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+          test -f ios/Podfile || { echo "ios/Podfile missing"; exit 1; }
+          plutil -insert NSMicrophoneUsageDescription -string "Vexo uses the microphone for voice messages." ios/Runner/Info.plist
+          sed -i '' 's/# platform :ios, .*/platform :ios, '\''15.0'\''/' ios/Podfile
+
+      - name: Install pods
+        run: cd ios && pod install
+
+      - name: Build app with xcodebuild (no signing)
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -sdk iphoneos -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_IDENTITY="" build
 
       - name: Package unsigned IPA
-        if: env.SIGNED == 'false'
         run: |
-          APP=$(find build/dd -name "*.app" -path "*Release-iphoneos*" | head -1)
-          if [ -z "$APP" ]; then echo "App bundle not found"; exit 1; fi
-          mkdir -p build/ipa/Payload
-          cp -R "$APP" build/ipa/Payload/
-          (cd build/ipa && zip -qr "../CopsAndRobbers-unsigned.ipa" Payload)
-
-      # ---------- SIGNED (needs Apple Developer secrets) ----------
-      - name: Import certificate and provisioning profile
-        if: env.SIGNED == 'true'
-        run: |
-          KC="$RUNNER_TEMP/build.keychain-db"
-          KCPASS=$(openssl rand -hex 16)
-          echo "$IOS_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
-          security create-keychain -p "$KCPASS" "$KC"
-          security set-keychain-settings -lut 21600 "$KC"
-          security unlock-keychain -p "$KCPASS" "$KC"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$IOS_P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KCPASS" "$KC"
-          security list-keychains -d user -s "$KC" login.keychain-db
-          PDIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "$PDIR"
-          UUID=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract UUID raw -)
-          NAME=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract Name raw -)
-          cp "$RUNNER_TEMP/profile.mobileprovision" "$PDIR/$UUID.mobileprovision"
-          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
-
-      - name: Archive signed app
-        if: env.SIGNED == 'true'
-        run: |
-          xcodebuild archive -project "$PROJ" -scheme "$TARGET" -configuration Release -sdk iphoneos \
-            -archivePath build/CopsAndRobbers.xcarchive \
-            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            CODE_SIGN_IDENTITY="${IOS_SIGN_IDENTITY:-Apple Distribution}"
-
-      - name: Export signed IPA
-        if: env.SIGNED == 'true'
-        run: |
-          METHOD="${IOS_EXPORT_METHOD:-ad-hoc}"
-          BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw build/CopsAndRobbers.xcarchive/Products/Applications/*.app/Info.plist)
-          cat > build/exportOptions.plist <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>${METHOD}</string>
-            <key>teamID</key><string>${IOS_TEAM_ID}</string>
-            <key>signingStyle</key><string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
-            </dict>
-          </dict>
-          </plist>
-          PLIST
-          xcodebuild -exportArchive -archivePath build/CopsAndRobbers.xcarchive \
-            -exportPath build/ipa -exportOptionsPlist build/exportOptions.plist
+          APP=build/ios/Build/Products/Release-iphoneos/Runner.app
+          test -d "$APP" || { echo "Runner.app not found"; find build/ios -maxdepth 4 -name "*.app"; exit 1; }
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qr vexo-unsigned.ipa Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: CopsAndRobbers-iOS
-          path: |
-            build/CopsAndRobbers-unsigned.ipa
-            build/ipa/*.ipa
-          if-no-files-found: error
+          name: vexo-ios-unsigned-ipa
+          path: vexo-unsigned.ipa
