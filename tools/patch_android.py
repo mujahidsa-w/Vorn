@@ -9,6 +9,8 @@ PERMS = [
     '<uses-permission android:name="android.permission.CAMERA"/>',
     '<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>',
     '<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>',
+    # Android 13+: needed to show message notifications.
+    '<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>',
 ]
 
 s = open(MANIFEST, encoding="utf-8").read()
