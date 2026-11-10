@@ -1,7 +1,12 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'add_contact_sheet.dart';
+import 'call_screen.dart';
+import 'call_service.dart';
 import 'data.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,6 +30,56 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   int _filter = 0; // 0 Chats, 1 Groups, 2 Calls
+
+  StreamSubscription? _incomingSub;
+  final Set<String> _handledCalls = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _incomingSub = FirebaseFirestore.instance
+        .collection('calls')
+        .where('calleeId', isEqualTo: widget.me.uid)
+        .where('status', isEqualTo: 'ringing')
+        .snapshots()
+        .listen((snap) {
+      for (final change in snap.docChanges) {
+        if (change.type != DocumentChangeType.added) continue;
+        final doc = change.doc;
+        if (_handledCalls.contains(doc.id)) continue;
+        _handledCalls.add(doc.id);
+        // Ignore stale ringing calls (older than a minute).
+        final created = (doc.data()?['createdAt'] as Timestamp?)?.toDate();
+        if (created == null || DateTime.now().difference(created).inSeconds > 60) continue;
+        _showIncoming(doc);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _incomingSub?.cancel();
+    super.dispose();
+  }
+
+  void _showIncoming(DocumentSnapshot<Map<String, dynamic>> doc) {
+    if (!mounted) return;
+    final d = doc.data()!;
+    final controller = CallController(
+      me: widget.me,
+      other: UserProfile(
+        uid: d['callerId'] as String? ?? '',
+        displayName: d['callerName'] as String? ?? '',
+      ),
+      video: d['video'] as bool? ?? false,
+    );
+    Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => CallScreen(controller: controller, incomingDoc: doc),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

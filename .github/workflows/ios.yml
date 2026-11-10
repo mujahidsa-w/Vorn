@@ -40,6 +40,7 @@ jobs:
       - name: Configure permissions and Podfile
         run: |
           cp tools/Podfile.template ios/Podfile
+          plutil -insert NSCameraUsageDescription -string "Vexo uses the camera for video calls." ios/Runner/Info.plist
           plutil -insert NSMicrophoneUsageDescription -string "Vexo uses the microphone for voice messages." ios/Runner/Info.plist
 
       - name: Install pods

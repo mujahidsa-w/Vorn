@@ -114,6 +114,8 @@ class ChatMessage {
   final String type;
   final String text;
   final String audioUrl;
+  final int duration; // seconds, for voice notes
+  final DateTime? createdAt;
 
   const ChatMessage({
     required this.id,
@@ -122,6 +124,8 @@ class ChatMessage {
     required this.type,
     required this.text,
     required this.audioUrl,
+    this.duration = 0,
+    this.createdAt,
   });
 
   bool get isAudio => type == 'AUDIO';
@@ -135,6 +139,8 @@ class ChatMessage {
       type: m['type'] as String? ?? 'TEXT',
       text: m['text'] as String? ?? '',
       audioUrl: m['audioUrl'] as String? ?? '',
+      duration: (m['duration'] as num?)?.toInt() ?? 0,
+      createdAt: (m['createdAt'] as Timestamp?)?.toDate(),
     );
   }
 }
@@ -325,12 +331,12 @@ class ChatService {
     await _post(roomId, me, type: 'TEXT', text: body, audioUrl: '');
   }
 
-  Future<void> sendAudio(String roomId, UserProfile me, String filePath) async {
+  Future<void> sendAudio(String roomId, UserProfile me, String filePath, int duration) async {
     final name = '${DateTime.now().microsecondsSinceEpoch}.m4a';
     final ref = _storage.ref('voice/$roomId/$name');
     await ref.putFile(File(filePath), SettableMetadata(contentType: 'audio/mp4'));
     final url = await ref.getDownloadURL();
-    await _post(roomId, me, type: 'AUDIO', text: '', audioUrl: url);
+    await _post(roomId, me, type: 'AUDIO', text: '', audioUrl: url, duration: duration);
   }
 
   Future<void> _post(
@@ -339,6 +345,7 @@ class ChatService {
     required String type,
     required String text,
     required String audioUrl,
+    int duration = 0,
   }) async {
     await _db.collection('rooms').doc(roomId).collection('messages').add({
       'senderId': me.uid,
@@ -346,6 +353,7 @@ class ChatService {
       'type': type,
       'text': text,
       'audioUrl': audioUrl,
+      'duration': duration,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

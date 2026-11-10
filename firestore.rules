@@ -48,5 +48,21 @@ service cloud.firestore {
         allow update, delete: if false;
       }
     }
+
+    // Calls: only the caller and callee can see or change a call.
+    match /calls/{callId} {
+      allow read: if signedIn()
+        && (resource.data.callerId == request.auth.uid || resource.data.calleeId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.callerId == request.auth.uid;
+      allow update: if signedIn()
+        && (resource.data.callerId == request.auth.uid || resource.data.calleeId == request.auth.uid);
+      allow delete: if false;
+
+      match /{candidates}/{docId} {
+        allow read, create: if signedIn()
+          && (get(/databases/$(database)/documents/calls/$(callId)).data.callerId == request.auth.uid
+              || get(/databases/$(database)/documents/calls/$(callId)).data.calleeId == request.auth.uid);
+      }
+    }
   }
 }
