@@ -22,7 +22,9 @@ jobs:
       - run: flutter pub get
 
       - name: Generate app icons
-        run: dart run flutter_launcher_icons
+        run: |
+          sed -i 's/ios: true/ios: false/' pubspec.yaml
+          dart run flutter_launcher_icons
 
       - run: flutter build apk --debug
 

@@ -30,7 +30,9 @@ jobs:
       - run: flutter pub get
 
       - name: Generate app icons
-        run: dart run flutter_launcher_icons
+        run: |
+          sed -i '' 's/android: true/android: false/' pubspec.yaml
+          dart run flutter_launcher_icons
 
       - name: Generate Flutter config and Podfile
         run: flutter build ios --config-only --release --no-codesign
