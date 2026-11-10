@@ -1,0 +1,10 @@
+name = "vexo-notify"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "ms-company-e7166"
+
+# Set the secret with:
+#   npx wrangler secret put FIREBASE_SA_JSON
+# and paste the whole Service Account JSON file.

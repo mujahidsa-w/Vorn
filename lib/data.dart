@@ -1,12 +1,14 @@
-import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'countries.dart';
+import 'notify.dart';
 
 class AppException implements Exception {
   final String message;
@@ -335,18 +337,28 @@ class ChatService {
     await _post(roomId, me, type: 'TEXT', text: body, audioUrl: '');
   }
 
-  Future<void> sendAudio(String roomId, UserProfile me, String filePath, int duration) async {
-    final name = '${DateTime.now().microsecondsSinceEpoch}.m4a';
+  /// [mime] and [ext] differ on web (wav) and native (m4a).
+  Future<void> sendAudio(
+    String roomId,
+    UserProfile me,
+    String filePath,
+    int duration, {
+    String mime = 'audio/mp4',
+    String ext = 'm4a',
+  }) async {
+    final bytes = await XFile(filePath).readAsBytes();
+    final name = '${DateTime.now().microsecondsSinceEpoch}.$ext';
     final ref = _storage.ref('voice/$roomId/$name');
-    await ref.putFile(File(filePath), SettableMetadata(contentType: 'audio/mp4'));
+    await ref.putData(bytes, SettableMetadata(contentType: mime));
     final url = await ref.getDownloadURL();
     await _post(roomId, me, type: 'AUDIO', text: '', audioUrl: url, duration: duration);
   }
 
   Future<void> sendImage(String roomId, UserProfile me, String filePath) async {
+    final Uint8List bytes = await XFile(filePath).readAsBytes();
     final name = '${DateTime.now().microsecondsSinceEpoch}.jpg';
     final ref = _storage.ref('images/$roomId/$name');
-    await ref.putFile(File(filePath), SettableMetadata(contentType: 'image/jpeg'));
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
     final url = await ref.getDownloadURL();
     await _post(roomId, me, type: 'IMAGE', text: '', audioUrl: '', mediaUrl: url);
   }
@@ -360,7 +372,7 @@ class ChatService {
     int duration = 0,
     String mediaUrl = '',
   }) async {
-    await _db.collection('rooms').doc(roomId).collection('messages').add({
+    final ref = await _db.collection('rooms').doc(roomId).collection('messages').add({
       'senderId': me.uid,
       'senderName': me.displayName,
       'type': type,
@@ -370,5 +382,7 @@ class ChatService {
       'mediaUrl': mediaUrl,
       'createdAt': FieldValue.serverTimestamp(),
     });
+    // Fire-and-forget: the sender pushes to other members (see notify.dart).
+    notifyNewMessage(roomId, ref.id);
   }
 }

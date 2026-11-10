@@ -1,0 +1,66 @@
+name: Vexo Web (PWA) deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'web/**'
+      - 'pubspec.yaml'
+      - 'firebase.json'
+      - '.github/workflows/web.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Adds the missing web/ files (index.html, manifest, icons). Our
+      # firebase-messaging-sw.js is already committed and is kept as is.
+      - run: flutter create --project-name vexo --org com.vexoapp --platforms web .
+
+      # Load the Firebase JS SDK so the web plugins and messaging can run.
+      - name: Add Firebase scripts to index.html
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          p = pathlib.Path('web/index.html')
+          html = p.read_text(encoding='utf-8')
+          tags = (
+              '<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>\n'
+              '<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>\n'
+          )
+          if 'firebase-app-compat' not in html:
+              html = html.replace('</head>', tags + '</head>', 1)
+          p.write_text(html, encoding='utf-8')
+          PY
+
+      - run: flutter pub get
+
+      - run: flutter build web --release
+
+      - name: Stop if web config is still placeholder
+        run: |
+          if grep -q 'REPLACE_' lib/firebase_options.dart web/firebase-messaging-sw.js; then
+            echo "::error::Fill REPLACE_ values in lib/firebase_options.dart and web/firebase-messaging-sw.js first"
+            exit 1
+          fi
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ms-company-e7166
+          channelId: live

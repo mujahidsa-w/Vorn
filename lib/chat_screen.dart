@@ -188,10 +188,19 @@ class _ChatScreenState extends State<ChatScreen> {
         _showMessage('لازم تسمح بالمايك لتسجيل الصوت');
         return;
       }
-      final dir = await getTemporaryDirectory();
-      final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      // On web the recorder ignores the path and returns a blob URL on stop.
+      var path = '';
+      if (!kIsWeb) {
+        final dir = await getTemporaryDirectory();
+        path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      }
       await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100),
+        RecordConfig(
+          encoder: kIsWeb ? AudioEncoder.wav : AudioEncoder.aacLc,
+          bitRate: 64000,
+          sampleRate: kIsWeb ? 22050 : 44100,
+          numChannels: 1,
+        ),
         path: path,
       );
       _stopwatch
@@ -215,7 +224,14 @@ class _ChatScreenState extends State<ChatScreen> {
     final path = await _recorder.stop();
     if (!send || path == null || seconds < 1) return;
     try {
-      await widget.chat.sendAudio(widget.room.id, widget.me, path, seconds);
+      await widget.chat.sendAudio(
+        widget.room.id,
+        widget.me,
+        path,
+        seconds,
+        mime: kIsWeb ? 'audio/wav' : 'audio/mp4',
+        ext: kIsWeb ? 'wav' : 'm4a',
+      );
     } catch (e) {
       _showMessage('ما قدرنا نرسل الرسالة الصوتية');
     }

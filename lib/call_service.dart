@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -44,7 +43,8 @@ class CallController {
   }
 
   Future<void> _openMedia() async {
-    if (Platform.isAndroid) {
+    // Browsers ask for mic and camera through getUserMedia on their own.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       await [Permission.microphone, if (video) Permission.camera].request();
     }
     _local = await navigator.mediaDevices.getUserMedia({

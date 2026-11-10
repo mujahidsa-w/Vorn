@@ -8,6 +8,7 @@ import 'add_contact_sheet.dart';
 import 'call_screen.dart';
 import 'call_service.dart';
 import 'data.dart';
+import 'push.dart';
 
 class HomeScreen extends StatefulWidget {
   final ChatService chat;
@@ -327,6 +328,23 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: Text(widget.me.fullPhone, textDirection: TextDirection.ltr),
           ),
           const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              icon: const Icon(Icons.notifications_active_outlined),
+              label: const Text('تفعيل الإشعارات'),
+              onPressed: () async {
+                final ok = await enablePush(widget.me.uid);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(ok
+                      ? 'الإشعارات مفعّلة'
+                      : 'ما قدرنا نفعّل الإشعارات. على الآيفون لازم تضيف التطبيق للشاشة الرئيسية أول'),
+                ));
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(onPressed: widget.onSignOut, child: const Text('Sign out')),
