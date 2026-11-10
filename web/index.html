@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0b12" />
+<title>Vexo</title>
+<style>
+  :root {
+    --bg: #0b0b12;
+    --surface: #15151f;
+    --surface-2: #1f1f2c;
+    --line: #2a2a3a;
+    --accent: #7c5cff;
+    --accent-2: #22d3ee;
+    --mine: linear-gradient(135deg, #7c5cff, #5b3df5);
+    --text: #f2f2f7;
+    --muted: #8b8ba3;
+    --danger: #ff5c7a;
+    --radius: 16px;
+    --ease: cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans Arabic", sans-serif;
+    background: radial-gradient(1200px 600px at 10% -10%, #1d1640 0%, transparent 60%),
+                radial-gradient(900px 500px at 110% 110%, #0e2a33 0%, transparent 60%),
+                var(--bg);
+    color: var(--text); overflow: hidden;
+  }
+
+  /* ---------- Screens + transitions ---------- */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    opacity: 0; transform: translateY(12px) scale(.99); pointer-events: none;
+    transition: opacity .35s var(--ease), transform .35s var(--ease);
+  }
+  .screen.active { opacity: 1; transform: none; pointer-events: auto; }
+
+  header {
+    padding: calc(14px + env(safe-area-inset-top)) 16px 14px;
+    background: rgba(21,21,31,.7); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    position: sticky; top: 0; z-index: 2;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: .3px; }
+
+  /* ---------- Auth ---------- */
+  #auth { justify-content: center; align-items: center; padding: 24px; }
+  .brand { text-align: center; margin-bottom: 28px; animation: rise .7s var(--ease) both; }
+  .logo {
+    width: 72px; height: 72px; border-radius: 22px; margin: 0 auto 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 12px 40px rgba(124,92,255,.45);
+    display: grid; place-items: center; font-size: 32px; font-weight: 800; color: #fff;
+    animation: float 4s ease-in-out infinite;
+  }
+  .brand h2 { margin: 0; font-size: 26px; font-weight: 800; }
+  .brand p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+  .card {
+    width: 100%; max-width: 380px; padding: 22px; border-radius: 22px;
+    background: rgba(21,21,31,.75); border: 1px solid var(--line);
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    animation: rise .7s .08s var(--ease) both;
+  }
+
+  .field { position: relative; margin-bottom: 12px; }
+  .field input {
+    width: 100%; padding: 16px 14px 8px; border-radius: 14px; border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--text); font-size: 15px; outline: none;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+  .field label {
+    position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+    color: var(--muted); font-size: 14px; pointer-events: none;
+    transition: all .2s var(--ease);
+  }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(124,92,255,.18); }
+  .field input:focus + label,
+  .field input:not(:placeholder-shown) + label {
+    top: 9px; transform: none; font-size: 11px; color: var(--accent);
+  }
+
+  .btn {
+    width: 100%; padding: 14px; border: 0; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), #5b3df5); color: #fff;
+    font-size: 15px; font-weight: 700; letter-spacing: .2px;
+    box-shadow: 0 10px 28px rgba(124,92,255,.35);
+    transition: transform .15s var(--ease), box-shadow .2s, opacity .2s;
+    position: relative; overflow: hidden;
+  }
+  .btn:hover { box-shadow: 0 14px 36px rgba(124,92,255,.5); }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .55; cursor: default; transform: none; }
+  .btn .spinner { display:none; width:18px; height:18px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; margin:0 auto; animation: spin .7s linear infinite; }
+  .btn.loading .label { display:none; }
+  .btn.loading .spinner { display:block; }
+
+  .link {
+    display: block; margin: 14px auto 0; background: none; border: 0; color: var(--accent-2);
+    font-size: 14px; cursor: pointer; padding: 6px;
+  }
+  .ghost-btn {
+    background: none; border: 0; color: var(--accent); font-size: 14px; cursor: pointer;
+    padding: 8px 10px; border-radius: 10px; transition: background .2s;
+  }
+  .ghost-btn:hover { background: rgba(124,92,255,.12); }
+
+  .notice {
+    margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6;
+    background: rgba(255,92,122,.1); border: 1px solid rgba(255,92,122,.35); color: #ffc2cf;
+    display: none; animation: shake .45s var(--ease);
+  }
+  .notice.show { display: block; }
+
+  /* ---------- Rooms ---------- */
+  #room-list { padding: 12px; display: grid; gap: 10px; overflow: auto; }
+  .room {
+    padding: 16px; border-radius: var(--radius); background: var(--surface);
+    border: 1px solid var(--line); cursor: pointer;
+    display: flex; align-items: center; gap: 14px;
+    transition: transform .2s var(--ease), border-color .2s, background .2s;
+    animation: rise .5s var(--ease) both;
+  }
+  .room:hover { transform: translateY(-2px); border-color: rgba(124,92,255,.5); background: var(--surface-2); }
+  .room:active { transform: scale(.98); }
+  .room .avatar {
+    width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center;
+    background: linear-gradient(135deg, rgba(124,92,255,.35), rgba(34,211,238,.25));
+    font-weight: 800; font-size: 18px; flex: 0 0 auto;
+  }
+  .room .meta { min-width: 0; }
+  .room .title { font-weight: 700; font-size: 15px; }
+  .room .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px; }
+
+  /* ---------- Chat ---------- */
+  #msgs { flex: 1; overflow: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+  .msg {
+    max-width: 80%; padding: 10px 14px; border-radius: 18px; background: var(--surface-2);
+    align-self: flex-start; border-bottom-right-radius: 6px; line-height: 1.5; font-size: 15px;
+    animation: pop .3s var(--ease) both; word-wrap: break-word;
+  }
+  .msg.mine { background: var(--mine); align-self: flex-end; border-bottom-right-radius: 18px; border-bottom-left-radius: 6px; box-shadow: 0 8px 22px rgba(124,92,255,.25); }
+  .msg .who { font-size: 11px; color: var(--muted); margin-bottom: 3px; font-weight: 600; }
+  .msg.mine .who { color: rgba(255,255,255,.75); }
+  .msg audio { max-width: 230px; height: 36px; margin-top: 2px; }
+
+  .composer {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(21,21,31,.85); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid var(--line);
+  }
+  .composer input {
+    flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--text); font-size: 15px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .composer input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(124,92,255,.15); }
+  .icon-btn {
+    width: 46px; height: 46px; border-radius: 50%; border: 0; cursor: pointer; flex: 0 0 auto;
+    display: grid; place-items: center; font-size: 18px; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 8px 22px rgba(124,92,255,.35);
+    transition: transform .15s var(--ease), box-shadow .2s;
+  }
+  .icon-btn:active { transform: scale(.92); }
+  #rec.recording {
+    background: linear-gradient(135deg, #ff5c7a, #ff8a5c);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  .rec-hint { text-align: center; font-size: 12px; color: var(--muted); padding: 0 0 6px; min-height: 16px; }
+
+  /* ---------- Motion ---------- */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shake { 0%,100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,92,122,.5); } 50% { box-shadow: 0 0 0 12px rgba(255,92,122,0); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login / Signup -->
+<section id="auth" class="screen active">
+  <div class="brand">
+    <div class="logo">V</div>
+    <h2>Vexo</h2>
+    <p>شات الجيمرز</p>
+  </div>
+  <div class="card">
+    <div class="field" id="f-name" style="display:none">
+      <input id="a-name" placeholder=" " autocomplete="name" />
+      <label for="a-name">الاسم الظاهر</label>
+    </div>
+    <div class="field">
+      <input id="a-user" placeholder=" " autocomplete="username" autocapitalize="none" />
+      <label for="a-user">اسم المستخدم (إنجليزي)</label>
+    </div>
+    <div class="field">
+      <input id="a-pass" type="password" placeholder=" " autocomplete="current-password" />
+      <label for="a-pass">كلمة السر</label>
+    </div>
+    <button id="a-go" class="btn"><span class="label">تسجيل الدخول</span><span class="spinner"></span></button>
+    <div id="a-err" class="notice"></div>
+    <button id="a-toggle" class="link">ما عندي حساب، سجّل جديد</button>
+  </div>
+</section>
+
+<!-- Rooms -->
+<section id="rooms" class="screen">
+  <header>
+    <h1>الغرف</h1>
+    <button id="logout" class="ghost-btn">خروج</button>
+  </header>
+  <div id="room-list"></div>
+</section>
+
+<!-- Chat -->
+<section id="chat" class="screen">
+  <header>
+    <button id="back" class="ghost-btn">رجوع</button>
+    <h1 id="room-title"></h1>
+    <span style="width:44px"></span>
+  </header>
+  <div id="msgs"></div>
+  <div class="rec-hint" id="rec-hint"></div>
+  <div class="composer">
+    <button id="rec" class="icon-btn" title="اضغط مطولاً للتسجيل">🎤</button>
+    <input id="text" placeholder="اكتب رسالة..." autocomplete="off" />
+    <button id="send" class="icon-btn" title="إرسال">➤</button>
+  </div>
+</section>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, getDocs, addDoc, query, orderBy, limitToLast,
+  onSnapshot, serverTimestamp, runTransaction }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-storage.js";
+
+// ⚠️ appId للويب: سجّل Web app من Firebase Console ← Project settings ← Add app ← Web
+const app = initializeApp({
+  apiKey: "AIzaSyC6sLLkrWvMnn1IIk7sA9uepsJwRPkV11k",
+  authDomain: "ms-company-e7166.firebaseapp.com",
+  projectId: "ms-company-e7166",
+  storageBucket: "ms-company-e7166.firebasestorage.app",
+  appId: "PUT_WEB_APP_ID_HERE"
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+const $ = (id) => document.getElementById(id);
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id));
+}
+
+// ---------- Friendly errors ----------
+const ERR = {
+  "auth/api-key-not-valid": "مفتاح الـ API مش مسموح للويب. راجع قيود الـ key بـ Google Cloud.",
+  "auth/operation-not-allowed": "Email/Password مش مفعّل بـ Firebase Authentication.",
+  "auth/email-already-in-use": "اسم المستخدم مستخدم، جرّب غيره.",
+  "auth/invalid-credential": "اسم المستخدم أو كلمة السر غلط.",
+  "auth/user-not-found": "هاد الحساب مش موجود.",
+  "auth/wrong-password": "كلمة السر غلط.",
+  "auth/weak-password": "كلمة السر ضعيفة (6 أحرف على الأقل).",
+  "auth/network-request-failed": "مشكلة بالنت، تأكد من الاتصال.",
+  "auth/too-many-requests": "محاولات كتير، استنى شوي.",
+  "permission-denied": "ممنوع: قواعد Firestore ما تسمح بهاي العملية.",
+  "unavailable": "Firestore مش متاح حالياً، جرّب بعدين."
+};
+function explain(e) {
+  const code = e.code || "";
+  const msg = ERR[code] || e.message || "صار خطأ غير متوقع";
+  return `${msg}${code ? `\n(${code})` : ""}`;
+}
+
+function setBusy(on) {
+  $("a-go").classList.toggle("loading", on);
+  $("a-go").disabled = on;
+}
+function showError(text) {
+  const n = $("a-err");
+  n.textContent = text;
+  n.classList.remove("show");
+  void n.offsetWidth; // restart shake animation
+  n.classList.add("show");
+}
+
+let me = null;
+let signUpMode = false;
+let currentRoom = null;
+let unsubMsgs = null;
+
+// ---------- Auth ----------
+$("a-toggle").onclick = () => {
+  signUpMode = !signUpMode;
+  $("f-name").style.display = signUpMode ? "block" : "none";
+  $("a-go").querySelector(".label").textContent = signUpMode ? "إنشاء حساب" : "تسجيل الدخول";
+  $("a-toggle").textContent = signUpMode ? "عندي حساب، سجّل دخول" : "ما عندي حساب، سجّل جديد";
+  $("a-err").classList.remove("show");
+};
+
+const emailFor = (u) => `${u}@vexo.local`;
+
+$("a-go").onclick = async () => {
+  const user = $("a-user").value.trim().toLowerCase();
+  const pass = $("a-pass").value;
+  $("a-err").classList.remove("show");
+
+  if (!/^[a-z0-9_]{3,20}$/.test(user)) return showError("اسم المستخدم 3-20 حرف (إنجليزي، أرقام، _)");
+  if (!pass) return showError("اكتب كلمة السر");
+
+  setBusy(true);
+  try {
+    if (signUpMode) {
+      const displayName = $("a-name").value.trim();
+      if (!displayName) throw Object.assign(new Error("الاسم الظاهر مطلوب"), { code: "" });
+      if (pass.length < 6) throw Object.assign(new Error("كلمة السر 6 أحرف على الأقل"), { code: "" });
+
+      if ((await getDoc(doc(db, "usernames", user))).exists())
+        throw Object.assign(new Error("اسم المستخدم مستخدم، جرّب غيره"), { code: "" });
+
+      const cred = await createUserWithEmailAndPassword(auth, emailFor(user), pass);
+      await runTransaction(db, async (tx) => {
+        tx.set(doc(db, "usernames", user), { uid: cred.user.uid });
+        tx.set(doc(db, "users", cred.user.uid), { uid: cred.user.uid, name: user, displayName });
+      });
+    } else {
+      await signInWithEmailAndPassword(auth, emailFor(user), pass);
+    }
+  } catch (e) {
+    console.error("[Vexo auth]", e);
+    showError(explain(e));
+  } finally {
+    setBusy(false);
+  }
+};
+
+$("logout").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async (u) => {
+  if (!u) { me = null; show("auth"); return; }
+  try {
+    const snap = await getDoc(doc(db, "users", u.uid));
+    me = snap.data() || { uid: u.uid, displayName: "مستخدم" };
+  } catch (e) {
+    console.error("[Vexo profile]", e);
+    showError(explain(e));
+    return;
+  }
+  loadRooms();
+  show("rooms");
+});
+
+// ---------- Rooms ----------
+async function loadRooms() {
+  const list = $("room-list");
+  list.innerHTML = "";
+  try {
+    const snap = await getDocs(collection(db, "rooms"));
+    if (snap.empty) {
+      list.innerHTML = '<div class="empty">ما في غرف بعد.<br>أنشئ غرفة من Firestore.</div>';
+      return;
+    }
+    snap.forEach((d, i) => {
+      const r = d.data();
+      const el = document.createElement("div");
+      el.className = "room";
+      el.style.animationDelay = `${i * 60}ms`;
+      el.innerHTML = `
+        <div class="avatar">${escapeHtml((r.title || "?").charAt(0))}</div>
+        <div class="meta">
+          <div class="title">${escapeHtml(r.title)}</div>
+          <div class="sub">${escapeHtml(r.game || "")}</div>
+        </div>`;
+      el.onclick = () => openRoom(d.id, r.title);
+      list.appendChild(el);
+    });
+  } catch (e) {
+    console.error("[Vexo rooms]", e);
+    list.innerHTML = `<div class="empty">${escapeHtml(explain(e))}</div>`;
+  }
+}
+
+function openRoom(id, title) {
+  currentRoom = id;
+  $("room-title").textContent = title;
+  show("chat");
+  if (unsubMsgs) unsubMsgs();
+  const q = query(collection(db, "rooms", id, "messages"), orderBy("createdAt"), limitToLast(200));
+  unsubMsgs = onSnapshot(q, (snap) => {
+    const box = $("msgs");
+    box.innerHTML = "";
+    snap.forEach((d) => {
+      const m = d.data();
+      const mine = m.senderId === me.uid;
+      const el = document.createElement("div");
+      el.className = "msg" + (mine ? " mine" : "");
+      const body = m.type === "AUDIO"
+        ? `<audio controls preload="none" src="${escapeHtml(m.audioUrl)}"></audio>`
+        : escapeHtml(m.text);
+      el.innerHTML = `<div class="who">${escapeHtml(m.senderName || "")}</div>${body}`;
+      box.appendChild(el);
+    });
+    box.scrollTop = box.scrollHeight;
+  }, (e) => showError(explain(e)));
+}
+
+$("back").onclick = () => { if (unsubMsgs) unsubMsgs(); currentRoom = null; show("rooms"); };
+
+// ---------- Messages ----------
+$("send").onclick = sendText;
+$("text").onkeydown = (e) => { if (e.key === "Enter") sendText(); };
+
+async function sendText() {
+  const text = $("text").value.trim();
+  if (!text || !currentRoom) return;
+  $("text").value = "";
+  try {
+    await addMessage({ type: "TEXT", text, audioUrl: "" });
+  } catch (e) {
+    console.error("[Vexo send]", e);
+    $("rec-hint").textContent = explain(e);
+  }
+}
+
+async function addMessage(fields) {
+  await addDoc(collection(db, "rooms", currentRoom, "messages"), {
+    senderId: me.uid,
+    senderName: me.displayName,
+    ...fields,
+    createdAt: serverTimestamp()
+  });
+}
+
+// ---------- Voice notes (hold to record) ----------
+let recorder = null, chunks = [];
+const rec = $("rec");
+
+async function startRec(e) {
+  e.preventDefault();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (ev) => chunks.push(ev.data);
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+      if (blob.size < 1000) { $("rec-hint").textContent = "التسجيل قصير جداً"; return; }
+      $("rec-hint").textContent = "جاري الإرسال...";
+      try {
+        const r = ref(storage, `voice/${currentRoom}/${crypto.randomUUID()}.webm`);
+        await uploadBytes(r, blob, { contentType: blob.type });
+        await addMessage({ type: "AUDIO", text: "", audioUrl: await getDownloadURL(r) });
+        $("rec-hint").textContent = "";
+      } catch (err) {
+        console.error("[Vexo voice]", err);
+        $("rec-hint").textContent = explain(err);
+      }
+    };
+    recorder.start();
+    rec.classList.add("recording");
+    $("rec-hint").textContent = "جاري التسجيل... أفلت للإرسال";
+  } catch (err) {
+    $("rec-hint").textContent = "لازم تسمح بالمايك";
+  }
+}
+
+function stopRec() {
+  if (recorder && recorder.state === "recording") recorder.stop();
+  rec.classList.remove("recording");
+  recorder = null;
+}
+
+rec.addEventListener("pointerdown", startRec);
+rec.addEventListener("pointerup", stopRec);
+rec.addEventListener("pointerleave", stopRec);
+rec.addEventListener("pointercancel", stopRec);
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+</script>
+</body>
+</html>

@@ -9,3 +9,7 @@ build/
 *.p12
 *.mobileprovision
 *.cer
+
+# Android / Gradle
+.gradle/
+app/google-services.json
