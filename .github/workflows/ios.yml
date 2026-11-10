@@ -29,11 +29,10 @@ jobs:
       - name: Generate Flutter config and Podfile
         run: flutter build ios --config-only --release --no-codesign
 
-      - name: Configure permissions and iOS version
+      - name: Configure permissions and Podfile
         run: |
-          test -f ios/Podfile || { echo "ios/Podfile missing"; exit 1; }
+          cp tools/Podfile.template ios/Podfile
           plutil -insert NSMicrophoneUsageDescription -string "Vexo uses the microphone for voice messages." ios/Runner/Info.plist
-          sed -i '' 's/# platform :ios, .*/platform :ios, '\''15.0'\''/' ios/Podfile
 
       - name: Install pods
         run: cd ios && pod install
