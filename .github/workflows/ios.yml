@@ -21,6 +21,9 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Use CocoaPods for plugins (disable Swift Package Manager)
+        run: flutter config --no-enable-swift-package-manager
+
       - name: Generate iOS project
         run: flutter create --project-name vexo --org com.vexoapp --platforms ios .
 
