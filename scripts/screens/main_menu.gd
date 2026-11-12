@@ -1,26 +1,34 @@
 extends Control
-## Vorn City lobby: the design image as a full-screen background (cover, sides cropped), with real
-## buttons for navigation, PLAY and the top-right icons, since the cropped image hides them.
+## Vorn lobby: the design image is the full-screen background. Its own panels and labels are
+## painted in the image, so the controls are transparent buttons laid exactly over them.
+## Positions are in the image's own pixels (1672 x 941) and scale with the window.
 
-const IMG := preload("res://assets/img/lobby_design_clean.jpg")
+const IMG := preload("res://assets/img/lobby_reference.jpg")
 const FIGURE := preload("res://scripts/screens/lobby_figure.gd")
 const TURN_MAX := 1.2  # radians (about 70 degrees) either side
 const GOLD := Color(1.0, 0.76, 0.12)
 const CYAN := Color(0.25, 0.85, 1.0)
-# the design image is 1670x588; at full height the scale is 1080/588
-const S := 1080.0 / 588.0
+const REF := Vector2(1672.0, 941.0)
 
 var main
+var stage: Control
 var data := {}
 var bg_dim := 0.0
 var show_top := false
-var buttons: Array = []
 var _pivot: Node3D
 var _yaw := 0.0
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# everything sits on a 16:9 stage so the image positions hold at any window size
+	var arc := AspectRatioContainer.new()
+	arc.ratio = REF.x / REF.y
+	arc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(arc)
+	stage = Control.new()
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arc.add_child(stage)
 	# the app-wide background and rain are not shown behind the lobby image
 	main.bg.visible = false
 	main.rain.visible = false
@@ -30,48 +38,39 @@ func _ready() -> void:
 	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the image is placed at its own scale from the left edge: the profile, logo and menu sit where they are designed
-	_place(pic, 0, 0, 1670.0 * S, 1080)
-	add_child(pic)
+	pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(pic)
 
-	# the design's own menu rows sit at these image positions; the buttons cover them exactly
-	var nav := [["اللعب", "city", true, 222, 270], ["الملابس", "customize", false, 272, 320], ["الإعدادات", "settings", false, 322, 370]]
-	# the design image still paints old menu rows below ours; a dark panel hides them
-	var old_rows := Panel.new()
-	var old_sb := StyleBoxFlat.new()
-	old_sb.bg_color = Color(0.03, 0.05, 0.08, 1.0)
-	old_rows.add_theme_stylebox_override("panel", old_sb)
-	old_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place(old_rows, 26.0 * S, 370.0 * S, 184.0 * S, 150.0 * S)
-	add_child(old_rows)
-	for n in nav:
-		var top := float(n[3]) * S + 3.0
-		var h := (float(n[4]) - float(n[3])) * S - 6.0
-		_button(str(n[0]), 26.0 * S, top, (210.0 - 26.0) * S, h, str(n[1]), bool(n[2]), 24)
-	# the design's chat line sits at the bottom left; cover it and show the same text
-	var chat := ColorRect.new()
-	chat.color = Color(0.02, 0.03, 0.06, 1.0)
-	chat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place(chat, 24, 992, 520, 74)
-	add_child(chat)
-	var chat_text := Game.label("[عام]  KING  مرحباً بالجميع!", 18, Game.font_bold, Color.WHITE)
-	chat_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place(chat_text, 42, 1012, 460, 36)
-	add_child(chat_text)
 	_build_figure()
-	_button("بــدء اللعب  »", 1480, 880, 380, 120, "city", true, 40)
-	_button("⚙", 1760, 20, 64, 64, "settings", false, 30)
-	_button("⏻", 1836, 20, 64, 64, "exit", false, 30)
+
+	# top navigation (image positions)
+	_hit(405, 4, 145, 70, "quick")        # PLAY tab
+	_hit(565, 4, 130, 70, "customize")    # INVENTORY
+	_hit(715, 4, 105, 70, "soon")         # STORE
+	_hit(845, 4, 110, 70, "soon")         # SEASON
+	_hit(990, 4, 95, 70, "soon")          # RANK
+	_hit(1120, 4, 120, 70, "settings")    # SETTINGS
+	_hit(1345, 14, 303, 72, "soon")       # profile
+	# left column
+	_hit(27, 123, 393, 182, "soon")       # season card
+	_hit(27, 322, 386, 78, "quick")       # QUICK PLAY
+	_hit(27, 410, 386, 68, "comp")        # COMPETITIVE
+	_hit(27, 482, 386, 70, "custom")      # CUSTOM GAME
+	_hit(27, 556, 386, 66, "soon")        # TRAINING
+	_hit(27, 628, 386, 68, "soon")        # BATTLE PASS
+	_hit(27, 740, 408, 108, "quick")      # PLAY
+	# right column
+	_hit(1290, 692, 358, 161, "soon")     # new map card
 
 
 func _build_figure() -> void:
 	# the character is rendered in its own 3D view over the lobby; dragging turns it in place
 	var vp := SubViewport.new()
-	vp.size = Vector2i(460, 900)
+	vp.size = Vector2i(560, 881)
 	vp.transparent_bg = true
 	vp.own_world_3d = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(vp)
+	stage.add_child(vp)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CLEAR_COLOR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -99,8 +98,8 @@ func _build_figure() -> void:
 	view.stretch_mode = TextureRect.STRETCH_SCALE
 	view.mouse_filter = Control.MOUSE_FILTER_STOP
 	view.gui_input.connect(_on_figure_input)
-	_place(view, 1270, 100, 460, 900)
-	add_child(view)
+	_ref(view, 520, 60, 560, 881)
+	stage.add_child(view)
 
 
 func _on_figure_input(ev: InputEvent) -> void:
@@ -115,59 +114,67 @@ func _on_figure_input(ev: InputEvent) -> void:
 	_pivot.rotation.y = _yaw
 
 
-func _place(c: Control, x: float, y: float, w: float, h: float) -> void:
-	Game.lay(c, [0, 0, 0, 0], [x, y, x + w, y + h])
+## places a control by image pixel rectangle (anchors as fractions of the full screen)
+func _ref(c: Control, x: float, y: float, w: float, h: float) -> void:
+	c.anchor_left = x / REF.x
+	c.anchor_top = y / REF.y
+	c.anchor_right = (x + w) / REF.x
+	c.anchor_bottom = (y + h) / REF.y
+	c.offset_left = 0
+	c.offset_top = 0
+	c.offset_right = 0
+	c.offset_bottom = 0
 
 
-func _button(text: String, x: float, y: float, w: float, h: float, target: String, primary: bool, fs: int) -> void:
+func _hit(x: float, y: float, w: float, h: float, target: String) -> void:
 	var b := Button.new()
-	b.text = text
-	b.focus_mode = Control.FOCUS_ALL
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	b.add_theme_font_override("font", Game.font_wide if primary else Game.font_bold)
-	b.add_theme_font_size_override("font_size", fs)
-	var dark := Color(0.06, 0.05, 0.02)
-	b.add_theme_color_override("font_color", dark if primary else Color(0.94, 0.96, 1.0))
-	b.add_theme_color_override("font_hover_color", dark if primary else GOLD)
-	b.add_theme_color_override("font_focus_color", dark if primary else GOLD)
-	b.add_theme_color_override("font_pressed_color", dark if primary else GOLD)
-	b.add_theme_stylebox_override("normal", _style(GOLD if primary else Color(0.02, 0.03, 0.06, 1.0), GOLD if primary else Color(CYAN, 0.4)))
-	b.add_theme_stylebox_override("hover", _style(Color(1.0, 0.84, 0.3) if primary else Color(0.06, 0.08, 0.13, 0.92), GOLD))
-	b.add_theme_stylebox_override("pressed", _style(Color(0.9, 0.66, 0.08) if primary else Color(0.02, 0.03, 0.06, 0.95), GOLD))
-	b.add_theme_stylebox_override("focus", _style(GOLD if primary else Color(0.06, 0.08, 0.13, 0.92), Color.WHITE, 2))
-	_place(b, x, y, w, h)
+	var empty := StyleBoxEmpty.new()
+	b.add_theme_stylebox_override("normal", empty)
+	b.add_theme_stylebox_override("focus", empty)
+	b.add_theme_stylebox_override("pressed", _glow())
+	b.add_theme_stylebox_override("hover", _glow())
+	_ref(b, x, y, w, h)
 	b.pressed.connect(_on_item.bind(target))
-	add_child(b)
-	buttons.append(b)
+	stage.add_child(b)
 
 
-func _style(bg: Color, border: Color, width := 2) -> StyleBoxFlat:
+func _glow() -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = bg
-	s.border_color = border
-	s.set_border_width_all(width)
+	s.bg_color = Color(1.0, 0.76, 0.12, 0.06)
+	s.border_color = Color(GOLD, 0.7)
+	s.set_border_width_all(2)
 	s.set_corner_radius_all(8)
 	return s
 
 
 func _on_item(target: String) -> void:
-	if target == "exit":
-		on_back()
-		return
-	if target == "city":
-		if not Online.is_signed_in() and not Online.offline_mode:
-			main.toast("سجّل الدخول للدخول إلى VORN CITY", CYAN)
-			main.go("login")
-			return
-		Online.match_id = ""
-		Online.match_team = ""
-		main.go("loading", {"online": Online.is_signed_in()})
-		return
-	main.go(target)
+	match target:
+		"soon":
+			main.toast("قريباً", CYAN)
+		"quick", "comp", "custom":
+			if not Online.is_signed_in() and not Online.offline_mode:
+				main.toast("سجّل الدخول للدخول إلى VORN", CYAN)
+				main.go("login")
+				return
+			if target == "comp" and not Online.is_signed_in():
+				main.toast("الوضع التنافسي يحتاج تسجيل الدخول", CYAN)
+				return
+			Online.match_id = ""
+			Online.match_team = ""
+			Online.comp_mode = target == "comp"
+			if target == "quick":
+				main.go("loading", {"online": Online.is_signed_in()})
+			else:
+				main.go("match")
+		_:
+			main.go(target)
 
 
 func on_back() -> void:
-	main.confirm("خروج", "هل تريد مغادرة Vorn City؟", "خروج", func(): Online._quit_cleanly())
+	main.confirm("خروج", "هل تريد مغادرة VORN؟", "خروج", func(): Online._quit_cleanly())
 
 
 func _exit_tree() -> void:
