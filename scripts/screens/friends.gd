@@ -107,8 +107,18 @@ func _build_list() -> void:
 			st = "IN A MATCH" if fr.status == "in_match" else "ONLINE  •  IN LOBBY"
 		UI.paint(list_root, _draw_row.bind({"name": fr.name, "status": st, "kind": kind}), Rect2(0, y, 960, 80))
 		var b := UI.button(list_root, "REMOVE", "", 20, Rect2(790, y + 16, 150, 48), _remove.bind(str(fr.uid), str(fr.name)), Game.C_RED)
+		if str(fr.get("lobby", "")) != "" and fr.status != "in_match":
+			var jb := UI.button(list_root, "JOIN", "check", 20, Rect2(620, y + 16, 160, 48), _join_friend.bind(str(fr.lobby)), Game.C_GREEN)
+			jb.set("centered", true)
 		b.set("centered", true)
 		y += 92.0
+
+
+## join the lobby a friend is waiting in
+func _join_friend(lobby: String) -> void:
+	Online.join_target = lobby
+	Online.comp_mode = true
+	main.go("match")
 
 
 func _status_col(kind: String) -> Color:

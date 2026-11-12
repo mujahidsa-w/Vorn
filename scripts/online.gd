@@ -36,6 +36,7 @@ var friend_code := ""
 var friends: Array = []     # [{uid, name, online, status}]
 var requests: Array = []    # [{uid, name}]
 var match_id := ""          # current online match (set by the lobby)
+var join_target := ""       # a friend's lobby to join (set by the friends screen)
 var last_error := ""        # last auth error (shown to the player)
 var match_team := ""
 var comp_mode := false     # competitive rounds (buy, live, end, first to 8) instead of the default match
@@ -162,7 +163,8 @@ func refresh_friends() -> void:
 		var u: Array = await db.call_async("misc", HTTPClient.METHOD_GET, "users/" + str(fid))
 		var d: Dictionary = u[0] if u[0] is Dictionary else {}
 		var fresh: bool = d.get("online", false) and now_ms() - float(d.get("ts", 0)) < 90000.0
-		out.append({"uid": fid, "name": str(d.get("name", "PLAYER")), "online": fresh, "status": str(d.get("status", "")) if fresh else "offline"})
+		out.append({"uid": fid, "name": str(d.get("name", "PLAYER")), "online": fresh, "status": str(d.get("status", "")) if fresh else "offline",
+			"lobby": str(d.get("lobby", "")) if fresh else ""})
 	out.sort_custom(func(a, b): return int(a.online) > int(b.online))
 	friends = out
 	var rq: Array = await db.call_async("misc", HTTPClient.METHOD_GET, "requests/" + uid)
@@ -171,6 +173,12 @@ func refresh_friends() -> void:
 		for k in rq[0]:
 			requests.append({"uid": k, "name": str(rq[0][k])})
 	friends_changed.emit()
+
+
+## the lobby we are waiting in, visible to friends so they can join it ("" when not in one)
+func set_lobby(mid: String) -> void:
+	if _presence_started:
+		db.request("misc", HTTPClient.METHOD_PATCH, "users/" + uid, {"lobby": mid})
 
 
 func online_friends() -> int:

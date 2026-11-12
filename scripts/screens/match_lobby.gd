@@ -76,6 +76,10 @@ func _ready() -> void:
 	ready_btn.set("hint", "F")
 	ready_btn.set("primary", true)
 
+	var sw := UI.button(self, "SWITCH TEAM", "", 26, Rect2(0, 0, 0, 0), _switch_team, Game.C_CYAN)
+	Game.lay(sw, [0, 0, 0, 0], [500, 170, 930, 228])
+	sw.set("centered", true)
+
 	# chat
 	UI.paint(self, _draw_chat_bg, Rect2(50, 656, 880, 374))
 	chat_log = RichTextLabel.new()
@@ -189,6 +193,20 @@ func _find_match() -> void:
 			if not _leaving:
 				_find_match()
 			return
+	# joining a friend's lobby (from the friends screen)
+	if Online.join_target != "":
+		var target := Online.join_target
+		Online.join_target = ""
+		var jr: Array = await db.call_async("lobby", HTTPClient.METHOD_GET, "matches/" + target)
+		if _leaving:
+			return
+		var jd = jr[0]
+		if jd is Dictionary and str(jd.get("state", "")) == "waiting":
+			var jp: Dictionary = jd.get("players", {}) if jd.get("players") is Dictionary else {}
+			if jp.size() < MAX_PER_TEAM * 2:
+				await _join(target, jp)
+				return
+		_sys("Your friend's lobby is full or already playing — finding another one.")
 	var r: Array = await db.call_async("lobby", HTTPClient.METHOD_GET, "open", null, "shallow=true")
 	if _leaving:
 		return
@@ -241,8 +259,9 @@ func _join(m: String, existing: Dictionary) -> void:
 	Online.match_id = mid
 	Online.match_team = my_team
 	Online.set_status("lobby")
+	Online.set_lobby(mid)
 	_state = "waiting"
-	_sys("Joined lobby [b]DOWNTOWN HEIST[/b] as [color=#%s]%s[/color]." % [_team_col(my_team).to_html(false), my_team.to_upper()])
+	_sys("Joined lobby [b]VORN ARENA[/b] as [color=#%s]%s[/color]." % [_team_col(my_team).to_html(false), my_team.to_upper()])
 	_sys("Waiting for real players. Press [b]F[/b] to ready up — the match starts when 2+ players are all ready.")
 	if OS.get_cmdline_user_args().has("--nettest"):
 		await get_tree().create_timer(2.0).timeout
@@ -430,6 +449,25 @@ func _process(delta: float) -> void:
 	_refresh()
 
 
+## move to the other team (before readying up, if it has room)
+func _switch_team() -> void:
+	if mid == "" or _state != "waiting":
+		return
+	if me.get("ready", false):
+		_sys("Un-ready first to switch teams.")
+		return
+	var other := "b" if my_team == "a" else "a"
+	if teams[other].size() >= MAX_PER_TEAM:
+		_sys("The %s team is full." % other.to_upper())
+		return
+	my_team = other
+	Online.match_team = my_team
+	Game.play_sfx("click")
+	db.request("lobby", HTTPClient.METHOD_PATCH, "matches/%s/players/%s" % [mid, Online.uid], {"team": my_team})
+	_say_net("switched to team " + my_team.to_upper())
+	_refresh()
+
+
 func _toggle_ready() -> void:
 	if mid == "":
 		return
@@ -463,6 +501,7 @@ func _leave_match() -> void:
 		db.request("lobby", HTTPClient.METHOD_DELETE, "matches/" + mid)
 		db.request("lobby", HTTPClient.METHOD_DELETE, "open/" + mid)
 	Online.match_id = ""
+	Online.set_lobby("")
 	mid = ""
 
 

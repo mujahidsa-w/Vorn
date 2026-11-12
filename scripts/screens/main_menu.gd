@@ -74,8 +74,20 @@ func _zero_profile() -> void:
 	_cover(1548, 90, 62, 34)             # gem amount
 	_text(str(int(Game.player.gems)), 1550, 94, 60, 28, 22, Game.font_bold, Color.WHITE)
 	_cover(1400, 152, 248, 476)          # online list
-	_text("ONLINE (0)", 1416, 170, 220, 26, 20, Game.font_bold, Color.WHITE)
-	_text("لا يوجد أصدقاء بعد", 1416, 300, 216, 30, 20, Game.font_bold, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	# friends panel: real friends from the server (tap to open the friends screen)
+	var fr: Array = Online.friends
+	_text("FRIENDS (%d)" % fr.size(), 1416, 170, 220, 26, 20, Game.font_bold, Color.WHITE)
+	if fr.is_empty():
+		_text("لا يوجد أصدقاء بعد", 1416, 300, 216, 30, 20, Game.font_bold, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+		_text("اضغط لإضافة صديق بالكود", 1416, 340, 216, 26, 16, Game.font_bold, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	else:
+		var y := 215.0
+		for f in fr.slice(0, 6):
+			var st := "IN LOBBY" if str(f.get("lobby", "")) != "" else ("IN MATCH" if f.status == "in_match" else ("ONLINE" if f.online else "OFFLINE"))
+			_text(str(f.name), 1430, y, 200, 26, 19, Game.font_bold, Color.WHITE if f.online else Game.C_DIM)
+			_text(st, 1430, y + 26, 200, 20, 14, Game.font_bold, Color(0.4, 0.95, 0.5) if f.online else Game.C_DIM)
+			y += 66.0
+	_hit(1400, 152, 248, 476, "friends")
 
 
 func _cover(x: float, y: float, w: float, h: float) -> void:
