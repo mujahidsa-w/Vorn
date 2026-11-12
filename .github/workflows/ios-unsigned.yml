@@ -41,7 +41,7 @@ jobs:
           # Generate the Xcode project only; xcodebuild below performs the unsigned build.
           sed -i '' 's/application\/export_project_only=false/application\/export_project_only=true/' export_presets.cfg
           mkdir -p build/ios
-          "$GODOT" --headless --path . --export-release "iOS" build/ios/CopsAndRobbers.xcodeproj
+          "$GODOT" --headless --path . --export-release "iOS" build/ios/VORN.xcodeproj
           PROJ=$(find build/ios -maxdepth 2 -name "*.xcodeproj" | head -1)
           if [ -z "$PROJ" ]; then echo "Xcode project not found"; find build -maxdepth 3; exit 1; fi
           echo "PROJ=$PROJ" >> "$GITHUB_ENV"
@@ -70,7 +70,7 @@ jobs:
           if [ -z "$APP" ]; then echo "App bundle not found"; exit 1; fi
           mkdir -p build/ipa/Payload
           cp -R "$APP" build/ipa/Payload/
-          (cd build/ipa && zip -qr "../CopsAndRobbers-unsigned.ipa" Payload)
+          (cd build/ipa && zip -qr "../VORN-unsigned.ipa" Payload)
 
       # ---------- SIGNED (needs Apple Developer secrets) ----------
       - name: Import certificate and provisioning profile
@@ -97,7 +97,7 @@ jobs:
         if: env.SIGNED == 'true'
         run: |
           xcodebuild archive -project "$PROJ" -scheme "$TARGET" -configuration Release -sdk iphoneos \
-            -archivePath build/CopsAndRobbers.xcarchive \
+            -archivePath build/VORN.xcarchive \
             CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
             PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
             CODE_SIGN_IDENTITY="${IOS_SIGN_IDENTITY:-Apple Distribution}"
@@ -106,7 +106,7 @@ jobs:
         if: env.SIGNED == 'true'
         run: |
           METHOD="${IOS_EXPORT_METHOD:-ad-hoc}"
-          BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw build/CopsAndRobbers.xcarchive/Products/Applications/*.app/Info.plist)
+          BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw build/VORN.xcarchive/Products/Applications/*.app/Info.plist)
           cat > build/exportOptions.plist <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -122,14 +122,14 @@ jobs:
           </dict>
           </plist>
           PLIST
-          xcodebuild -exportArchive -archivePath build/CopsAndRobbers.xcarchive \
+          xcodebuild -exportArchive -archivePath build/VORN.xcarchive \
             -exportPath build/ipa -exportOptionsPlist build/exportOptions.plist
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: CopsAndRobbers-iOS
+          name: VORN-iOS
           path: |
-            build/CopsAndRobbers-unsigned.ipa
+            build/VORN-unsigned.ipa
             build/ipa/*.ipa
           if-no-files-found: error
