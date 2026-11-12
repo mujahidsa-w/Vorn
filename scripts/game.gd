@@ -28,15 +28,17 @@ var font_wide: FontVariation
 var font_tag: FontVariation
 
 var player := {
-	"name": "PLAYER",
-	"level": 1,
-	"xp": 0.62,
-	"coins": 12480,
-	"gems": 860,
+	"name": "",
+	"name_set": false,
+	"level": 0,
+	"xp": 0.0,
+	"coins": 0,
+	"gems": 0,
 	"owned": [],
 	"equipped": {},
 	"daily_claimed": "",
 	"gps_dest": null,
+	"reset_v3": false,
 }
 var next_screen := ""
 var settings := {
@@ -332,6 +334,20 @@ func load_data() -> void:
 	for k in player:
 		if cf.has_section_key("player", k):
 			player[k] = cf.get_value("player", k)
+	# one-time fresh start: zero currency, level and friends, and a new sign-in with a name pick
+	if not bool(player.get("reset_v3", false)):
+		player.name = ""
+		player.name_set = false
+		player.level = 0
+		player.xp = 0.0
+		player.coins = 0
+		player.gems = 0
+		player.owned = []
+		player.equipped = {}
+		player.daily_claimed = ""
+		player.reset_v3 = true
+		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://auth.cfg"))
+		save_data()
 
 
 func spend(currency: String, amount: int) -> bool:

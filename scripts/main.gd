@@ -8,6 +8,7 @@ const NeonButton = preload("res://scripts/ui/neon_button.gd")
 
 const SCREENS := {
 	"menu": preload("res://scripts/screens/main_menu.gd"),
+	"name": preload("res://scripts/screens/name_pick.gd"),
 		"match": preload("res://scripts/screens/match_lobby.gd"),
 	"loading": preload("res://scripts/screens/loading.gd"),
 	"customize": preload("res://scripts/screens/customize.gd"),

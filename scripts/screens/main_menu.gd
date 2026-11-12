@@ -4,7 +4,6 @@ extends Control
 ## Positions are in the image's own pixels (1672 x 941) and scale with the window.
 
 const IMG := preload("res://assets/img/lobby_reference.jpg")
-const FIGURE := preload("res://scripts/screens/lobby_figure.gd")
 const TURN_MAX := 1.2  # radians (about 70 degrees) either side
 const GOLD := Color(1.0, 0.76, 0.12)
 const CYAN := Color(0.25, 0.85, 1.0)
@@ -41,7 +40,7 @@ func _ready() -> void:
 	pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	stage.add_child(pic)
 
-	_build_figure()
+	_zero_profile()
 
 	# top navigation (image positions)
 	_hit(405, 4, 145, 70, "quick")        # PLAY tab
@@ -63,43 +62,35 @@ func _ready() -> void:
 	_hit(1290, 692, 358, 161, "soon")     # new map card
 
 
-func _build_figure() -> void:
-	# the character is rendered in its own 3D view over the lobby; dragging turns it in place
-	var vp := SubViewport.new()
-	vp.size = Vector2i(560, 881)
-	vp.transparent_bg = true
-	vp.own_world_3d = true
-	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	stage.add_child(vp)
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CLEAR_COLOR
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.55, 0.6, 0.72)
-	env.ambient_light_energy = 0.9
-	var we := WorldEnvironment.new()
-	we.environment = env
-	vp.add_child(we)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-30, 35, 0)
-	sun.light_energy = 1.6
-	vp.add_child(sun)
-	_pivot = Node3D.new()
-	_pivot.set_script(FIGURE)
-	vp.add_child(_pivot)
-	var cam := Camera3D.new()
-	cam.fov = 30.0
-	cam.position = Vector3(0, 0.95, 4.2)
-	vp.add_child(cam)
-	cam.look_at(Vector3(0, 0.95, 0), Vector3.UP)
-	cam.current = true
-	var view := TextureRect.new()
-	view.texture = vp.get_texture()
-	view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	view.stretch_mode = TextureRect.STRETCH_SCALE
-	view.mouse_filter = Control.MOUSE_FILTER_STOP
-	view.gui_input.connect(_on_figure_input)
-	_ref(view, 520, 60, 560, 881)
-	stage.add_child(view)
+## the design image paints a profile, currency and friends list with sample values; they are
+## covered and redrawn from the real (fresh) player data
+func _zero_profile() -> void:
+	var nm := str(Game.player.name) if bool(Game.player.name_set) else "—"
+	_cover(1345, 14, 303, 72)            # profile card (avatar, name, level, xp bar)
+	_text(nm, 1360, 24, 240, 26, 22, Game.font_bold, Color.WHITE)
+	_text("LV %d" % int(Game.player.level), 1360, 52, 120, 20, 16, Game.font_bold, Game.C_DIM)
+	_cover(1422, 90, 100, 34)             # coin amount
+	_text(str(int(Game.player.coins)), 1427, 94, 90, 28, 22, Game.font_bold, Color.WHITE)
+	_cover(1548, 90, 62, 34)             # gem amount
+	_text(str(int(Game.player.gems)), 1550, 94, 60, 28, 22, Game.font_bold, Color.WHITE)
+	_cover(1400, 152, 248, 476)          # online list
+	_text("ONLINE (0)", 1416, 170, 220, 26, 20, Game.font_bold, Color.WHITE)
+	_text("لا يوجد أصدقاء بعد", 1416, 300, 216, 30, 20, Game.font_bold, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _cover(x: float, y: float, w: float, h: float) -> void:
+	var r := ColorRect.new()
+	r.color = Color(0.035, 0.05, 0.08, 1.0)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ref(r, x, y, w, h)
+	stage.add_child(r)
+
+
+func _text(t: String, x: float, y: float, w: float, h: float, fs: int, font: Font, col: Color, align := HORIZONTAL_ALIGNMENT_LEFT) -> void:
+	var l := Game.label(t, fs, font, col, align)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ref(l, x, y, w, h)
+	stage.add_child(l)
 
 
 func _on_figure_input(ev: InputEvent) -> void:
@@ -161,6 +152,9 @@ func _on_item(target: String) -> void:
 				return
 			if target == "comp" and not Online.is_signed_in():
 				main.toast("الوضع التنافسي يحتاج تسجيل الدخول", CYAN)
+				return
+			if not Game.player.name_set:
+				main.go("name")
 				return
 			Online.match_id = ""
 			Online.match_team = ""

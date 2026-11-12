@@ -116,7 +116,7 @@ func _done() -> void:
 	status.text = "Welcome, " + Online.display_name + "!"
 	Game.play_sfx("ready")
 	main.toast("SIGNED IN AS  " + Online.display_name, Game.C_GREEN)
-	main.go("menu")
+	main.go("menu" if Game.player.name_set else "name")
 
 
 func _failed(msg: String) -> void:
