@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-ios:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 90
     env:
       IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
