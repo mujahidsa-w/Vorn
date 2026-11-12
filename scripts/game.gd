@@ -64,11 +64,18 @@ var settings := {
 	"weather": 0,        # 0 dynamic, 1 clear, 2 rain, 3 fog
 	"map_north": 0,      # minimap: 0 rotates with you, 1 north up
 	"gps_beep": true,
+	"btn_scale": 1,      # mobile buttons: 0 small, 1 medium, 2 large
+	"btn_alpha": 0.6,    # mobile buttons opacity
+	"left_fire": true,   # second fire button on the left
+	"aim_sens": 0.6,     # look speed while aiming (multiplier)
+	"shadows": true,     # match: sun and fire shadows
+	"fx_level": 1,       # match: 0 low, 1 high (flames / smoke particles)
 }
 const DEFAULT_SETTINGS := {
 	"fullscreen": true, "vsync": true, "show_fps": false, "rain": true, "max_fps": 30, "quality": 1,
 	"master": 0.8, "music": 0.55, "sfx": 0.8, "cam_dist": 2.3, "fov": 62.0, "sens": 1.0, "invert_y": false,
 	"gfx_api": 0, "time_mode": 0, "weather": 0, "map_north": 0, "gps_beep": true,
+	"btn_scale": 1, "btn_alpha": 0.6, "left_fire": true, "aim_sens": 0.6, "shadows": true, "fx_level": 1,
 }
 
 var _music: AudioStreamPlayer

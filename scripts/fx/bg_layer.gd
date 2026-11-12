@@ -2,7 +2,7 @@ extends Control
 ## Lobby background: slow camera drift + mouse parallax, flashing police lights,
 ## neon flicker, lightning, and a dim overlay used by sub-screens.
 
-var tex: Texture2D = preload("res://assets/img/lobby_bg.jpg")
+var tex: Texture2D = preload("res://assets/img/app_bg.jpg")
 var glow: GradientTexture2D
 var lights: Control
 var t := 0.0

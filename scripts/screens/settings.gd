@@ -25,9 +25,9 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.back_button(self, on_back)
 	UI.header(self, "SETTINGS", "CHANGES ARE SAVED AUTOMATICALLY")
-	var names := ["GRAPHICS", "AUDIO", "CONTROLS"]
-	for i in 3:
-		var b := UI.button(self, names[i], "", 26, Rect2(50 + i * 232, 236, 220, 58), _set_tab.bind(i))
+	var names := ["GRAPHICS", "AUDIO", "CONTROLS", "MOBILE"]
+	for i in 4:
+		var b := UI.button(self, names[i], "", 24, Rect2(50 + i * 196, 236, 186, 58), _set_tab.bind(i))
 		b.set("centered", true)
 		tab_btns.append(b)
 	UI.paint(self, func(c: Control): Game.draw_panel(c, Rect2(Vector2.ZERO, c.size)), Rect2(50, 310, 1100, 700))
@@ -35,7 +35,7 @@ func _ready() -> void:
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	UI.rect(content, 70, 330, 1060, 660)
 	add_child(content)
-	var reset := UI.button(self, "RESET TO DEFAULT", "", 22, Rect2(850, 236, 300, 58), _reset, Game.C_RED)
+	var reset := UI.button(self, "RESET", "", 22, Rect2(850, 236, 300, 58), _reset, Game.C_RED)
 	reset.set("centered", true)
 	var who := "GOOGLE:  " + Online.email if not Online.guest else "GUEST ACCOUNT"
 	var acc := Game.label("ACCOUNT\n" + Online.display_name + "\n" + who, 20, Game.font_semi, Game.C_TEXT)
@@ -68,9 +68,8 @@ func _set_tab(i: int) -> void:
 			_opt("V-Sync", ["OFF", "ON"], 1 if Game.settings.vsync else 0, func(v): Game.set_setting("vsync", v == 1))
 			var fps_labels := ["UNLIMITED", "30", "60", "120", "144"]
 			_opt("Max FPS", fps_labels, maxi(0, FPS_OPTS.find(int(Game.settings.max_fps))), func(v): Game.set_setting("max_fps", FPS_OPTS[v]))
-			_opt("Rain Effects", ["OFF", "ON"], 1 if Game.settings.rain else 0, func(v): Game.set_setting("rain", v == 1))
-			_opt("Time of Day", ["DYNAMIC", "DAY", "SUNSET", "NIGHT"], int(Game.settings.time_mode), func(v): Game.set_setting("time_mode", v))
-			_opt("Weather", ["DYNAMIC", "CLEAR", "RAIN", "FOG"], int(Game.settings.weather), func(v): Game.set_setting("weather", v))
+			_opt("Shadows", ["OFF  (FAST)", "ON"], 1 if Game.settings.shadows else 0, func(v): Game.set_setting("shadows", v == 1))
+			_opt("Fire & Smoke Effects", ["LOW", "HIGH"], int(Game.settings.fx_level), func(v): Game.set_setting("fx_level", v))
 			if OS.get_name() == "Windows":
 				_opt("Graphics API  (now: %s)" % Game.render_api_name(), ["DIRECTX 11", "OPENGL"], int(Game.settings.gfx_api), func(v):
 					Game.set_setting("gfx_api", v)
@@ -83,6 +82,13 @@ func _set_tab(i: int) -> void:
 		2:
 			var p := UI.paint(content, _draw_keys, Rect2(0, 0, 1060, 660))
 			p.name = "keys"
+		3:
+			_slider("Look Sensitivity", clampf(float(Game.settings.sens) / 3.0, 0.0, 1.0), func(v): Game.set_setting("sens", maxf(0.15, v * 3.0)))
+			_slider("Aim Sensitivity", clampf(float(Game.settings.aim_sens), 0.0, 1.0), func(v): Game.set_setting("aim_sens", maxf(0.15, v)))
+			_opt("Invert Look (Y)", ["OFF", "ON"], 1 if Game.settings.invert_y else 0, func(v): Game.set_setting("invert_y", v == 1))
+			_opt("Button Size", ["SMALL", "MEDIUM", "LARGE"], int(Game.settings.btn_scale), func(v): Game.set_setting("btn_scale", v))
+			_slider("Button Opacity", clampf(float(Game.settings.btn_alpha), 0.0, 1.0), func(v): Game.set_setting("btn_alpha", maxf(0.2, v)))
+			_opt("Left Fire Button", ["OFF", "ON"], 1 if Game.settings.left_fire else 0, func(v): Game.set_setting("left_fire", v == 1))
 	await get_tree().process_frame
 	for c in content.get_children():
 		if c is Button and not c.is_queued_for_deletion():

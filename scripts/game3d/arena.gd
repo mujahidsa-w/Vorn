@@ -144,7 +144,7 @@ func _build() -> void:
 	sun.rotation_degrees = Vector3(-32, 58, 0)
 	sun.light_color = Color(1.0, 0.88, 0.7)
 	sun.light_energy = 0.9
-	sun.shadow_enabled = true
+	sun.shadow_enabled = bool(Game.settings.get("shadows", true))
 	sun.shadow_blur = 1.5
 	sun.directional_shadow_max_distance = 220.0
 	sun.light_cull_mask = ARENA_LAYER
@@ -424,7 +424,7 @@ func _fire_fx(at: Vector3) -> void:
 	var pos := at - Vector3(0, 0.95, 0)
 	var flame := CPUParticles3D.new()
 	flame.position = pos + Vector3(0, 0.95, 0)
-	flame.amount = 46
+	flame.amount = 46 if int(Game.settings.get("fx_level", 1)) > 0 else 18
 	flame.lifetime = 0.75
 	flame.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	flame.emission_sphere_radius = 0.18
@@ -461,7 +461,7 @@ func _fire_fx(at: Vector3) -> void:
 
 	var smoke := CPUParticles3D.new()
 	smoke.position = pos + Vector3(0, 1.6, 0)
-	smoke.amount = 26
+	smoke.amount = 26 if int(Game.settings.get("fx_level", 1)) > 0 else 8
 	smoke.lifetime = 4.5
 	smoke.direction = Vector3.UP
 	smoke.spread = 18.0

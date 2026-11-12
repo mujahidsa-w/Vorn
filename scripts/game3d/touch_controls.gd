@@ -1,27 +1,33 @@
 extends CanvasLayer
-## On-screen controls for phones: movement joystick, camera drag, action buttons,
-## and driving controls. They feed the same inputs the keyboard and mouse use.
+## Mobile controls for the match, laid out like mobile tactical shooters:
+## - left half: floating joystick (push to the edge to run)
+## - right half: drag to look (dragging the fire buttons also aims)
+## - icon buttons: fire (right, plus optional left fire), aim, reload, jump, crouch,
+##   weapon slots, scoreboard (hold) and settings
+## Size, opacity, left fire and sensitivity come from the settings (MOBILE tab).
+## Everything feeds the same inputs keyboard and mouse use, so gameplay code is shared.
 
 const W = preload("res://scripts/game3d/weapons.gd")
+const SIZES := [0.85, 1.0, 1.18]
 
 var world
 var pad: Control
 var t := 0.0
 
-# joystick
 var joy_id := -1
-var joy_base := Vector2(560, 820)
-var joy_pos := Vector2(560, 820)
+var joy_home := Vector2(330, 790)
+var joy_base := Vector2(330, 790)
+var joy_pos := Vector2(330, 790)
 var joy_vec := Vector2.ZERO
-const JOY_R := 140.0
-# camera drag
+const JOY_R := 135.0
+
 var look_id := -1
-var look_last := Vector2.ZERO
-# buttons: id -> {pos, r, label, key, hold, mode}
-var buttons := {}
-var btn_touch := {}           # touch index -> button id
-var _held := {}               # key -> bool (keys we currently hold down)
+var buttons := {}            # id -> {pos, r, icon, key, hold, down}
+var btn_touch := {}          # touch index -> button id
+var _held := {}
 var _aim_on := false
+var _scale := 1.0
+var _alpha := 0.6
 
 
 func _ready() -> void:
@@ -33,70 +39,45 @@ func _ready() -> void:
 	pad.draw.connect(_draw_pad)
 	add_child(pad)
 	Input.emulate_mouse_from_touch = false
-	# on foot
-	_btn("fire", Vector2(1660, 790), 100, "FIRE", "lmb", true, "foot")
-	_btn("aim", Vector2(1490, 945), 58, "AIM", "aim", false, "foot")
-	_btn("jump", Vector2(1845, 620), 58, "JUMP", KEY_SPACE, false, "foot")
-	_btn("crouch", Vector2(1845, 950), 58, "CROUCH", KEY_C, false, "foot")
-	_btn("reload", Vector2(1490, 630), 50, "RELOAD", KEY_R, false, "foot")
-	_btn("use", Vector2(1665, 545), 58, "USE", KEY_E, false, "foot")
-	_btn("weapon", Vector2(1310, 985), 52, "WEAPON", "weapon", false, "foot")
-	_btn("view", Vector2(1845, 400), 46, "VIEW", KEY_V, false, "both")
-	_btn("map", Vector2(1845, 280), 46, "MAP", KEY_F11, false, "both")
-	_btn("pause", Vector2(1845, 160), 46, "II", KEY_ESCAPE, false, "both")
-	_btn("c4", Vector2(1310, 830), 46, "BOOM", KEY_G, false, "foot")
-	# in a car
-	_btn("gas", Vector2(1760, 860), 100, "GAS", KEY_W, true, "car")
-	_btn("brake", Vector2(1530, 920), 78, "BRAKE", KEY_S, true, "car")
-	_btn("left", Vector2(170, 880), 92, "◀", KEY_A, true, "car")
-	_btn("right", Vector2(420, 880), 92, "▶", KEY_D, true, "car")
-	_btn("hand", Vector2(1760, 620), 58, "HAND", KEY_SPACE, true, "car")
-	_btn("exit", Vector2(1560, 640), 58, "EXIT", KEY_E, false, "car")
-	_btn("siren", Vector2(1360, 980), 52, "SIREN", KEY_Q, false, "car")
-	_btn("horn", Vector2(1360, 820), 46, "HORN", KEY_H, false, "car")
+	_layout()
+	Game.settings_changed.connect(_layout)
 
 
-func _btn(id: String, p: Vector2, r: float, label: String, key, hold: bool, mode: String) -> void:
-	buttons[id] = {"pos": p, "r": r, "label": label, "key": key, "hold": hold, "mode": mode, "down": false}
+## button positions on the 1920x1080 canvas, scaled around their own centre
+func _layout() -> void:
+	_scale = SIZES[clampi(int(Game.settings.get("btn_scale", 1)), 0, 2)]
+	_alpha = clampf(float(Game.settings.get("btn_alpha", 0.6)), 0.2, 1.0)
+	var s := _scale
+	buttons.clear()
+	_btn("fire", Vector2(1640, 800), 96 * s, "fire", "lmb", true)
+	if bool(Game.settings.get("left_fire", true)):
+		_btn("fire_l", Vector2(250, 470), 70 * s, "fire", "lmb", true)
+	_btn("aim", Vector2(1800, 600), 58 * s, "aim", "aim", false)
+	_btn("reload", Vector2(1450, 620), 52 * s, "reload", KEY_R, false)
+	_btn("jump", Vector2(1820, 860), 60 * s, "jump", KEY_SPACE, false)
+	_btn("crouch", Vector2(1660, 1000), 54 * s, "crouch", KEY_C, false)
+	_btn("slot1", Vector2(1160, 1010), 46 * s, "slot", KEY_1, false)
+	_btn("slot2", Vector2(1290, 1010), 46 * s, "slot", KEY_2, false)
+	_btn("score", Vector2(1720, 70), 38 * s, "score", KEY_TAB, true)
+	_btn("pause", Vector2(1840, 70), 38 * s, "gear", KEY_ESCAPE, false)
 
 
-func _in_car() -> bool:
-	return world != null and world.active_car != null
-
-
-func _visible_btn(b: Dictionary) -> bool:
-	if b.mode == "both":
-		return true
-	var car := _in_car()
-	if b.mode == "car" and not car:
-		return false
-	if b.mode == "foot" and car:
-		return false
-	return true
-
-
-func _canvas_pos(screen_pos: Vector2) -> Vector2:
-	# touch positions are in window pixels; the UI is laid out on a 1920x1080 canvas
-	# Godot already maps touch positions onto the 1920x1080 canvas before _input
-	return screen_pos
+func _btn(id: String, p: Vector2, r: float, icon: String, key, hold: bool) -> void:
+	buttons[id] = {"pos": p, "r": r, "icon": icon, "key": key, "hold": hold, "down": false}
 
 
 func _blocked() -> bool:
-	return get_tree().paused or (world and world.hud and world.hud.map_open)
+	return get_tree().paused or (world and world.hud and world.hud.get("map_open"))
 
 
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventScreenTouch or event is InputEventScreenDrag):
 		return
 	if _blocked():
-		# let the pause menu / map receive the touches as clicks
 		if event is InputEventScreenTouch and not event.pressed:
 			_release_all()
-		var map_btn: Dictionary = buttons["map"]
-		if event is InputEventScreenTouch and event.pressed and world.hud.map_open and _canvas_pos(event.position).distance_to(map_btn.pos) < map_btn.r + 20:
-			_tap_key(KEY_F11)
 		return
-	var p := _canvas_pos(event.position)
+	var p: Vector2 = event.position
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_touch_down(event.index, p)
@@ -111,28 +92,28 @@ func _input(event: InputEvent) -> void:
 func _touch_down(idx: int, p: Vector2) -> void:
 	for id in buttons:
 		var b: Dictionary = buttons[id]
-		if _visible_btn(b) and p.distance_to(b.pos) < b.r + 14:
+		if p.distance_to(b.pos) < b.r + 16:
 			btn_touch[idx] = id
 			_press(id)
-			if id == "fire":
-				look_id = idx       # dragging the fire button also aims (like mobile shooters)
-				look_last = p
+			if id == "fire" or id == "fire_l":
+				look_id = idx        # drag while firing to keep aiming
 			return
-	if p.x < 1000 and p.y > 380 and not _in_car():
+	if p.x < 900 and p.y > 300:
 		joy_id = idx
 		joy_base = p
 		joy_pos = p
 		joy_vec = Vector2.ZERO
 		return
-	if p.x > 1000 and look_id == -1:
+	if p.x >= 900 and look_id == -1:
 		look_id = idx
-		look_last = p
 
 
 func _touch_drag(idx: int, p: Vector2, rel: Vector2) -> void:
 	if idx == joy_id:
 		var d := p - joy_base
 		if d.length() > JOY_R:
+			# the base follows the finger when pulled far, so direction changes stay quick
+			joy_base = p - d.normalized() * JOY_R
 			d = d.normalized() * JOY_R
 		joy_pos = joy_base + d
 		joy_vec = d / JOY_R
@@ -154,15 +135,12 @@ func _touch_up(idx: int) -> void:
 
 
 func _look(rel: Vector2) -> void:
-	var sens := 0.0042 * float(Game.settings.get("sens", 1.0))
-	if _in_car():
-		world.active_car.cam_yaw_off = clampf(world.active_car.cam_yaw_off - rel.x * sens * 0.8, -2.6, 2.6)
-		return
 	var pl = world.player
 	if pl == null or pl.dead:
 		return
+	var sens := 0.0042 * float(Game.settings.get("sens", 1.0))
 	if pl.aiming:
-		sens *= 0.5
+		sens *= float(Game.settings.get("aim_sens", 0.6))
 	var inv := -1.0 if bool(Game.settings.get("invert_y", false)) else 1.0
 	pl.yaw -= rel.x * sens
 	pl.pitch = clampf(pl.pitch - rel.y * sens * inv, -1.25, 0.8)
@@ -174,7 +152,7 @@ func _apply_joystick() -> void:
 	_hold(KEY_S, v.y > 0.3)
 	_hold(KEY_A, v.x < -0.3)
 	_hold(KEY_D, v.x > 0.3)
-	_hold(KEY_SHIFT, v.length() > 0.92)
+	_hold(KEY_SHIFT, v.length() > 0.95 and v.y < -0.5)
 
 
 func _hold(k: Key, on: bool) -> void:
@@ -204,22 +182,13 @@ func _mouse(btn: MouseButton, on: bool) -> void:
 func _press(id: String) -> void:
 	var b: Dictionary = buttons[id]
 	b.down = true
+	Game.play_sfx("click", 1.3, -14.0)
 	match str(b.key):
 		"lmb":
 			_mouse(MOUSE_BUTTON_LEFT, true)
 		"aim":
 			_aim_on = not _aim_on
 			_mouse(MOUSE_BUTTON_RIGHT, _aim_on)
-		"weapon":
-			var pl = world.player
-			if pl and pl.inventory.size() > 0:
-				var i: int = pl.inventory.find(pl.current)
-				var nxt := i + 1
-				if nxt >= pl.inventory.size():
-					pl.equip("")
-				else:
-					pl.equip(pl.inventory[nxt])
-				Game.play_sfx("click", 1.2, -6.0)
 		_:
 			if b.hold:
 				_hold(b.key, true)
@@ -228,9 +197,15 @@ func _press(id: String) -> void:
 
 
 func _release(id: String) -> void:
+	if not buttons.has(id):
+		return
 	var b: Dictionary = buttons[id]
 	b.down = false
 	if str(b.key) == "lmb":
+		# keep shooting while the other fire button is still held
+		for other in btn_touch.values():
+			if other != id and buttons.has(other) and str(buttons[other].key) == "lmb":
+				return
 		_mouse(MOUSE_BUTTON_LEFT, false)
 	elif b.hold and not (b.key is String):
 		_hold(b.key, false)
@@ -242,6 +217,7 @@ func _release_all() -> void:
 	btn_touch.clear()
 	for k in _held.keys():
 		_hold(k, false)
+	_mouse(MOUSE_BUTTON_LEFT, false)
 	joy_id = -1
 	look_id = -1
 	joy_vec = Vector2.ZERO
@@ -249,66 +225,137 @@ func _release_all() -> void:
 
 func _process(delta: float) -> void:
 	t += delta
-	# aim toggle follows the weapon (no aiming with fists)
-	if _aim_on and world and world.player and world.player.current == "":
+	if _aim_on and world and world.player and (world.player.current == "" or world.player.dead):
 		_aim_on = false
 		_mouse(MOUSE_BUTTON_RIGHT, false)
-	if _in_car() and joy_id != -1:
-		joy_id = -1
-		joy_vec = Vector2.ZERO
-		_apply_joystick()
 	pad.visible = not get_tree().paused
 	pad.queue_redraw()
 
 
-func _label_for(id: String, b: Dictionary) -> String:
-	var pl = world.player if world else null
-	match id:
-		"use":
-			if pl and not _in_car():
-				var pk = world.nearest_pickup(1.9)
-				if pk:
-					return "TAKE"
-				if world.nearest_car(4.5):
-					return "ENTER"
-			return "USE"
-		"weapon":
-			if pl and pl.current != "":
-				var nm := str(W.DATA[pl.current].name).get_slice(" ", 0)
-				if pl.reload_t > 0.0:
-					return nm + " ..."
-				return nm + " %d/%d" % [int(pl.ammo.get(pl.current, 0)), int(W.DATA[pl.current].mag)]
-			return "FISTS"
-		"aim":
-			return "AIM" if not _aim_on else "AIM ✓"
-	return str(b.label)
-
-
+# ---------------------------------------------------------------- drawing
 func _draw_pad() -> void:
 	if world == null or world.player == null or world.player.dead:
 		return
 	var c := pad
+	var a := _alpha
 	# joystick
-	if not _in_car():
-		var base := joy_base if joy_id != -1 else Vector2(560, 820)
-		var knob := joy_pos if joy_id != -1 else base
-		c.draw_circle(base, JOY_R, Color(0, 0, 0, 0.22))
-		c.draw_arc(base, JOY_R, 0, TAU, 48, Color(1, 1, 1, 0.25), 3.0, true)
-		c.draw_circle(knob, 58, Color(1, 1, 1, 0.28 if joy_id != -1 else 0.16))
-		c.draw_arc(knob, 58, 0, TAU, 32, Color(1, 1, 1, 0.5), 2.0, true)
-		if joy_vec.length() > 0.92:
-			Game.dtext(c, "RUN", base + Vector2(0, -JOY_R - 14), 18, Color(1, 1, 1, 0.7), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
+	var base := joy_base if joy_id != -1 else joy_home
+	var knob := joy_pos if joy_id != -1 else base
+	c.draw_circle(base, JOY_R, Color(0, 0, 0, 0.25 * a))
+	c.draw_arc(base, JOY_R, 0, TAU, 64, Color(1, 1, 1, 0.35 * a), 3.0, true)
+	for i in 4:
+		var ang := i * PI * 0.5
+		var tip := base + Vector2(cos(ang), sin(ang)) * (JOY_R - 18)
+		_chevron(c, tip, ang, 10.0, Color(1, 1, 1, 0.3 * a))
+	c.draw_circle(knob, 54, Color(1, 1, 1, (0.4 if joy_id != -1 else 0.22) * a))
+	c.draw_arc(knob, 54, 0, TAU, 40, Color(1, 1, 1, 0.7 * a), 2.0, true)
+	if joy_vec.length() > 0.95 and joy_vec.y < -0.5:
+		Game.dtext(c, "SPRINT", base + Vector2(0, -JOY_R - 16), 18, Color(1, 1, 1, 0.85), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
 	for id in buttons:
-		var b: Dictionary = buttons[id]
-		if not _visible_btn(b):
-			continue
-		if id == "siren" and not (_in_car() and world.active_car.kind == "police"):
-			continue
-		if id == "c4" and not (world.player.current == "c4" and world.player.c4_list.size() > 0):
-			continue
-		var accent := Game.C_RED if id == "fire" else (Game.C_GREEN if id == "gas" else Game.C_CYAN)
-		var a := 0.55 if b.down else 0.3
-		c.draw_circle(b.pos, b.r, Color(0.02, 0.04, 0.08, a))
-		c.draw_arc(b.pos, b.r, 0, TAU, 40, Color(accent, 0.85 if b.down else 0.55), 3.0, true)
-		var fs := 26 if b.r >= 90 else (18 if b.r >= 55 else 15)
-		Game.dtext(c, _label_for(id, b), b.pos + Vector2(0, fs * 0.36), fs, Color(1, 1, 1, 0.9), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
+		_draw_button(c, id, buttons[id], a)
+
+
+func _draw_button(c: Control, id: String, b: Dictionary, a: float) -> void:
+	var p: Vector2 = b.pos
+	var r: float = b.r
+	var fire: bool = b.icon == "fire"
+	var on: bool = b.down or (id == "aim" and _aim_on)
+	var accent := Color(1.0, 0.32, 0.28) if fire else (Color(1.0, 0.78, 0.25) if on else Color(1, 1, 1))
+	c.draw_circle(p, r, Color(0.02, 0.03, 0.05, (0.62 if on else 0.42) * a))
+	c.draw_arc(p, r, 0, TAU, 56, Color(accent, (0.95 if on else 0.6) * a), 3.0 if not fire else 4.0, true)
+	if on:
+		c.draw_circle(p, r * 0.92, Color(accent, 0.12 * a))
+	var ic := Color(1, 1, 1, 0.92 * maxf(a, 0.5))
+	var s := r / 60.0
+	match str(b.icon):
+		"fire":
+			_icon_bullet(c, p, s, ic)
+		"aim":
+			_icon_scope(c, p, s, ic)
+		"reload":
+			_icon_reload(c, p, s, ic)
+		"jump":
+			_chevron(c, p + Vector2(0, 8) * s, -PI * 0.5, 22 * s, ic, 5.0 * s)
+			_chevron(c, p + Vector2(0, -10) * s, -PI * 0.5, 22 * s, ic, 5.0 * s)
+		"crouch":
+			_icon_crouch(c, p, s, ic)
+		"score":
+			for i in 3:
+				c.draw_line(p + Vector2(-14, -10 + i * 10) * s, p + Vector2(14, -10 + i * 10) * s, ic, 3.0 * s)
+		"gear":
+			_icon_gear(c, p, s, ic)
+		"slot":
+			_draw_slot(c, id, p, r, ic)
+
+
+func _draw_slot(c: Control, id: String, p: Vector2, r: float, ic: Color) -> void:
+	var pl = world.player
+	var i := 0 if id == "slot1" else 1
+	var wid := ""
+	if pl and i < pl.inventory.size():
+		wid = str(pl.inventory[i])
+	if wid == "":
+		Game.dtext(c, str(i + 1), p + Vector2(0, 8), 22, Color(ic, 0.5), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
+		return
+	var cur: bool = pl.current == wid
+	if cur:
+		c.draw_arc(p, r + 5, 0, TAU, 48, Color(1.0, 0.78, 0.25, 0.9), 3.0, true)
+	var nm := str(W.DATA[wid].name).get_slice(" ", 0)
+	Game.dtext(c, nm, p + Vector2(0, -2), 15, ic, Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
+	var ammo := "%d/%d" % [int(pl.ammo.get(wid, 0)), int(W.DATA[wid].mag)]
+	Game.dtext(c, ammo, p + Vector2(0, 18), 13, Color(ic, 0.7), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+# ---------------------------------------------------------------- icons (vector, no image files)
+func _chevron(c: Control, tip: Vector2, ang: float, size: float, col: Color, w := 3.0) -> void:
+	var back := Vector2(cos(ang), sin(ang)) * -size
+	var side := Vector2(-sin(ang), cos(ang)) * size * 0.75
+	c.draw_line(tip, tip + back + side, col, w, true)
+	c.draw_line(tip, tip + back - side, col, w, true)
+
+
+func _icon_bullet(c: Control, p: Vector2, s: float, col: Color) -> void:
+	# a cartridge: case, rim and pointed head, slightly tilted
+	var rot := -0.5
+	var pts := PackedVector2Array([
+		Vector2(-7, 22), Vector2(7, 22), Vector2(7, -4), Vector2(5, -14), Vector2(0, -24), Vector2(-5, -14), Vector2(-7, -4)])
+	var out := PackedVector2Array()
+	for v in pts:
+		out.append(p + (v * s * 1.3).rotated(rot))
+	c.draw_colored_polygon(out, col)
+	c.draw_line(p + (Vector2(-9, 16) * s * 1.3).rotated(rot), p + (Vector2(9, 16) * s * 1.3).rotated(rot), Color(0, 0, 0, 0.5), 2.0 * s)
+	c.draw_line(p + (Vector2(-7, -4) * s * 1.3).rotated(rot), p + (Vector2(7, -4) * s * 1.3).rotated(rot), Color(0, 0, 0, 0.45), 2.0 * s)
+
+
+func _icon_scope(c: Control, p: Vector2, s: float, col: Color) -> void:
+	c.draw_arc(p, 20 * s, 0, TAU, 40, col, 3.0 * s, true)
+	c.draw_circle(p, 3 * s, col)
+	for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		c.draw_line(p + d * 9 * s, p + d * 28 * s, col, 3.0 * s)
+
+
+func _icon_reload(c: Control, p: Vector2, s: float, col: Color) -> void:
+	var rr := 17 * s
+	c.draw_arc(p, rr, -PI * 0.15, PI * 0.85, 24, col, 4.0 * s, true)
+	c.draw_arc(p, rr, PI * 0.85 + 0.35, TAU - PI * 0.15 + 0.35 - 0.35, 24, col, 4.0 * s, true)
+	var e1 := p + Vector2(cos(PI * 0.85), sin(PI * 0.85)) * rr
+	var e2 := p + Vector2(cos(-PI * 0.15), sin(-PI * 0.15)) * rr
+	_chevron(c, e1, PI * 0.85 + PI * 0.5, 8 * s, col, 4.0 * s)
+	_chevron(c, e2, -PI * 0.15 + PI * 0.5, 8 * s, col, 4.0 * s)
+
+
+func _icon_crouch(c: Control, p: Vector2, s: float, col: Color) -> void:
+	# a crouching figure: head, bent back, folded legs
+	c.draw_circle(p + Vector2(4, -18) * s, 6 * s, col)
+	c.draw_polyline(PackedVector2Array([p + Vector2(2, -10) * s, p + Vector2(-8, 4) * s, p + Vector2(6, 8) * s, p + Vector2(0, 22) * s]), col, 5.0 * s, true)
+	c.draw_line(p + Vector2(-8, 4) * s, p + Vector2(-14, 22) * s, col, 5.0 * s, true)
+	c.draw_line(p + Vector2(-20, 24) * s, p + Vector2(20, 24) * s, Color(col, 0.6), 2.0 * s)
+
+
+func _icon_gear(c: Control, p: Vector2, s: float, col: Color) -> void:
+	for i in 8:
+		var ang := i * TAU / 8.0
+		var d := Vector2(cos(ang), sin(ang))
+		c.draw_line(p + d * 11 * s, p + d * 19 * s, col, 6.0 * s)
+	c.draw_arc(p, 12 * s, 0, TAU, 32, col, 5.0 * s, true)
+	c.draw_circle(p, 4 * s, col)

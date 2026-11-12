@@ -176,4 +176,4 @@ func on_back() -> void:
 func _exit_tree() -> void:
 	if main:
 		main.bg.visible = true
-		main.rain.visible = Game.settings.rain
+		main.rain.visible = false
