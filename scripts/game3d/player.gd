@@ -28,6 +28,7 @@ var active := true
 var frozen := false          # competitive buy phase: can look around, cannot move or shoot
 var aiming := false
 var first_person := false
+const BODY_LAYER := 1 << 19
 var stance := 0
 var _dist_acc := 0.0
 var _shake := 0.0
@@ -84,6 +85,9 @@ func _ready() -> void:
 	holder.add_child(rig)
 	rig.rotation.y = 0.0
 	rig.setup(cop_team)
+	# own body on its own render layer: hidden from our camera in first person, still casts shadows
+	for mi in rig.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).layers = BODY_LAYER
 	model = holder
 	pivot = Node3D.new()
 	pivot.top_level = true
@@ -281,6 +285,7 @@ func _process(delta: float) -> void:
 		spring.spring_length = 0.0
 		spring.position.x = 0.0
 	cam.fov = lerpf(cam.fov, want_fov, 1.0 - exp(-delta * 10.0))
+	cam.cull_mask = (0xFFFFF & ~BODY_LAYER) if first_person else 0xFFFFF
 	_animate(delta)
 
 

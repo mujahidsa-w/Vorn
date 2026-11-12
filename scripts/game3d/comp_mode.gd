@@ -22,6 +22,7 @@ func _ready() -> void:
 		world.player.rig.set_team_color(Rig.team_color(side))
 	arena = Arena.new()
 	world.add_child(arena)
+	_setup_match_world()
 	_to_spawn()
 	rules = Rules.new()
 	rules.alive_of = Callable(self, "_alive")
@@ -60,6 +61,33 @@ func _remotes() -> Array:
 	return out
 
 
+## competitive look and feel: clear morning, no rain, CS-style HUD, first person
+func _setup_match_world() -> void:
+	if world.sky:
+		world.sky.set_hour(9.0)
+		world.sky.set_weather(1)
+	if world.rain:
+		world.rain.emitting = false
+		world.rain.visible = false
+	if world.hud:
+		world.hud.comp = true
+	if world.player:
+		world.player.first_person = true
+
+
+## round loadout: pistol for everyone, rifle by side (a: M4, b: AKM), full health and armor
+func _loadout() -> void:
+	var pl = world.player
+	if pl == null:
+		return
+	pl.hp = 100.0
+	pl.armor = 50.0
+	pl.give_weapon("glock")
+	var rifle := "m4" if side == "a" else "akm"
+	pl.give_weapon(rifle)
+	pl.equip(rifle)
+
+
 func _to_spawn() -> void:
 	var pl = world.player
 	if pl == null:
@@ -74,6 +102,7 @@ func _on_phase(p: String) -> void:
 		if world.player and world.player.dead:
 			world.respawn_player()
 		_to_spawn()
+		_loadout()
 		if world.player:
 			world.player.frozen = true
 		world.hud.notify("BUY PHASE  -  ROUND %d" % rules.round_no)

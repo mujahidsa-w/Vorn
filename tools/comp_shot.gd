@@ -38,8 +38,13 @@ func run() -> void:
 	cm.set("world", world)
 	world.add_child(cm)
 	cm.rules.alive_of = func(t: String) -> int: return _fake[t]
-	await _w(1.0)
+	await _w(2.0)
 	await _shot("comp_buy")
+	# the player's own first-person view at the spawn, looking toward the middle
+	if world.player and world.player.cam:
+		world.player.cam.make_current()
+		await _w(1.0)
+		await _shot("comp_fp")
 	# overview of the arena from above, from the side of team a
 	var cam := Camera3D.new()
 	cam.fov = 60

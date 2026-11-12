@@ -159,7 +159,7 @@ func _on_item(target: String) -> void:
 			Online.match_id = ""
 			Online.match_team = ""
 			Online.comp_mode = target == "comp"
-			if target == "quick":
+			if target == "quick" or target == "city":
 				main.go("loading", {"online": Online.is_signed_in()})
 			else:
 				main.go("match")

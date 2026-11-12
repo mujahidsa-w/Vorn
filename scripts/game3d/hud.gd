@@ -22,6 +22,8 @@ var gray: ColorRect
 var gray_mat: ShaderMaterial
 var t := 0.0
 var help_t := 14.0
+## competitive match: city elements (GPS minimap, city badge, help) are hidden
+var comp := false
 var show_help := true
 var map_open := false
 var _note := ""
@@ -120,7 +122,11 @@ func _process(delta: float) -> void:
 		gray_mat.set_shader_parameter("amount", clampf(wasted_t / 1.2, 0.0, 1.0))
 	_prepare_route()
 	paint.queue_redraw()
-	minimap.queue_redraw()
+	minimap.visible = not comp
+	if comp:
+		show_help = false
+	else:
+		minimap.queue_redraw()
 
 
 func blocks_mouse() -> bool:
@@ -557,6 +563,26 @@ func _draw_hud() -> void:
 		paint.draw_line(Vector2(cc.x - rad, cc.y), Vector2(cc.x + rad, cc.y), Color(0, 0, 0, 0.8), 1.5)
 		paint.draw_line(Vector2(cc.x, cc.y - rad), Vector2(cc.x, cc.y + rad), Color(0, 0, 0, 0.8), 1.5)
 		paint.draw_circle(cc, 2.5, Color(1, 0.1, 0.1))
+	if comp:
+		_draw_comp_vitals(sz, pl)
+	else:
+		_draw_city_vitals(pl)
+	_draw_hint_and_rest(sz, pl, car, tc)
+
+
+## competitive: health and armor numbers bottom-left, CS style
+func _draw_comp_vitals(sz: Vector2, pl) -> void:
+	var y := sz.y - 70.0
+	_box(Rect2(24, y - 6, 330, 58), Game.C_CYAN)
+	var hp := int(maxf(pl.hp, 0.0))
+	var hp_col := Color.WHITE if hp > 30 else Color(1.0, 0.3, 0.25)
+	Game.dtext(paint, "+", Vector2(44, y + 38), 34, hp_col, Game.font_wide)
+	Game.dtext(paint, str(hp), Vector2(74, y + 40), 38, hp_col, Game.font_wide)
+	Game.dtext(paint, "ARMOR", Vector2(176, y + 22), 13, Game.C_DIM, Game.font_tag)
+	Game.dtext(paint, str(int(pl.armor)), Vector2(176, y + 46), 26, Color(0.55, 0.78, 1.0), Game.font_wide)
+
+
+func _draw_city_vitals(pl) -> void:
 	# health + armor bars under the minimap (GTA style)
 	var mm := Rect2(minimap.position, minimap.size)
 	var by := mm.end.y + 6.0
@@ -575,6 +601,9 @@ func _draw_hud() -> void:
 		var hh := int(world.sky.hour)
 		clock = "%02d:%02d  •  %s  •  %s" % [hh, int(fmod(world.sky.hour, 1.0) * 60.0), world.sky.phase_name(), world.sky.weather_name]
 		Game.dtext(paint, clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
+
+
+func _draw_hint_and_rest(sz: Vector2, pl, car, tc: Color) -> void:
 	var hint := ""
 	if pl.dead:
 		hint = ""
