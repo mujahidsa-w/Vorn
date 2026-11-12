@@ -18,7 +18,32 @@ func _shot(n: String) -> void:
 
 func run() -> void:
 	await _w(3.0)
+	var cm0 = world.get_meta("comp")
+	print("ECON start money=", cm0.money, " inv=", world.player.inventory, " current=", world.player.current)
+	cm0.buy.set_open(true)
+	await _w(0.6)
+	await _shot("buy_menu")
+	cm0.buy._buy(0)
+	cm0.buy._buy(1)
+	await _w(0.6)
+	await _shot("buy_menu_after")
+	print("ECON after buy money=", cm0.money, " inv=", world.player.inventory, " armor=", world.player.armor)
+	cm0.buy.set_open(false)
 	await _shot("match_buy")
+	world.player.equip("glock")
+	await _w(1.5)
+	await _shot("match_pistol")
+	world.player.equip("m4")
+	var vm = world.player.fpvm
+	if vm and vm.skel:
+		var sk: Skeleton3D = vm.skel
+		for i in sk.get_bone_count():
+			var bn := sk.get_bone_name(i)
+			if bn.contains("hand") or bn.contains("gun") or bn.contains("pistol") or bn.contains("root") or bn.contains("arm.") or bn.contains("slide") or bn.contains("barrel") or bn.contains("mag"):
+				var gp: Vector3 = (sk.global_transform * sk.get_bone_global_pose(i)).origin
+				print("PBONE ", bn, " ", world.player.cam.to_local(gp))
+	world.player.equip("m4")
+	await _w(0.5)
 	var pl = world.player
 	if pl.fpvm:
 		var mains = pl.fpvm.model.find_children("*Main_M4*", "", true, false)
@@ -74,6 +99,6 @@ func run() -> void:
 	cm.bots[2].take_damage(500.0, world.player, Vector3.FORWARD)
 	await _w(6.0)
 	await _shot("match_results")
-	print("OVER phase=", cm.rules.phase, " mvp=", cm.stats.mvp())
+	print("OVER phase=", cm.rules.phase, " mvp=", cm.stats.mvp(), " money=", cm.money)
 	print("MATCH TEST OK fps=", Engine.get_frames_per_second())
 	get_tree().quit()

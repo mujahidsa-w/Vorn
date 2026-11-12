@@ -52,7 +52,7 @@ var arena_only := false
 
 func _ready() -> void:
 	Q = clampi(int(Game.settings.quality), 0, 2)
-	arena_only = Online.comp_mode or OS.get_cmdline_user_args().has("--matchshot")
+	arena_only = Online.comp_mode or OS.get_cmdline_user_args().has("--matchshot") or OS.get_cmdline_user_args().has("--bottest")
 	team = "a"
 	Game.stop_music()
 	Engine.time_scale = 1.0
@@ -90,8 +90,9 @@ func _ready() -> void:
 		add_child(cmode)
 		spawn_xf = player.global_transform
 		var targs := OS.get_cmdline_user_args()
-		if targs.size() >= 2 and targs[0] == "--matchshot" and ResourceLoader.exists("res://tools/match_shot.gd"):
-			var ms: Node = load("res://tools/match_shot.gd").new()
+		var tool_map := {"--matchshot": "res://tools/match_shot.gd", "--bottest": "res://tools/bot_test.gd"}
+		if targs.size() >= 2 and tool_map.has(targs[0]) and ResourceLoader.exists(tool_map[targs[0]]):
+			var ms: Node = load(tool_map[targs[0]]).new()
 			ms.set("world", self)
 			ms.set("out", targs[1])
 			add_child(ms)

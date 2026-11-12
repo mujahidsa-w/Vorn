@@ -327,7 +327,8 @@ func tracer(a: Vector3, b: Vector3, col := Color(1.0, 0.12, 0.08)) -> void:
 	var mi: MeshInstance3D = head[0]
 	for part in [[seg, 0.05, Color(2.6, 0.25, 0.12, 1.0)], [seg * 0.5, 0.022, Color(3.0, 2.2, 1.6, 1.0)]]:
 		var bm: Array = _beam(a, dir, part[0], part[1], part[2])
-		bm[0].reparent(mi, false)
+		remove_child(bm[0])
+		mi.add_child(bm[0])
 		bm[0].position = Vector3(0, 0, -(seg - float(part[0])) * 0.5)
 		bm[0].rotation = Vector3.ZERO
 	var travel := maxf(len - seg, 0.0)

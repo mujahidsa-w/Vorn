@@ -335,8 +335,11 @@ func _animate(delta: float) -> void:
 		_vm_type = str(d2.type)
 		if _fpvm_wanted():
 			# rifles: the animated arms model replaces the simple hands and the held weapon
-			if fpvm == null:
+			if fpvm == null or fpvm.weapon_id != current:
+				if fpvm:
+					fpvm.queue_free()
 				fpvm = FpViewmodel.new()
+				fpvm.weapon_id = current
 				add_child(fpvm)
 			fpvm.visible = true
 			fpvm.follow(cam)
@@ -362,8 +365,8 @@ var fpvm
 
 
 func _fpvm_wanted() -> bool:
-	# the animated arms model is an M4: used whenever the M4 is in hand
-	return first_person and current == "m4"
+	# animated arms models exist for the M4 and the pistol
+	return first_person and FpViewmodel.MODELS.has(current)
 
 
 func _fpvm_active() -> bool:
@@ -584,7 +587,8 @@ func _reload() -> void:
 	_mag_dropped = false
 	if _fpvm_active():
 		var empty := int(ammo.get(current, 0)) == 0
-		var clip_len := 3.8 if empty else 3.64
+		var c: Array = fpvm.CLIPS["reload_empty" if empty else "reload"]
+		var clip_len: float = float(c[2]) - float(c[1])
 		fpvm.play("reload_empty" if empty else "reload", clip_len / reload_t)
 	Game.play_sfx("reload")
 

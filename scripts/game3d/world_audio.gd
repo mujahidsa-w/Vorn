@@ -17,13 +17,13 @@ func play_at(position: Vector3, sound: String, pitch := 1.0, volume_db := 0.0, m
 	var p := AudioStreamPlayer3D.new()
 	p.stream = _streams[sound]
 	p.bus = "SFX"
-	p.global_position = position
 	p.pitch_scale = pitch
 	p.volume_db = volume_db
 	p.max_distance = max_distance
 	p.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 	p.unit_size = 5.0
 	add_child(p)
+	p.global_position = position      # only valid once the player is in the scene tree
 	_active.append(p)
 	p.finished.connect(func():
 		_active.erase(p)

@@ -573,6 +573,11 @@ func _draw_hud() -> void:
 ## competitive: health and armor numbers bottom-left, CS style
 func _draw_comp_vitals(sz: Vector2, pl) -> void:
 	var y := sz.y - 70.0
+	var cm = world.get_meta("comp") if world.has_meta("comp") else null
+	if cm:
+		Game.dtext(paint, "$%d" % int(cm.money), Vector2(30, y - 22), 30, Color(0.45, 1.0, 0.55), Game.font_wide)
+		if cm.can_buy() and not Game.touch:
+			Game.dtext(paint, "B  BUY MENU", Vector2(170, y - 24), 16, Color(1, 1, 1, 0.75), Game.font_bold)
 	_box(Rect2(24, y - 6, 330, 58), Game.C_CYAN)
 	var hp := int(maxf(pl.hp, 0.0))
 	var hp_col := Color.WHITE if hp > 30 else Color(1.0, 0.3, 0.25)

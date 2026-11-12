@@ -60,13 +60,28 @@ func _layout() -> void:
 	_btn("slot2", Vector2(1290, 1010), 46 * s, "slot", KEY_2, false)
 	_btn("score", Vector2(1720, 70), 38 * s, "score", KEY_TAB, true)
 	_btn("pause", Vector2(1840, 70), 38 * s, "gear", KEY_ESCAPE, false)
+	_btn("buy", Vector2(120, 210), 48 * s, "buy", "buy", false)
 
 
 func _btn(id: String, p: Vector2, r: float, icon: String, key, hold: bool) -> void:
 	buttons[id] = {"pos": p, "r": r, "icon": icon, "key": key, "hold": hold, "down": false}
 
 
+func _comp():
+	return world.get_meta("comp") if world and world.has_meta("comp") else null
+
+
+func _btn_live(id: String) -> bool:
+	if id == "buy":
+		var cm = _comp()
+		return cm != null and cm.can_buy()
+	return true
+
+
 func _blocked() -> bool:
+	var cm = _comp()
+	if cm and cm.buy and cm.buy.open:
+		return true
 	return get_tree().paused or (world and world.hud and world.hud.get("map_open"))
 
 
@@ -92,7 +107,7 @@ func _input(event: InputEvent) -> void:
 func _touch_down(idx: int, p: Vector2) -> void:
 	for id in buttons:
 		var b: Dictionary = buttons[id]
-		if p.distance_to(b.pos) < b.r + 16:
+		if _btn_live(id) and p.distance_to(b.pos) < b.r + 16:
 			btn_touch[idx] = id
 			_press(id)
 			if id == "fire" or id == "fire_l":
@@ -186,6 +201,10 @@ func _press(id: String) -> void:
 	match str(b.key):
 		"lmb":
 			_mouse(MOUSE_BUTTON_LEFT, true)
+		"buy":
+			var cm = _comp()
+			if cm:
+				cm.buy.toggle()
 		"aim":
 			_aim_on = not _aim_on
 			_mouse(MOUSE_BUTTON_RIGHT, _aim_on)
@@ -228,7 +247,7 @@ func _process(delta: float) -> void:
 	if _aim_on and world and world.player and (world.player.current == "" or world.player.dead):
 		_aim_on = false
 		_mouse(MOUSE_BUTTON_RIGHT, false)
-	pad.visible = not get_tree().paused
+	pad.visible = not _blocked()
 	pad.queue_redraw()
 
 
@@ -252,7 +271,8 @@ func _draw_pad() -> void:
 	if joy_vec.length() > 0.95 and joy_vec.y < -0.5:
 		Game.dtext(c, "SPRINT", base + Vector2(0, -JOY_R - 16), 18, Color(1, 1, 1, 0.85), Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
 	for id in buttons:
-		_draw_button(c, id, buttons[id], a)
+		if _btn_live(id):
+			_draw_button(c, id, buttons[id], a)
 
 
 func _draw_button(c: Control, id: String, b: Dictionary, a: float) -> void:
@@ -284,6 +304,9 @@ func _draw_button(c: Control, id: String, b: Dictionary, a: float) -> void:
 				c.draw_line(p + Vector2(-14, -10 + i * 10) * s, p + Vector2(14, -10 + i * 10) * s, ic, 3.0 * s)
 		"gear":
 			_icon_gear(c, p, s, ic)
+		"buy":
+			Game.dtext(c, "$", p + Vector2(0, 14 * s), int(40 * s), Color(0.45, 1.0, 0.55), Game.font_wide, HORIZONTAL_ALIGNMENT_CENTER)
+			Game.dtext(c, "BUY", p + Vector2(0, r + 22), 16, ic, Game.font_bold, HORIZONTAL_ALIGNMENT_CENTER)
 		"slot":
 			_draw_slot(c, id, p, r, ic)
 

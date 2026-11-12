@@ -21,6 +21,16 @@ const BOT_NAMES := ["VIPER", "KESTREL", "ONYX", "RAVEN", "SABLE"]
 var stats
 var my_name := "YOU"
 var _dead_seen := {}
+const BuyMenu = preload("res://scripts/game3d/buy_menu.gd")
+## economy (CS-like): start money, kill reward, round win / loss bonus, cap
+const START_MONEY := 4000
+const KILL_REWARD := 300
+const WIN_REWARD := 3250
+const LOSS_REWARD := 1400
+const MAX_MONEY := 16000
+var money := START_MONEY
+var buy
+var _died_last_round := true
 var arena
 
 
@@ -48,6 +58,10 @@ func _ready() -> void:
 	if _practice():
 		for i in BOT_COUNT:
 			stats.add_player("BOT " + BOT_NAMES[i], _enemy_side())
+	buy = BuyMenu.new()
+	buy.mode = self
+	add_child(buy)
+	world.set_meta("comp", self)
 	rules.start()
 
 
@@ -65,6 +79,7 @@ func _track_kills() -> void:
 	if pl:
 		var was: bool = _dead_seen.get(pl, false)
 		if pl.dead and not was:
+			_died_last_round = true
 			stats.kill(_name_of(pl.last_attacker), my_name, _weapon_of(pl.last_attacker), bool(pl.last_hs))
 		_dead_seen[pl] = pl.dead
 	for b in bots:
@@ -73,6 +88,8 @@ func _track_kills() -> void:
 		var bd: bool = b.state == Npc.DEAD
 		if bd and not _dead_seen.get(b, false):
 			stats.kill(_name_of(b.last_attacker), b.bot_name, _weapon_of(b.last_attacker), bool(b.last_hs))
+			if b.last_attacker == world.player:
+				_earn(KILL_REWARD)
 		_dead_seen[b] = bd
 
 
@@ -153,6 +170,7 @@ func _wake_bots() -> void:
 	for b in bots:
 		if is_instance_valid(b) and b.state != Npc.DEAD:
 			b.enemy = world.player
+			b.hunter = true
 			b.state = Npc.COMBAT
 			b.fire_cd = randf_range(1.0, 2.5)
 
@@ -181,16 +199,29 @@ func _setup_match_world() -> void:
 
 
 ## round loadout: pistol for everyone, rifle by side (a: M4, b: AKM), full health and armor
+## round loadout (CS rules): everyone has the pistol; a bought weapon is kept only if you survived
 func _loadout() -> void:
 	var pl = world.player
 	if pl == null:
 		return
 	pl.hp = 100.0
-	pl.armor = 50.0
+	if _died_last_round:
+		pl.inventory.clear()
+		pl.armor = 0.0
 	pl.give_weapon("glock")
-	var rifle := "m4" if side == "a" else "akm"
-	pl.give_weapon(rifle)
-	pl.equip(rifle)
+	for w in pl.inventory:
+		pl.ammo[w] = int(W.DATA[w].mag)
+	var best: String = "m4" if pl.inventory.has("m4") else "glock"
+	pl.equip(best)
+	_died_last_round = false
+
+
+func can_buy() -> bool:
+	return rules.phase == "buy" and world.player != null and not world.player.dead
+
+
+func _earn(amount: int) -> void:
+	money = mini(money + amount, MAX_MONEY)
 
 
 func _to_spawn() -> void:
@@ -222,6 +253,9 @@ func _on_phase(p: String) -> void:
 
 
 func _on_round_ended(winner: String) -> void:
+	_earn(WIN_REWARD if winner == side else LOSS_REWARD)
+	if world.player and world.player.dead:
+		_died_last_round = true
 	var txt := "ROUND DRAW" if winner == "" else ("YOUR TEAM WINS THE ROUND" if winner == side else "ENEMY WINS THE ROUND")
 	world.hud.notify(txt)
 

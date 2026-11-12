@@ -26,6 +26,11 @@ var enemy = null
 var last_attacker = null      # who hit us last (for the kill feed)
 var last_hs := false
 var bot_name := ""
+## match bots: never give up on the target, walk around walls, shoot only with line of sight
+var hunter := false
+var _detour_t := 0.0
+var _detour_dir := Vector3.ZERO
+var _stuck_t := 0.0
 var fire_cd := 0.0
 var weapon_node: Node3D
 var _kick := Vector3.ZERO
@@ -84,6 +89,30 @@ func push(v: Vector3) -> void:
 func run_over(v: Vector3) -> void:
 	push(v)
 	take_damage(hp + 1.0, null, v)
+
+
+## line of sight from our eyes to the target's chest (walls and cover block it)
+func _can_see(t) -> bool:
+	if world == null or world.space == null:
+		return true
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 1.55, 0), t.global_position + Vector3(0, 1.3, 0))
+	q.exclude = [get_rid()]
+	var hit: Dictionary = world.space.intersect_ray(q)
+	return hit.is_empty() or hit.collider == t
+
+
+## walking toward the target: when blocked by a wall, slide sideways along it for a moment
+func _steer(want: Vector3, delta: float) -> Vector3:
+	if _detour_t > 0.0:
+		_detour_t -= delta
+		return (_detour_dir + want * 0.25).normalized()
+	if _stuck_t > 0.4:
+		_stuck_t = 0.0
+		var side := Vector3(-want.z, 0, want.x) * (1.0 if randf() < 0.5 else -1.0)
+		_detour_dir = side
+		_detour_t = randf_range(0.8, 1.6)
+		return side
+	return want
 
 
 func take_damage(amount: float, attacker, dir := Vector3.ZERO) -> void:
@@ -234,14 +263,17 @@ func _physics_process(delta: float) -> void:
 				to2.y = 0
 				face_yaw = atan2(-to2.x, -to2.z)
 				var dist := to2.length()
-				if dist > 60.0:
+				var sees := _can_see(enemy)
+				if dist > 60.0 and not hunter:
 					enemy = null
 					state = IDLE
-				elif dist > 18.0:
+				elif dist > (16.0 if sees else 3.0):
 					dir = to2.normalized()
-					want_speed = 2.2
-				elif fire_cd <= 0.0:
-					fire_cd = randf_range(0.45, 0.9)
+					want_speed = 5.0 if hunter else 2.2
+					if hunter:
+						dir = _steer(dir, delta)
+				if enemy != null and dist <= 40.0 and sees and fire_cd <= 0.0:
+					fire_cd = randf_range(0.35, 0.75)
 					_shoot(dist)
 	speed = move_toward(speed, want_speed, 4.0 * delta)
 	var hv := dir * speed
@@ -253,6 +285,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y = -0.5
 	move_and_slide()
+	if hunter and want_speed > 0.5:
+		var moved := Vector2(get_real_velocity().x, get_real_velocity().z).length()
+		_stuck_t = _stuck_t + delta if moved < want_speed * 0.3 else 0.0
 	if dir.length() > 0.1 and state != COMBAT:
 		face_yaw = atan2(-dir.x, -dir.z)
 	rotation.y = lerp_angle(rotation.y, face_yaw, 1.0 - exp(-delta * 6.0))
