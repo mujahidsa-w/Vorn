@@ -36,10 +36,16 @@ const SITES := {"A": Vector3(-48, 0, -24), "B": Vector3(48, 0, 24)}
 
 # lane walls that split the middle: [centre on the ground, size]
 const LANE_WALLS := [
-	[Vector3(-20, 0, -34), Vector3(1.2, 4.0, 26.0)],
-	[Vector3(-20, 0, 34), Vector3(1.2, 4.0, 26.0)],
-	[Vector3(20, 0, -34), Vector3(1.2, 4.0, 26.0)],
-	[Vector3(20, 0, 34), Vector3(1.2, 4.0, 26.0)],
+	# mid corridor: two walls each side of the centre, open in the very middle
+	[Vector3(-26, 0, -6), Vector3(28.0, 4.5, 1.0)],
+	[Vector3(-26, 0, 6), Vector3(28.0, 4.5, 1.0)],
+	[Vector3(26, 0, -6), Vector3(28.0, 4.5, 1.0)],
+	[Vector3(26, 0, 6), Vector3(28.0, 4.5, 1.0)],
+	# low walls (jump / crouch cover) on the long lanes
+	[Vector3(-30, 0, -24), Vector3(6.0, 1.1, 0.6)],
+	[Vector3(30, 0, 24), Vector3(6.0, 1.1, 0.6)],
+	[Vector3(-12, 0, 22), Vector3(0.6, 1.1, 6.0)],
+	[Vector3(12, 0, -22), Vector3(0.6, 1.1, 6.0)],
 ]
 
 # buildings: [centre on the ground, size, surface]
@@ -120,6 +126,18 @@ func _build() -> void:
 
 	for f in FIRES:
 		_fire_barrel(f)
+
+	# tactical layout: covered tunnels, enterable rooms, raised platforms with ramps, burned car wrecks
+	_tunnel(Vector3(30, 0, 42), 28.0, 8.0)       # B tunnels
+	_tunnel(Vector3(-30, 0, -42), 28.0, 8.0)     # A tunnels
+	_room(Vector3(-30, 0, 34), Vector3(12, 4.2, 10), "brick")
+	_room(Vector3(30, 0, -34), Vector3(12, 4.2, 10), "brick")
+	_platform(Vector3(62, 0, 24), Vector3(8, 2.4, 12), 1.0)
+	_platform(Vector3(-62, 0, -24), Vector3(8, 2.4, 12), -1.0)
+	_car_wreck(Vector3(-8, 0, 16), 0.3, true)
+	_car_wreck(Vector3(8, 0, -16), -0.4, false)
+	_car_wreck(Vector3(50, 0, 47), 1.4, false)
+	_car_wreck(Vector3(-50, 0, -47), -1.7, true)
 
 	# morning sun from the east: low warm light with long shadows, only on the arena
 	var sun := DirectionalLight3D.new()
@@ -245,6 +263,131 @@ func _slab(pos: Vector3, size: Vector3, surface: String) -> void:
 
 
 ## visual-only detail with a plain material (windows, doors, paint)
+## covered corridor along X: two side walls and a roof, open at both ends, dim inside
+func _tunnel(c: Vector3, length: float, width: float) -> void:
+	var h := 3.4
+	for side in [-1.0, 1.0]:
+		_box(Vector3(length, h, 0.8), c + Vector3(0, h * 0.5, side * width * 0.5), "plaster")
+	_box(Vector3(length + 0.8, 0.5, width + 0.8), c + Vector3(0, h + 0.25, 0), "concrete")
+	var lamp := OmniLight3D.new()
+	lamp.position = c + Vector3(0, h - 0.4, 0)
+	lamp.light_color = Color(1.0, 0.8, 0.55)
+	lamp.light_energy = 1.2
+	lamp.omni_range = 12.0
+	lamp.light_cull_mask = ARENA_LAYER
+	add_child(lamp)
+
+
+## hollow building you can walk into: four walls with a doorway on each short side, roof, ceiling lamp
+func _room(c: Vector3, sz: Vector3, surface: String) -> void:
+	var t := 0.5
+	var door_w := 2.4
+	var door_h := 3.0
+	# long walls (along X)
+	for side in [-1.0, 1.0]:
+		_box(Vector3(sz.x, sz.y, t), c + Vector3(0, sz.y * 0.5, side * sz.z * 0.5), surface)
+	# short walls (along Z) with a centred doorway
+	for side in [-1.0, 1.0]:
+		var x: float = c.x + side * sz.x * 0.5
+		var part := (sz.z - door_w) * 0.5
+		for s2 in [-1.0, 1.0]:
+			_box(Vector3(t, sz.y, part), Vector3(x, c.y + sz.y * 0.5, c.z + s2 * (door_w * 0.5 + part * 0.5)), surface)
+		_box(Vector3(t, sz.y - door_h, door_w), Vector3(x, c.y + door_h + (sz.y - door_h) * 0.5, c.z), surface)
+	_box(Vector3(sz.x + 0.8, 0.4, sz.z + 0.8), c + Vector3(0, sz.y + 0.2, 0), "roof")
+	# windows: dark recesses on the long walls
+	var dark := _flat(Color(0.05, 0.05, 0.06))
+	for side in [-1.0, 1.0]:
+		for i in [-1, 1]:
+			_deco(Vector3(1.6, 1.2, 0.06), c + Vector3(i * sz.x * 0.25, 2.4, side * (sz.z * 0.5 + t * 0.5 + 0.01)), dark)
+	var lamp := OmniLight3D.new()
+	lamp.position = c + Vector3(0, sz.y - 0.5, 0)
+	lamp.light_color = Color(1.0, 0.85, 0.6)
+	lamp.light_energy = 1.4
+	lamp.omni_range = 9.0
+	lamp.light_cull_mask = ARENA_LAYER
+	add_child(lamp)
+	# a crate inside to fight around
+	_box(Vector3(1.6, 1.6, 1.6), c + Vector3(-sz.x * 0.25, 0.8, sz.z * 0.2), "crate")
+
+
+## raised platform with a ramp; dir: +1 ramp goes toward +X, -1 toward -X
+func _platform(c: Vector3, sz: Vector3, dir: float) -> void:
+	_box(sz, c + Vector3(0, sz.y * 0.5, 0), "concrete")
+	# railing-height lip on the far side
+	_box(Vector3(0.4, 1.0, sz.z), c + Vector3(-dir * (sz.x * 0.5 - 0.2), sz.y + 0.5, 0), "concrete")
+	var run := 7.0
+	var ang := atan2(sz.y, run)
+	var ramp_len := sqrt(run * run + sz.y * sz.y)
+	var body := StaticBody3D.new()
+	body.position = c + Vector3(dir * (sz.x * 0.5 + run * 0.5), sz.y * 0.5 - 0.1, 0)
+	body.rotation.z = ang * dir
+	add_child(body)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(ramp_len, 0.3, 4.0)
+	shape.shape = box
+	body.add_child(shape)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = box.size
+	mi.mesh = bm
+	mi.material_override = _mat("roof")
+	mi.layers = ARENA_LAYER
+	body.add_child(mi)
+
+
+## burned-out car: blackened body and cabin, wheel rims, optional fire inside; solid cover
+func _car_wreck(c: Vector3, yaw: float, burning: bool) -> void:
+	var root := StaticBody3D.new()
+	root.position = c
+	root.rotation.y = yaw
+	add_child(root)
+	var burnt := StandardMaterial3D.new()
+	burnt.albedo_texture = load(TEX + "metal_col.jpg")
+	burnt.albedo_color = Color(0.32, 0.27, 0.24)
+	burnt.normal_enabled = true
+	burnt.normal_texture = load(TEX + "metal_nrm.jpg")
+	burnt.roughness = 0.85
+	burnt.uv1_triplanar = true
+	burnt.uv1_scale = Vector3(0.6, 0.6, 0.6)
+	var glass := _flat(Color(0.03, 0.03, 0.035))
+	var parts := [
+		[Vector3(4.2, 0.75, 1.8), Vector3(0, 0.7, 0), burnt],          # body
+		[Vector3(2.2, 0.62, 1.66), Vector3(-0.2, 1.38, 0), burnt],     # cabin
+		[Vector3(2.0, 0.5, 1.7), Vector3(-0.2, 1.38, 0), glass],       # empty window frames
+	]
+	for p in parts:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = p[0]
+		mi.mesh = bm
+		mi.position = p[1]
+		mi.material_override = p[2]
+		mi.layers = ARENA_LAYER
+		root.add_child(mi)
+	for wx in [-1.35, 1.35]:
+		for wz in [-0.9, 0.9]:
+			var w := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.34
+			cm.bottom_radius = 0.34
+			cm.height = 0.22
+			w.mesh = cm
+			w.rotation_degrees = Vector3(90, 0, 0)
+			w.position = Vector3(wx, 0.3, wz)
+			w.material_override = _flat(Color(0.07, 0.06, 0.06))
+			w.layers = ARENA_LAYER
+			root.add_child(w)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(4.2, 1.7, 1.8)
+	cs.shape = bs
+	cs.position = Vector3(0, 0.85, 0)
+	root.add_child(cs)
+	if burning:
+		_fire_fx(c + Vector3(0, 1.1, 0))
+
+
 ## a rusted oil drum on fire: solid barrel (collision), flame and smoke particles, warm flickering light
 func _fire_barrel(pos: Vector3) -> void:
 	var body := StaticBody3D.new()
@@ -273,6 +416,12 @@ func _fire_barrel(pos: Vector3) -> void:
 	ember.emission_energy_multiplier = 3.0
 	_deco(Vector3(0.5, 0.02, 0.5), pos + Vector3(0, 0.88, 0), ember)
 
+	_fire_fx(pos + Vector3(0, 0.95, 0))
+
+
+## flames, smoke and a flickering light at `at`
+func _fire_fx(at: Vector3) -> void:
+	var pos := at - Vector3(0, 0.95, 0)
 	var flame := CPUParticles3D.new()
 	flame.position = pos + Vector3(0, 0.95, 0)
 	flame.amount = 46
