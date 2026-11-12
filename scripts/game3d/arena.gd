@@ -1,12 +1,12 @@
 extends Node3D
-## Competitive arena: a walled square with a spawn pad for each side and cover in the middle.
+## Competitive arena: a walled map with two spawn pads, two bomb sites, lane walls, buildings and cover.
 ## It floats above the city so it never overlaps the map's terrain or buildings.
 
 const ORIGIN := Vector3(0.0, 420.0, 0.0)
-const HALF_X := 60.0
-const HALF_Z := 30.0
-const SPAWN_X := 44.0
-const WALL_H := 6.0
+const HALF_X := 100.0
+const HALF_Z := 56.0
+const SPAWN_X := 86.0
+const WALL_H := 8.0
 
 # local spawn info per side: position on the pad and the yaw that looks at the middle
 const SPAWN := {
@@ -15,18 +15,30 @@ const SPAWN := {
 }
 
 const COVER := [
-	Vector3(-20, 0, -12), Vector3(-20, 0, 12), Vector3(0, 0, 0),
-	Vector3(20, 0, -12), Vector3(20, 0, 12), Vector3(-6, 0, -20), Vector3(6, 0, 20),
+	Vector3(-34, 0, -22), Vector3(-34, 0, 22), Vector3(0, 0, 0),
+	Vector3(34, 0, -22), Vector3(34, 0, 22), Vector3(-10, 0, -36), Vector3(10, 0, 36),
+	Vector3(-60, 0, 0), Vector3(60, 0, 0),
 ]
 
+# bomb sites (floor markers)
+const SITES := {"A": Vector3(-48, 0, -24), "B": Vector3(48, 0, 24)}
 
-# bomb sites (floor markers) and the walls that split the arena into lanes
-const SITES := {"A": Vector3(-30, 0, -17), "B": Vector3(30, 0, 17)}
+# lane walls that split the middle
 const LANE_WALLS := [
-	[Vector3(-12, 1.5, -19), Vector3(1.0, 3.0, 20.0)],
-	[Vector3(-12, 1.5, 19), Vector3(1.0, 3.0, 20.0)],
-	[Vector3(12, 1.5, -19), Vector3(1.0, 3.0, 20.0)],
-	[Vector3(12, 1.5, 19), Vector3(1.0, 3.0, 20.0)],
+	[Vector3(-20, 2.0, -34), Vector3(1.0, 4.0, 26.0)],
+	[Vector3(-20, 2.0, 34), Vector3(1.0, 4.0, 26.0)],
+	[Vector3(20, 2.0, -34), Vector3(1.0, 4.0, 26.0)],
+	[Vector3(20, 2.0, 34), Vector3(1.0, 4.0, 26.0)],
+]
+
+# buildings: [centre, size] (their roofs are darker boxes on top)
+const BUILDINGS := [
+	[Vector3(-68, 0, -38), Vector3(18, 12, 12)],
+	[Vector3(-68, 0, 36), Vector3(18, 10, 14)],
+	[Vector3(68, 0, -36), Vector3(16, 11, 14)],
+	[Vector3(68, 0, 38), Vector3(18, 12, 12)],
+	[Vector3(0, 0, -48), Vector3(26, 9, 8)],
+	[Vector3(0, 0, 48), Vector3(26, 9, 8)],
 ]
 
 
@@ -60,6 +72,15 @@ func _build() -> void:
 	for c in COVER:
 		_box(Vector3(3.0, 2.5, 3.0), c + Vector3(0, 1.25, 0), crate_col)
 
+	# buildings with darker roofs
+	var bld_col := Color(0.5, 0.47, 0.42)
+	var roof_col := Color(0.22, 0.22, 0.24)
+	for b in BUILDINGS:
+		var sz: Vector3 = b[1]
+		var pos: Vector3 = b[0]
+		_box(sz, pos + Vector3(0, sz.y * 0.5, 0), bld_col)
+		_box(Vector3(sz.x + 0.6, 0.6, sz.z + 0.6), pos + Vector3(0, sz.y + 0.3, 0), roof_col)
+
 	# lane walls and the bomb sites
 	var wall_mid := Color(0.48, 0.44, 0.38)
 	for w in LANE_WALLS:
@@ -69,17 +90,17 @@ func _build() -> void:
 
 	# shadowed lights: one key light over the middle and one over each side for depth
 	var light := OmniLight3D.new()
-	light.position = Vector3(0, 5.5, 0)
-	light.light_energy = 1.6
-	light.omni_range = 90.0
+	light.position = Vector3(0, 9.0, 0)
+	light.light_energy = 1.8
+	light.omni_range = 140.0
 	light.light_color = Color(1.0, 0.95, 0.85)
 	light.shadow_enabled = true
 	add_child(light)
-	for x in [-30.0, 30.0]:
+	for x in [-50.0, 50.0]:
 		var side_light := OmniLight3D.new()
-		side_light.position = Vector3(x, 5.0, 0)
+		side_light.position = Vector3(x, 7.0, 0)
 		side_light.light_energy = 1.0
-		side_light.omni_range = 40.0
+		side_light.omni_range = 60.0
 		side_light.light_color = Color(1.0, 0.92, 0.8)
 		side_light.shadow_enabled = true
 		add_child(side_light)
