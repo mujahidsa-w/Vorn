@@ -81,8 +81,27 @@ func _ready() -> void:
 		return
 	_load()
 	signed_in.connect(_start_presence)
-	if is_signed_in():
+	if Game.reset_pending:
+		_fresh_start.call_deferred()
+	elif is_signed_in():
 		_resume_presence.call_deferred()
+
+
+## One-time fresh start: removes this account's friends and requests from the server, then signs out
+## so the player signs in again and chooses a name.
+func _fresh_start() -> void:
+	if is_signed_in() and await resume():
+		var r: Array = await db.call_async("misc", HTTPClient.METHOD_GET, "friends/" + uid)
+		if r[0] is Dictionary:
+			for fid in (r[0] as Dictionary).keys():
+				await db.call_async("misc", HTTPClient.METHOD_DELETE, "friends/%s/%s" % [str(fid), uid])
+		await db.call_async("misc", HTTPClient.METHOD_DELETE, "friends/" + uid)
+		await db.call_async("misc", HTTPClient.METHOD_DELETE, "requests/" + uid)
+	if is_signed_in():
+		sign_out()
+	Game.reset_pending = false
+	Game.player.reset_v3 = true
+	Game.save_data()
 
 
 func _resume_presence() -> void:

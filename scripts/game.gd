@@ -40,6 +40,8 @@ var player := {
 	"gps_dest": null,
 	"reset_v3": false,
 }
+## set when the one-time fresh start is waiting for Online to clear this account's friends
+var reset_pending := false
 var next_screen := ""
 var settings := {
 	"fullscreen": true,
@@ -345,8 +347,7 @@ func load_data() -> void:
 		player.owned = []
 		player.equipped = {}
 		player.daily_claimed = ""
-		player.reset_v3 = true
-		DirAccess.remove_absolute(ProjectSettings.globalize_path("user://auth.cfg"))
+		reset_pending = true
 		save_data()
 
 
