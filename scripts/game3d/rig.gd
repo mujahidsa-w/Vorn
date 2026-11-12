@@ -357,6 +357,19 @@ func _normalize_height(n: Node3D) -> void:
 		n.scale = Vector3.ONE * (1.82 / ab.size.y)
 
 
+## competitive team colour for the shirt/top (side a blue, side b orange)
+static func team_color(side: String) -> Color:
+	return Color(0.2, 0.45, 1.0) if side == "a" else Color(1.0, 0.5, 0.15)
+
+
+func set_team_color(col: Color) -> void:
+	if visual == null:
+		return
+	for mi in visual.find_children("*", "MeshInstance3D", true, false):
+		if _in_group(mi, "Tops"):
+			_tint(mi, col)
+
+
 func _tint(mi: MeshInstance3D, col: Color) -> void:
 	for si in mi.mesh.get_surface_count():
 		var m = mi.mesh.surface_get_material(si)

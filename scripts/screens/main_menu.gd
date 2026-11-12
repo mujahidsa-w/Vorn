@@ -145,7 +145,7 @@ func _on_item(target: String) -> void:
 	match target:
 		"soon":
 			main.toast("قريباً", CYAN)
-		"quick", "comp", "custom":
+		"quick", "city", "comp", "custom":
 			if not Online.is_signed_in() and not Online.offline_mode:
 				main.toast("سجّل الدخول للدخول إلى VORN", CYAN)
 				main.go("login")

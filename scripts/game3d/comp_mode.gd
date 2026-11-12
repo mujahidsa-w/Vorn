@@ -11,12 +11,15 @@ var layer: CanvasLayer
 var label: Label
 var _sub: Label
 var side := "a"          # our side: a or b, from the lobby's team choice
+const Rig = preload("res://scripts/game3d/rig.gd")
 var arena
 
 
 func _ready() -> void:
 	side = "b" if Online.match_team == "b" else "a"
 	world.comp_side = side
+	if world.player and world.player.rig:
+		world.player.rig.set_team_color(Rig.team_color(side))
 	arena = Arena.new()
 	world.add_child(arena)
 	_to_spawn()

@@ -63,7 +63,10 @@ func _ready() -> void:
 
 
 func apply_state(s: Dictionary) -> void:
-	side = str(s.get("cs", side))
+	var new_side := str(s.get("cs", side))
+	if new_side != side and rig:
+		rig.set_team_color(Rig.team_color(new_side))
+	side = new_side
 	last_rx = Time.get_ticks_msec() / 1000.0
 	var p := Vector3(float(s.get("x", 0)), float(s.get("y", 0)), float(s.get("z", 0)))
 	_vel = Vector3(float(s.get("vx", 0)), 0, float(s.get("vz", 0)))

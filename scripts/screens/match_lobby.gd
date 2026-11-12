@@ -148,7 +148,7 @@ func _draw_info(c: Control) -> void:
 
 
 func _draw_status(c: Control) -> void:
-	var total: int = teams.cops.size() + teams.robbers.size()
+	var total: int = teams.a.size() + teams.b.size()
 	var readyc := 0
 	for team in teams:
 		for p in teams[team]:
