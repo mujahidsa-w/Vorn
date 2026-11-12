@@ -116,7 +116,7 @@ func _on_states(all: Dictionary) -> void:
 			r = Remote.new()
 			r.uid = u
 			r.pname = str(s.get("n", "PLAYER"))
-			r.team = str(s.get("tm", "robbers"))
+			r.team = str(s.get("tm", "a"))
 			r.side = str(s.get("cs", "a"))
 			r.net = self
 			r.world = world

@@ -17,11 +17,11 @@ const LOGO: Texture2D = preload("res://assets/img/vorn_logo.png")
 var _real := 0.0
 var video_over := true
 const TIPS := [
-"Find work, earn money and shape your own story.",
+"Press V to switch between first and third person.",
 "Use E near a car to enter it and explore the city.",
 "Press M to open the city map and set a GPS destination.",
 "The city changes with the time of day and the weather.",
-"Your home, job and finances are the foundation of your life.",
+"Hold RMB to aim down the sights.",
 ]
 
 
@@ -93,8 +93,8 @@ func _paint(c: Control) -> void:
 		var lw := 560.0
 		var lh := lw * float(LOGO.get_height()) / float(LOGO.get_width())
 		c.draw_texture_rect(LOGO, Rect2(cx - lw * 0.5, 300, lw, lh), false)
-	Game.dtext(c, "REAL LIFE ROLEPLAY  •  CITY CENTER  •  ONLINE WORLD", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
-	var tt := "CITIZEN  •  " + str(Game.player.get("job", "UNEMPLOYED")).to_upper()
+	Game.dtext(c, "CITY  •  COMPETITIVE  •  ONLINE", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
+	var tt := "PLAYER  •  " + str(Game.player.get("name", "VORN")).to_upper()
 	var tw := Game.font_tag.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
 	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(Game.C_CYAN, 0.2))
 	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(Game.C_CYAN, 0.8), false, 1.5)
@@ -109,7 +109,7 @@ func _paint(c: Control) -> void:
 		Game.dtext(c, "TIP:  " + TIPS[_tip], Vector2(cx, 930), 20, Color(1, 1, 1, 0.55), Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
 		Game.dtext(c, "LOBBY BUILD COMPLETE", Vector2(cx, 700), 40, Game.C_CYAN, Game.font_wide, HORIZONTAL_ALIGNMENT_CENTER)
-		Game.dtext(c, "Your life in Vorn City starts in the Downtown district.", Vector2(cx, 748), 24, Game.C_TEXT, Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
+		Game.dtext(c, "Welcome to VORN.", Vector2(cx, 748), 24, Game.C_TEXT, Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
 
 
 func on_back() -> void:

@@ -11,13 +11,6 @@ const SCREENS := {
 		"match": preload("res://scripts/screens/match_lobby.gd"),
 	"loading": preload("res://scripts/screens/loading.gd"),
 	"customize": preload("res://scripts/screens/customize.gd"),
-		"shop": preload("res://scripts/screens/shop.gd"),
-		"jobs": preload("res://scripts/screens/jobs.gd"),
-		"market": preload("res://scripts/screens/market.gd"),
-		"gangs": preload("res://scripts/screens/gangs.gd"),
-		"security": preload("res://scripts/screens/security.gd"),
-		"admin": preload("res://scripts/screens/admin.gd"),
-		"court": preload("res://scripts/screens/court.gd"),
 		"friends": preload("res://scripts/screens/friends.gd"),
 	"settings": preload("res://scripts/screens/settings.gd"),
 	"login": preload("res://scripts/screens/login.gd"),
@@ -78,7 +71,7 @@ func _ready() -> void:
 		iv.queue_free()
 	Game.start_ambience()
 	if OS.get_cmdline_user_args().has("--nettest"):
-		go("loading", {"roleplay": true})
+		go("loading", {})
 		return
 	var start_screen := Game.next_screen if Game.next_screen != "" else ("menu" if Online.is_signed_in() or Online.offline_mode else "login")
 	Game.next_screen = ""

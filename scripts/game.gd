@@ -28,17 +28,11 @@ var font_wide: FontVariation
 var font_tag: FontVariation
 
 var player := {
-	"name": "CITIZEN",
+	"name": "PLAYER",
 	"level": 1,
 	"xp": 0.62,
 	"coins": 12480,
 	"gems": 860,
-	"team": "citizen",
-	"role": "citizen",
-	"job": "Unemployed",
-	"bank": 2500,
-	"home": "Downtown Starter",
-	"needs": {"hunger": 82, "thirst": 76, "energy": 91},
 	"owned": [],
 	"equipped": {},
 	"daily_claimed": "",
@@ -336,11 +330,8 @@ func load_data() -> void:
 		settings.quality = 0
 		settings.rain = false
 	for k in player:
-		player[k] = cf.get_value("player", k, player[k])
-	# Migrate old Cops & Robbers saves to the neutral citizen profile.
-	if str(player.get("team", "")) in ["cops", "robbers"]:
-		player["team"] = "citizen"
-		player["role"] = "citizen"
+		if cf.has_section_key("player", k):
+			player[k] = cf.get_value("player", k)
 
 
 func spend(currency: String, amount: int) -> bool:

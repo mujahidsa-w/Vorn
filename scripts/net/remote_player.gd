@@ -9,7 +9,7 @@ var net                     # MatchNet
 var world
 var uid := ""
 var pname := "PLAYER"
-var team := "robbers"
+var team := "a"
 var side := "a"              # competitive side (a or b), sent with every state
 var rig
 var model: Node3D

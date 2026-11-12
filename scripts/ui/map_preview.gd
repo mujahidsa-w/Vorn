@@ -3,14 +3,10 @@ extends Control
 
 var t := 0.0
 var blocks: Array = []
-var title := "DOWNTOWN"
+var title := "CITY"
 const LOCS := [
-	["BANK", Vector2(0.5, 0.42), Color(1.0, 0.78, 0.25)],
-	["JEWELRY STORE", Vector2(0.3, 0.24), Color(0.8, 0.5, 1.0)],
-	["POLICE HQ", Vector2(0.17, 0.7), Color(0.3, 0.55, 1.0)],
-	["PRISON", Vector2(0.86, 0.8), Color(0.75, 0.78, 0.85)],
+	["CITY CENTRE", Vector2(0.5, 0.42), Color(1.0, 0.78, 0.25)],
 	["HARBOR", Vector2(0.86, 0.22), Color(0.3, 0.85, 1.0)],
-	["HIDEOUT", Vector2(0.68, 0.64), Color(1.0, 0.25, 0.38)],
 	["GAS STATION", Vector2(0.4, 0.84), Color(0.4, 0.95, 0.5)],
 ]
 

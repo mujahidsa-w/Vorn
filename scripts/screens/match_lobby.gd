@@ -15,9 +15,9 @@ var show_top := true
 const MAX_PER_TEAM := 4
 const COUNTDOWN := 5.0
 
-var teams := {"cops": [], "robbers": []}
-var slots := {"cops": [], "robbers": []}
-var my_team := "robbers"
+var teams := {"b": [], "a": []}
+var slots := {"b": [], "a": []}
+var my_team := "a"
 var me := {}
 var ready_btn: Button
 var chat_log: RichTextLabel
@@ -45,12 +45,12 @@ var _merging := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	my_team = str(Game.player.team) if str(Game.player.team) != "" else "robbers"
+	my_team = Online.match_team if Online.match_team in ["a", "b"] else "a"
 	UI.back_button(self, on_back)
-	UI.header(self, "DOWNTOWN HEIST", "CLASSIC  •  4 VS 4  •  EU WEST  •  NIGHT  •  RAIN")
+	UI.header(self, "VORN ARENA", "COMPETITIVE  •  4 VS 4  •  ARENA")
 
 	# team columns
-	var cols := {"cops": [50.0, Game.C_BLUE, "COPS"], "robbers": [500.0, Game.C_RED, "ROBBERS"]}
+	var cols := {"a": [50.0, Game.C_BLUE, "TEAM A"], "b": [500.0, Game.C_RED, "TEAM B"]}
 	for team in cols:
 		var x: float = cols[team][0]
 		var col: Color = cols[team][1]
@@ -125,7 +125,7 @@ func _draw_chat_bg(c: Control) -> void:
 
 
 func _team_col(team: String) -> Color:
-	return Game.C_BLUE if team == "cops" else Game.C_RED
+	return Game.C_BLUE if team == "a" else Game.C_RED
 
 
 func _draw_team_header(c: Control, team: String, nm: String, col: Color) -> void:
@@ -229,12 +229,12 @@ func _find_match() -> void:
 
 func _join(m: String, existing: Dictionary) -> void:
 	mid = m
-	var counts := {"cops": 0, "robbers": 0}
+	var counts := {"b": 0, "a": 0}
 	for k in existing:
-		var tm := str(existing[k].get("team", "robbers"))
+		var tm := str(existing[k].get("team", "a"))
 		counts[tm] = int(counts.get(tm, 0)) + 1
 	if int(counts[my_team]) >= MAX_PER_TEAM:
-		my_team = "cops" if my_team == "robbers" else "robbers"
+		my_team = "b" if my_team == "a" else "a"
 		_sys("Your team was full — you joined the %s." % my_team)
 	await db.call_async("lobby", HTTPClient.METHOD_PUT, "matches/%s/players/%s" % [mid, Online.uid],
 		{"name": str(Game.player.name), "team": my_team, "level": int(Game.player.level), "ready": false, "t": {".sv": "timestamp"}, "j": {".sv": "timestamp"}})
@@ -374,7 +374,7 @@ func _host_logic() -> void:
 
 
 func _refresh() -> void:
-	teams = {"cops": [], "robbers": []}
+	teams = {"b": [], "a": []}
 	var order: Array = []
 	for u in players:
 		order.append([float(players[u].get("j", 0)), u])
@@ -382,7 +382,7 @@ func _refresh() -> void:
 	for it in order:
 		var u: String = it[1]
 		var d: Dictionary = players[u]
-		var tm := str(d.get("team", "robbers"))
+		var tm := str(d.get("team", "a"))
 		if not teams.has(tm):
 			continue
 		teams[tm].append({"name": str(d.get("name", "PLAYER")), "level": int(d.get("level", 1)), "ping": _ping if u == Online.uid else 0,

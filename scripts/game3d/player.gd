@@ -238,18 +238,15 @@ func _physics_process(delta: float) -> void:
 func _footstep(running: bool) -> void:
 	var kind := "concrete"
 	if world:
-		if world.bank and world.bank.is_inside(global_position):
-			kind = "tile"
-		else:
-			var g: Dictionary = world._ground(global_position + Vector3(0, 0.5, 0))
-			if not g.is_empty() and g.collider and g.collider.has_meta("surface"):
-				var srf := str(g.collider.get_meta("surface"))
-				if srf.contains("gerass") or srf.contains("sand") or srf.contains("cliff"):
-					kind = "grass"
-			if kind == "concrete" and world.sky and world.sky.wet > 0.45:
-				kind = "wet"
-				if running and randf() < 0.6:
-					world.fx.splash(global_position + Vector3(0, 0.05, 0))
+		var g: Dictionary = world._ground(global_position + Vector3(0, 0.5, 0))
+		if not g.is_empty() and g.collider and g.collider.has_meta("surface"):
+			var srf := str(g.collider.get_meta("surface"))
+			if srf.contains("gerass") or srf.contains("sand") or srf.contains("cliff"):
+				kind = "grass"
+		if kind == "concrete" and world.sky and world.sky.wet > 0.45:
+			kind = "wet"
+			if running and randf() < 0.6:
+				world.fx.splash(global_position + Vector3(0, 0.05, 0))
 	if world and world.audio_world:
 		world.audio_world.play_footstep(global_position, kind, running)
 	else:

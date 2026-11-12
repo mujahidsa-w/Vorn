@@ -7,7 +7,7 @@ config/quit_on_go_back=false
 config/project_settings_override="user://override.cfg"
 
 config/name="Vorn City"
-config/description="Vorn City - Realistic open-world life roleplay"
+config/description="VORN - City competitive"
 config/version="0.9.0-vorn-city"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
@@ -20,13 +20,6 @@ config/windows_native_icon=""
 
 Game="*res://scripts/game.gd"
 Online="*res://scripts/online.gd"
-Roleplay="*res://scripts/roleplay.gd"
-Commerce="*res://scripts/commerce.gd"
-Gangs="*res://scripts/gangs.gd"
-Security="*res://scripts/security.gd"
-Driving="*res://scripts/driving.gd"
-Administration="*res://scripts/administration.gd"
-Justice="*res://scripts/justice.gd"
 
 [display]
 

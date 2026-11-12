@@ -1,6 +1,6 @@
 extends Node
 ## City soundscape driven by time of day and weather: distant traffic, wind, rain,
-## birds by day, crickets at night. Indoors (inside the bank) everything outside is muffled.
+## birds by day, crickets at night.
 
 var world
 var players := {}
@@ -44,7 +44,7 @@ func _process(delta: float) -> void:
 	if sky == null:
 		return
 	var cam: Camera3D = world.current_camera()
-	var inside: bool = cam != null and world.bank != null and world.bank.is_inside(cam.global_position)
+	var inside: bool = false
 	_inside = move_toward(_inside, 1.0 if inside else 0.0, delta * 2.0)
 	_lp.cutoff_hz = lerpf(20000.0, 700.0, _inside)
 	var day: float = 1.0 - sky.night

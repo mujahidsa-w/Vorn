@@ -6,7 +6,6 @@ const NeonButton = preload("res://scripts/ui/neon_button.gd")
 const OptionRow = preload("res://scripts/ui/option_row.gd")
 const Weapons = preload("res://scripts/game3d/weapons.gd")
 const MapUI = preload("res://scripts/game3d/map_ui.gd")
-const Phone = preload("res://scripts/game3d/phone.gd")
 
 const MM_SIZE := Vector2(340, 210)
 const MM_RANGE := 0.55          # pixels per metre on the minimap
@@ -73,11 +72,6 @@ void fragment() {
 	paint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	paint.draw.connect(_draw_hud)
 	root.add_child(paint)
-	Roleplay.notification.connect(_on_roleplay_notification)
-	Security.notification.connect(_on_roleplay_notification)
-	Driving.notification.connect(_on_roleplay_notification)
-	Administration.notification.connect(_on_roleplay_notification)
-	Justice.notification.connect(_on_roleplay_notification)
 	minimap = Control.new()
 	minimap.clip_contents = true
 	minimap.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -93,12 +87,9 @@ void fragment() {
 	bigmap.visible = false
 	root.add_child(bigmap)
 	_build_pause()
-	phone = Phone.new()
-	phone.hud = self
-	root.add_child(phone)
 
 
-func _on_roleplay_notification(text: String) -> void:
+func _on_notification(text: String) -> void:
 	_note = text
 	_note_t = 3.0
 
@@ -152,19 +143,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.physical_keycode == KEY_F1:
 			show_help = not show_help
 			help_t = 0.0
-		elif event.physical_keycode == KEY_P:
-			phone.toggle()
-			get_viewport().set_input_as_handled()
-		elif event.physical_keycode == KEY_J and not pause_root.visible and not map_open:
-			if Roleplay.shift_active:
-				Roleplay.end_shift()
-			else:
-				Roleplay.start_shift()
-			get_viewport().set_input_as_handled()
-		elif event.physical_keycode == KEY_N and not pause_root.visible and not map_open:
-			Roleplay.eat()
-			Roleplay.drink()
-			get_viewport().set_input_as_handled()
 		elif wasted and event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_A, KEY_D]:
 			world.spectate_next(1 if event.physical_keycode in [KEY_RIGHT, KEY_D] else -1)
 	elif event is InputEventMouseButton and event.pressed and not get_tree().paused and not map_open:
@@ -589,43 +567,20 @@ func _draw_hud() -> void:
 	paint.draw_rect(Rect2(mm.position.x + half + 4, by + 2, half - 2, 8), Color(0.12, 0.22, 0.38))
 	paint.draw_rect(Rect2(mm.position.x + half + 4, by + 2, (half - 2) * clampf(pl.armor / 50.0, 0, 1), 8), Color(0.3, 0.6, 1.0))
 	_draw_gps(mm, by)
-	# roleplay identity badge
+	# city identity badge
 	_box(Rect2(24, 24, 390, 78), Game.C_CYAN)
 	Game.dtext(paint, "VORN CITY", Vector2(46, 64), 34, Color.WHITE, Game.font_wide)
 	var clock := ""
 	if world.sky:
 		var hh := int(world.sky.hour)
 		clock = "%02d:%02d  •  %s  •  %s" % [hh, int(fmod(world.sky.hour, 1.0) * 60.0), world.sky.phase_name(), world.sky.weather_name]
-		var territory: Dictionary = Gangs.territory_at(pl.global_position)
-		var zone_name := str(territory.get("name", "NEUTRAL DISTRICT"))
-		Game.dtext(paint, zone_name.to_upper() + "  •  CITIZEN  •  " + clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
-	var status_box := Rect2(430, 24, 330, 146)
-	_box(status_box, Game.C_CYAN)
-	Game.dtext(paint, str(Game.player.get("job", "Unemployed")).to_upper(), status_box.position + Vector2(18, 30), 20, Color.WHITE, Game.font_bold)
-	Game.dtext(paint, str(Game.player.get("company", "Independent")), status_box.position + Vector2(18, 51), 14, Game.C_CYAN, Game.font_tag)
-	Game.dtext(paint, "BANK  $" + Game.fmt(int(Game.player.get("bank", 0))), status_box.position + Vector2(18, 76), 18, Game.C_GOLD, Game.font_semi)
-	Game.dtext(paint, "ON DUTY" if Roleplay.shift_active else "OFF DUTY", status_box.position + Vector2(230, 76), 14, Game.C_GREEN if Roleplay.shift_active else Game.C_DIM, Game.font_tag)
-	Game.dtext(paint, Security.wanted_text(), status_box.position + Vector2(18, 98), 15, Game.C_RED if Security.wanted_level > 0 else Game.C_GREEN, Game.font_tag)
-	Game.dtext(paint, "NEXT " + world.sky.weather_forecast, status_box.position + Vector2(205, 98), 13, Game.C_CYAN, Game.font_tag)
-	var needs: Dictionary = Game.player.get("needs", {})
-	var nx := status_box.position.x + 18.0
-	for item in [["H", "hunger", Color(1.0, 0.55, 0.25)], ["T", "thirst", Color(0.25, 0.75, 1.0)], ["E", "energy", Color(0.55, 1.0, 0.45)]]:
-		var value := clampf(float(needs.get(item[1], 0.0)) / 100.0, 0.0, 1.0)
-		Game.dtext(paint, item[0], Vector2(nx, status_box.position.y + 136), 15, item[2], Game.font_bold)
-		paint.draw_rect(Rect2(nx + 18, status_box.position.y + 125, 74, 8), Color(1, 1, 1, 0.12))
-		paint.draw_rect(Rect2(nx + 18, status_box.position.y + 125, 74 * value, 8), item[2])
-		nx += 102.0
+		Game.dtext(paint, clock, Vector2(46, 90), 14, Game.C_DIM, Game.font_tag)
 	var hint := ""
 	if pl.dead:
 		hint = ""
 	elif car == null:
-		var business: Dictionary = world.businesses.nearest(pl.global_position, 6.0) if world.businesses else {}
 		var pk = world.nearest_pickup(1.9)
-		if not business.is_empty():
-			hint = "[E]  ENTER  " + str(business.data.name)
-		elif world.near_switch():
-			hint = "[E]  LIGHTS " + ("OFF" if world.bank.lights_on else "ON")
-		elif pk:
+		if pk:
 			hint = "[E]  TAKE  " + ("BODY ARMOR" if pk.id == "armor" else str(Weapons.DATA[pk.id].name))
 		else:
 			var nc = world.nearest_car(4.5)
@@ -706,9 +661,9 @@ func _draw_hud() -> void:
 			Game.dtext(paint, st, Vector2(sz.x - 30, sz.y - 136 if pl.current != "" else sz.y - 100), 16, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_RIGHT)
 	# help
 	if show_help and not pl.dead and not Game.touch:
-		var lines := [["W A S D", "Walk"], ["SHIFT", "Run"], ["SPACE", "Jump  •  Handbrake"], ["MOUSE", "Look / Aim (RMB)"], ["LMB", "Shoot / Punch combo"],
-			["C", "Crouch"], ["V", "First person"], ["E", "Take item / car"], ["1-4  X", "Switch / holster"],
-			["R   G", "Reload / Detonate C4"], ["W / I", "Start engine (car)"], ["Q   H", "Siren / Horn"],
+		var lines := [["W A S D", "Walk"], ["SHIFT", "Run"], ["SPACE", "Jump"], ["MOUSE", "Look / Aim (RMB)"], ["LMB", "Shoot / Punch combo"],
+			["C", "Crouch"], ["V", "First person"], ["1-4  X", "Switch / holster"],
+			["R   G", "Reload"],
 				["TAP GPS", "Open map + GPS"], ["F11 / M", "Map shortcut"], ["F5", "Reset position"], ["F1  ESC", "Help / Pause + Settings"]]
 		var rr := Rect2(24, 120, 360, 40 + lines.size() * 27)
 		_box(rr)

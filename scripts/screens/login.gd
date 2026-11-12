@@ -22,7 +22,7 @@ func _ready() -> void:
 	var title := Game.label("VORN CITY", 96, Game.font_wide, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	Game.lay(title, [0.5, 0, 0.5, 0], [-700, 170, 700, 290])
 	add_child(title)
-	var sub := Game.label("ONLINE ROLEPLAY  •  CITY CENTER  •  DAY & NIGHT", 22, Game.font_tag, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	var sub := Game.label("COMPETITIVE  •  ONLINE  •  DAY & NIGHT", 22, Game.font_tag, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	Game.lay(sub, [0.5, 0, 0.5, 0], [-700, 296, 700, 330])
 	add_child(sub)
 	var paint := UI.paint(self, _draw_panel, Rect2(0, 0, 0, 0), true)
@@ -52,7 +52,7 @@ func _ready() -> void:
 	b_cancel.pressed.connect(_cancel)
 	b_cancel.visible = false
 	add_child(b_cancel)
-	status = Game.label("Sign in to meet other citizens and build your life in Vorn City.", 19, Game.font_med, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
+	status = Game.label("Sign in to play VORN.", 19, Game.font_med, Game.C_DIM, HORIZONTAL_ALIGNMENT_CENTER)
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	Game.lay(status, [0.5, 0.5, 0.5, 0.5], [-310, 226, 310, 284])
 	add_child(status)

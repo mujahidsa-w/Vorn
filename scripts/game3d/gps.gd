@@ -385,13 +385,7 @@ func _update_names(me: Vector3) -> void:
 # ---------------------------------------------------------------- places
 func _build_places() -> void:
 	for p in world.poi:
-		var kind := "bank" if str(p.name) == "BANK" else ("police" if str(p.name).contains("POLICE") else "hideout")
-		places.append({"name": p.name if str(p.name) != "BANK" else "UNION BANK", "kind": kind, "pos": p.pos, "color": p.color})
-	for team in world.bases:
-		var b: Dictionary = world.bases[team]
-		places.append({"name": ("POLICE ARMORY" if team == "cops" else "HIDEOUT ARMORY"), "kind": "armory", "pos": b.pos + Vector3(4, 0, 4), "color": Color(1.0, 0.6, 0.15)})
-	if world.bank:
-		places.append({"name": "PRIVATE GARAGE", "kind": "garage", "pos": world.bank.global_transform * Vector3(32, 0, 20), "color": Color(0.75, 0.8, 0.85)})
+		places.append({"name": p.name, "kind": "place", "pos": p.pos, "color": p.color})
 	var C = world.country
 	if C and C.ready_ok:
 		var cols := {"tower": Color(1, 0.3, 0.25), "ranch": Color(0.8, 0.55, 0.3), "gas": Color(1.0, 0.85, 0.2), "lake": Color(0.35, 0.7, 1.0), "lookout": Color(0.5, 0.9, 0.5), "zone": Color(0.85, 0.85, 0.85)}

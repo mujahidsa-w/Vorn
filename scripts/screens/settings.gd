@@ -11,9 +11,9 @@ var show_top := true
 
 const FPS_OPTS := [0, 30, 60, 120, 144]
 const KEYS := [
-	["W A S D", "Walk / Drive"], ["SHIFT   SPACE", "Run / Jump"], ["MOUSE", "Look  •  RMB aim"], ["LMB", "Shoot / Punch"], ["C", "Crouch"],
-	["V", "First person"], ["E", "Take item / Enter car"], ["1-4  X", "Switch / Holster"], ["R   G", "Reload / Detonate C4"],
-	["Q   H", "Siren / Horn"], ["F11  /  M", "Map + GPS (click to set a destination)"], ["ALT+ENTER", "Toggle fullscreen"], ["ESC", "Pause / Settings"],
+	["W A S D", "Walk"], ["SHIFT   SPACE", "Run / Jump"], ["MOUSE", "Look  •  RMB aim"], ["LMB", "Shoot / Punch"], ["C", "Crouch"],
+	["V", "First person"], ["1-4  X", "Switch / Holster"], ["R   G", "Reload"],
+	["F11  /  M", "Map + GPS (click to set a destination)"], ["ALT+ENTER", "Toggle fullscreen"], ["ESC", "Pause / Settings"],
 ]
 
 var tab := 0

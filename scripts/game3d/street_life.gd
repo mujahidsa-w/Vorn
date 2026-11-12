@@ -283,10 +283,7 @@ func _build_signals() -> void:
 	while i < n - 30:
 		var bend := _tan(i - 3).angle_to(_tan(i + 3))
 		var near_base := false
-		for b in world.bases.values():
-			if route[i].distance_to(b.pos) < 60.0:
-				near_base = true
-		var near_bank: bool = world.bank != null and route[i].distance_to(world.bank.global_position) < 70.0
+		var near_bank := false
 		if bend < 0.1 and not near_base and not near_bank and route[i].distance_to(route[i - 6]) > 40.0:
 			_signal(i)
 			i += 38

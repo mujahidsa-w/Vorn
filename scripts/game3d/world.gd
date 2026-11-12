@@ -5,14 +5,12 @@ const Player = preload("res://scripts/game3d/player.gd")
 const Car = preload("res://scripts/game3d/car.gd")
 const Hud = preload("res://scripts/game3d/hud.gd")
 const Effects = preload("res://scripts/game3d/effects.gd")
-const Bank = preload("res://scripts/game3d/bank.gd")
 const CityCenter = preload("res://scripts/game3d/city_center.gd")
 const MatchNet = preload("res://scripts/net/match_net.gd")
 const SkyCycle = preload("res://scripts/game3d/sky_cycle.gd")
 const StreetLife = preload("res://scripts/game3d/street_life.gd")
 const Country = preload("res://scripts/game3d/country.gd")
 const Gps = preload("res://scripts/game3d/gps.gd")
-const CityBusinesses = preload("res://scripts/game3d/city_businesses.gd")
 const WorldAudio = preload("res://scripts/game3d/world_audio.gd")
 
 const MAP_PATH := "res://assets/models/map/la.glb"
@@ -26,9 +24,8 @@ var player
 var cars: Array = []
 var hud
 var active_car = null
-var team := "citizen"
+var team := "a"
 var comp_side := "a"          # competitive side of this player (a or b)
-var roleplay := true
 var spawn_xf := Transform3D()
 var rain: GPUParticles3D
 var space: PhysicsDirectSpaceState3D
@@ -39,8 +36,6 @@ var life                     # traffic, pedestrians, signals, props
 var country                  # open world outside the city ring (terrain, roads, villages)
 var gps                      # road graph, routing, zone names
 var last_car = null          # the car the player drove last (shown on the map)
-var bank
-var businesses
 var audio_world
 var npcs: Array = []
 var poi: Array = []          # map points of interest {name,pos,color}
@@ -55,9 +50,7 @@ var Q := 1
 
 func _ready() -> void:
 	Q = clampi(int(Game.settings.quality), 0, 2)
-	# Legacy team data remains only as an internal compatibility bridge while RP systems replace it.
-	team = "robbers"
-	roleplay = true
+	team = "a"
 	Game.stop_music()
 	Engine.time_scale = 1.0
 	fx = Effects.new()
@@ -74,9 +67,6 @@ func _ready() -> void:
 	_spawn_lights()
 	sky.refresh()
 	_spawn_actors()
-	Gangs.configure_world(self)
-	_businesses_setup()
-	_build_bank()
 	_build_city_center()
 	_setup_rain()
 	if not OS.get_cmdline_user_args().has("--nocountry"):
@@ -121,16 +111,6 @@ func _ready() -> void:
 		nt.set("world", self)
 		add_child(nt)
 		nt.call("run")
-	if args.has("--cine"):
-		sky.set_hour(22.5)
-		sky.set_weather(2)
-		hud.visible = false
-		player.set_active(false)
-		var cine: Node = load("res://scripts/game3d/cinematic.gd").new()
-		cine.set("world", self)
-		add_child(cine)
-		cine.call("run")
-		return
 	var tools := {"--citytour": "city_tour", "--cityprobe": "city_probe", "--drivetest": "drive_test", "--p1tour": "p1_tour", "--p2tour": "p2_tour", "--gfxtour": "gfx_tour", "--lifetour": "life_tour", "--perf": "perf_probe", "--mapinfo": "map_info", "--worldtour": "world_tour", "--gpstest": "gps_test"}
 	if args.size() >= 2 and tools.has(args[0]) and ResourceLoader.exists("res://tools/%s.gd" % tools[args[0]]):
 		var tour: Node = load("res://tools/%s.gd" % tools[args[0]]).new()
@@ -433,17 +413,9 @@ func _route_xf(i: int, lateral: float) -> Transform3D:
 	return xf
 
 
-const BASES := {
-	"cops": {"frac": 0.0, "name": "POLICE HQ", "color": Color(0.3, 0.55, 1.0),
-		"cars": [["police_gt500", "POLICE CRUISER", "police"], ["police_gt500", "POLICE INTERCEPTOR", "police"]],
-		"weapons": ["glock", "m4", "sniper"]},
-	"robbers": {"frac": 0.5, "name": "ROBBER HIDEOUT", "color": Color(1.0, 0.28, 0.4),
-		"cars": [["mustang69", "MUSTANG BOSS 302", "robber"], ["mustang_gt", "MUSTANG GT", "robber"], ["mustang_rtr", "MUSTANG RTR", "robber"]],
-		"weapons": ["glock", "akm", "rpg", "c4"]},
-}
 const Weapons = preload("res://scripts/game3d/weapons.gd")
 
-var bases := {}
+var bases := {}          # team bases were removed with the old mode; kept empty for the spot search
 var pickups: Array = []
 var rockets: Array = []
 var c4s: Array = []
@@ -484,178 +456,6 @@ func _box(parent: Node3D, size: Vector3, mat: Material, pos: Vector3, basis_: Ba
 		sb.add_child(cs)
 		mi.add_child(sb)
 	return mi
-
-
-func _build_base(team: String) -> void:
-	var cfg: Dictionary = BASES[team]
-	var idx := clampi(int(route.size() * float(cfg.frac)) + 40, 2, route.size() - 3)
-	var o: Vector3 = route[idx]
-	var tan: Vector3 = route[idx + 1] - route[idx - 1]
-	tan.y = 0
-	tan = tan.normalized()
-	var nrm := tan.cross(Vector3.UP).normalized()
-	var edges := _road_edges(o, nrm)
-	var side := 1.0 if edges.y >= edges.x else -1.0
-	var edge := maxf(edges.y if side > 0 else edges.x, 4.5)
-	var sd := nrm * side                       # points toward the base side of the road
-	var col: Color = cfg.color
-	var face := Basis.looking_at(-sd, Vector3.UP)   # objects facing the road
-	var along_b := Basis.looking_at(tan, Vector3.UP)
-	var root := Node3D.new()
-	add_child(root)
-
-	# parked team cars along the curb
-	var cars_cfg: Array = cfg.cars
-	for i in cars_cfg.size():
-		var c := Car.new()
-		c.model_path = "res://assets/models/cars/%s.glb" % cars_cfg[i][0]
-		c.display_name = cars_cfg[i][1]
-		c.kind = cars_cfg[i][2]
-		c.world = self
-		add_child(c)
-		var cp := _gp(o, tan, sd, -16.0 + i * 6.5, edge - 1.5)
-		c.global_transform = Transform3D(Basis.looking_at(tan, Vector3.UP), cp + Vector3(0, 0.4, 0))
-		cars.append(c)
-
-	# sign pylon with team name
-	var sign_pos := _gp(o, tan, sd, 2.0, edge + 0.4)
-	_box(root, Vector3(0.5, 6.0, 0.5), _mat(Color(0.1, 0.11, 0.13), 0.0, 0.5, 0.4), sign_pos + Vector3(0, 3.0, 0), face, true)
-	_box(root, Vector3(5.2, 1.3, 0.15), _mat(Color(0.03, 0.04, 0.07)), sign_pos + Vector3(0, 5.6, 0) - sd * 0.35, face)
-	_box(root, Vector3(5.2, 0.08, 0.17), _mat(col, 6.0), sign_pos + Vector3(0, 4.95, 0) - sd * 0.35, face)
-	var lbl := Label3D.new()
-	lbl.text = cfg.name
-	lbl.font = Game.font_wide
-	lbl.font_size = 96
-	lbl.pixel_size = 0.009
-	lbl.modulate = col.lightened(0.35)
-	lbl.outline_size = 0
-	root.add_child(lbl)
-	lbl.global_transform = Transform3D(Basis.looking_at(sd, Vector3.UP), sign_pos + Vector3(0, 5.65, 0) - sd * 0.45)
-	var team_light := OmniLight3D.new()
-	team_light.light_color = col
-	team_light.light_energy = 1.2
-	team_light.omni_range = 12.0
-	root.add_child(team_light)
-	team_light.global_position = sign_pos + Vector3(0, 4.5, 0) - sd * 2.0
-	var flood := SpotLight3D.new()
-	flood.light_color = Color(1.0, 0.95, 0.85)
-	flood.light_energy = 2.5
-	flood.spot_range = 30.0
-	flood.spot_angle = 55.0
-	root.add_child(flood)
-	flood.global_position = sign_pos + Vector3(0, 6.2, 0)
-	flood.look_at(_gp(o, tan, sd, -4.0, edge - 4.0), Vector3.UP)
-
-	# armory table
-	var tp := _gp(o, tan, sd, 6.5, edge - 1.0)
-	var wood := _mat(Color(0.18, 0.16, 0.14), 0.0, 0.2, 0.6)
-	_box(root, Vector3(0.9, 0.08, 3.2), wood, tp + Vector3(0, 0.95, 0), along_b, true)
-	for lx in [-0.35, 0.35]:
-		for lz in [-1.45, 1.45]:
-			_box(root, Vector3(0.06, 0.95, 0.06), wood, tp + along_b * Vector3(lx, 0.475, lz), along_b)
-	var al := Label3D.new()
-	al.text = "ARMORY"
-	al.font = Game.font_wide
-	al.font_size = 64
-	al.pixel_size = 0.006
-	al.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	al.modulate = col.lightened(0.4)
-	root.add_child(al)
-	al.global_position = tp + Vector3(0, 1.9, 0)
-	var lamp := OmniLight3D.new()
-	lamp.light_color = Color(1.0, 0.9, 0.75)
-	lamp.light_energy = 2.0
-	lamp.omni_range = 6.0
-	root.add_child(lamp)
-	lamp.global_position = tp + Vector3(0, 2.4, 0)
-	var wl: Array = cfg.weapons
-	for i in wl.size():
-		var id: String = wl[i]
-		var holder := Node3D.new()
-		root.add_child(holder)
-		var along := -1.2 + i * (2.4 / maxf(wl.size() - 1, 1))
-		holder.global_transform = Transform3D(along_b, tp + along_b * Vector3(0, 1.0, along))
-		var wm: Node3D = load(Weapons.DATA[id].path).instantiate()
-		holder.add_child(wm)
-		# lay the weapon flat on the table, barrel pointing across the table
-		if id == "sniper":
-			wm.rotation_degrees = Vector3(0, 90, 90)
-		elif id == "c4":
-			wm.rotation_degrees = Vector3(0, 0, 0)
-		else:
-			wm.rotation_degrees = Vector3(90, 0, 0)
-		wm.position.y = 0.04
-		pickups.append({"node": holder, "id": id})
-	# body armor vest on a crate next to the table
-	var vest := Node3D.new()
-	root.add_child(vest)
-	vest.global_transform = Transform3D(along_b, tp + along_b * Vector3(1.3, 0.0, 0.0))
-	var crate_m := _mat(Color(0.22, 0.24, 0.2), 0.0, 0.1, 0.8)
-	_box(vest, Vector3(0.7, 0.7, 0.7), crate_m, vest.global_position + Vector3(0, 0.35, 0), along_b, true)
-	var vm := _mat(Color(0.08, 0.1, 0.14), 0.0, 0.0, 0.7)
-	_box(vest, Vector3(0.48, 0.55, 0.16), vm, vest.global_position + Vector3(0, 0.98, 0), along_b.rotated(Vector3.UP, PI / 2))
-	_box(vest, Vector3(0.3, 0.08, 0.17), _mat(col, 3.0), vest.global_position + Vector3(0, 1.12, 0), along_b.rotated(Vector3.UP, PI / 2))
-	var vl := Label3D.new()
-	vl.text = "ARMOR"
-	vl.font = Game.font_wide
-	vl.font_size = 48
-	vl.pixel_size = 0.006
-	vl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	vl.modulate = Color(0.45, 0.7, 1.0)
-	vest.add_child(vl)
-	vl.position = Vector3(0, 1.6, 0)
-	pickups.append({"node": vest, "id": "armor"})
-
-	# decoration
-	if team == "cops":
-		for k in 2:
-			var g: Node3D = load("res://assets/models/props/swat_guard.glb").instantiate()
-			root.add_child(g)
-			g.global_transform = Transform3D(face.rotated(Vector3.UP, PI), _gp(o, tan, sd, -1.0 + k * 13.0, edge - 0.6))
-		var stripe := _mat(Color(0.95, 0.95, 0.95))
-		var blue := _mat(col, 1.5)
-		for k in 4:
-			var bp := _gp(o, tan, sd, 12.0 + k * 1.6, edge - 4.6)
-			_box(root, Vector3(1.4, 0.9, 0.35), stripe, bp + Vector3(0, 0.45, 0), along_b.rotated(Vector3.UP, PI / 2), true)
-			_box(root, Vector3(1.42, 0.12, 0.37), blue, bp + Vector3(0, 0.75, 0), along_b.rotated(Vector3.UP, PI / 2))
-	else:
-		var crate := _mat(Color(0.35, 0.25, 0.15), 0.0, 0.0, 0.9)
-		for k in 5:
-			var cp2 := _gp(o, tan, sd, 10.0 + (k % 3) * 1.3, edge - 0.4 - (k / 3) * 1.3)
-			_box(root, Vector3(1.1, 1.1, 1.1), crate, cp2 + Vector3(0, 0.55 + (1.1 if k == 4 else 0.0), 0), along_b.rotated(Vector3.UP, k * 0.3), true)
-		var fire_pos := _gp(o, tan, sd, 0.0, edge - 0.8)
-		var barrel := MeshInstance3D.new()
-		var cyl := CylinderMesh.new()
-		cyl.top_radius = 0.3
-		cyl.bottom_radius = 0.3
-		cyl.height = 0.9
-		cyl.material = _mat(Color(0.2, 0.18, 0.16), 0.0, 0.6, 0.5)
-		barrel.mesh = cyl
-		root.add_child(barrel)
-		barrel.global_position = fire_pos + Vector3(0, 0.45, 0)
-		var fl := OmniLight3D.new()
-		fl.light_color = Color(1.0, 0.5, 0.15)
-		fl.light_energy = 3.0
-		fl.omni_range = 9.0
-		fl.set_meta("flicker", true)
-		root.add_child(fl)
-		fl.global_position = fire_pos + Vector3(0, 1.3, 0)
-		var fire := _fire_particles()
-		root.add_child(fire)
-		fire.global_position = fire_pos + Vector3(0, 0.9, 0)
-		flickers.append(fl)
-
-	# buildings behind the base
-	if team == "cops":
-		_place_building("res://assets/models/props/police_station.glb", o, tan, sd, 0.0, edge + 42.0, true)
-		_place_building("res://assets/models/props/skyscraper.glb", o, tan, sd, 90.0, edge + 95.0, false)
-	else:
-		_place_building("res://assets/models/props/skyscraper.glb", o, tan, sd, -40.0, edge + 80.0, false)
-		_place_building("res://assets/models/props/skyscraper.glb", o, tan, sd, 50.0, edge + 110.0, false, PI * 0.5)
-
-	var spawn := _gp(o, tan, sd, 0.0, edge - 4.0) + Vector3(0, 0.3, 0)
-	poi.append({"name": "HQ" if team == "cops" else "HIDEOUT", "pos": spawn, "color": col})
-	bases[team] = {"pos": spawn, "yaw": atan2(-tan.x, -tan.z), "color": col, "name": cfg.name, "sign": sign_pos}
 
 
 var flickers: Array = []
@@ -739,23 +539,16 @@ func _fire_particles() -> CPUParticles3D:
 
 
 func _spawn_actors() -> void:
-	_build_base("cops")
-	_build_base("robbers")
-	var b: Dictionary = bases[team]
-	spawn_xf = Transform3D(Basis(Vector3.UP, b.yaw), b.pos)
+	var sxf := _route_xf(route.size() / 2, 0.0)
+	spawn_xf = sxf
+	var fwd := -sxf.basis.z
 	player = Player.new()
 	player.world = self
-	player.cop_team = team == "cops"
 	add_child(player)
 	player.global_transform = spawn_xf
-	player.yaw = b.yaw
+	player.yaw = atan2(-fwd.x, -fwd.z)
 	player.cam.current = true
 
-
-func _businesses_setup() -> void:
-	businesses = CityBusinesses.new()
-	businesses.world = self
-	add_child(businesses)
 
 
 # ---------------------------------------------------------------- city centre
@@ -818,84 +611,6 @@ func _build_city_center() -> void:
 	cc.build()
 	poi.append({"name": "CITY CENTER", "pos": c, "color": Color(0.4, 0.9, 1.0)})
 	print("city centre at ", c)
-
-
-# ---------------------------------------------------------------- bank
-func _build_bank() -> void:
-	# choose the flattest spot along the route, away from both bases
-	var best_score := INF
-	var best := {}
-	for k in 24:
-		var idx := clampi(int(route.size() * (0.12 + k * 0.03)), 3, route.size() - 4)
-		var o: Vector3 = route[idx]
-		var far_ok := true
-		for b in bases.values():
-			if o.distance_to(b.pos) < 160.0:
-				far_ok = false
-		if not far_ok:
-			continue
-		var tan: Vector3 = route[idx + 1] - route[idx - 1]
-		tan.y = 0
-		tan = tan.normalized()
-		var nrm := tan.cross(Vector3.UP).normalized()
-		var edges := _road_edges(o, nrm)
-		for side in [1.0, -1.0]:
-			var edge := maxf(edges.y if side > 0 else edges.x, 4.5)
-			var sd: Vector3 = nrm * side
-			var base_y := o.y
-			var score := 0.0
-			var center := o + sd * (edge + 33.0)
-			for gx in [-36.0, -18.0, 0.0, 18.0, 40.0]:
-				for gz in [-28.0, -10.0, 10.0, 28.0]:
-					var p: Vector3 = center + tan * gx - sd * gz
-					var g := _ground(p + Vector3(0, 60, 0))
-					if g.is_empty():
-						score += 400.0      # off the map
-						continue
-					var h: float = g.position.y
-					score += maxf(h - base_y, 0.0) * 3.0 + minf(maxf(base_y - h, 0.0), 30.0) * 0.5
-			if score < best_score:
-				best_score = score
-				best = {"o": o, "tan": tan, "sd": sd, "edge": edge}
-	if best.is_empty():
-		return
-	bank = Bank.new()
-	bank.world = self
-	add_child(bank)
-	var sd2: Vector3 = best.sd
-	var tan2: Vector3 = best.tan
-	var origin: Vector3 = best.o + sd2 * (best.edge + 33.0)
-	origin.y = best.o.y + 0.05
-	# local +Z faces the road, local +X along the road
-	var bz := -sd2
-	var bx := Vector3.UP.cross(bz).normalized()
-	bank.global_transform = Transform3D(Basis(bx, Vector3.UP, bz), origin)
-	_clear_map_area(bank.global_transform, Rect2(-46, -34, 92, 72))
-	bank.build()
-	cars.append_array(bank.spawn_cars(self))
-	bank.spawn_npcs(self)
-	npcs.append_array(bank.npcs)
-	poi.append({"name": "BANK", "pos": origin, "color": Color(1.0, 0.8, 0.3)})
-	print("bank at ", origin, " score ", best_score)
-
-
-func _clear_map_area(xf: Transform3D, r: Rect2) -> void:
-	# hide map props/buildings standing on the bank lot
-	var inv := xf.affine_inverse()
-	var n := 0
-	for mi in map.find_children("*", "MeshInstance3D", true, false):
-		if not mi.visible:
-			continue
-		var ab: AABB = mi.global_transform * mi.get_aabb()
-		if ab.size.x > 130.0 or ab.size.z > 130.0:
-			continue
-		var c: Vector3 = inv * ab.get_center()
-		if r.has_point(Vector2(c.x, c.z)) and c.y > -6.0:
-			mi.visible = false
-			for b in mi.find_children("*", "StaticBody3D", true, false):
-				b.queue_free()
-			n += 1
-	print("cleared map meshes on bank lot: ", n)
 
 
 # ---------------------------------------------------------------- player life
@@ -994,9 +709,6 @@ func alert(pos: Vector3, radius: float, attacker) -> void:
 
 
 func fire_bullet(shooter, origin: Vector3, dir: Vector3, muzzle: Vector3, dmg: float) -> Vector3:
-	if shooter == player:
-		var territory := Gangs.territory_at(player.global_position)
-		Security.record_player_shot(str(territory.get("id", "")))
 	if audio_world:
 		audio_world.play_gunshot(muzzle, shooter.current if shooter and shooter.get("current") != null else "shot_pistol")
 	var q := PhysicsRayQueryParameters3D.create(origin, origin + dir * 600.0)
@@ -1259,12 +971,11 @@ func _notification(what: int) -> void:
 
 
 func _process(_d: float) -> void:
-	Driving.update_vehicle(self, _d)
 	_spectate_tick(_d / maxf(Engine.time_scale, 0.01))
 	var c := current_camera()
 	if c and rain:
 		rain.global_position = c.global_position + Vector3(0, 16, 0)
-		rain.visible = sky.rain > 0.02 and not (bank and bank.is_inside(c.global_position))
+		rain.visible = sky.rain > 0.02
 	var tt := Time.get_ticks_msec() / 1000.0
 	for fl in flickers:
 		fl.light_energy = 2.4 + sin(tt * 13.0) * 0.4 + sin(tt * 7.3) * 0.5 + randf() * 0.3
@@ -1290,16 +1001,7 @@ func nearest_car(maxd: float):
 	return best
 
 
-func near_switch() -> bool:
-	return bank != null and active_car == null and player.global_position.distance_to(bank.switch_world()) < 1.8
-
-
 func interact() -> void:
-	if near_switch():
-		bank.toggle_lights()
-		return
-	if businesses and active_car == null and businesses.interact(player.global_position):
-		return
 	if active_car == null:
 		var pk = nearest_pickup(1.9)
 		if pk:
@@ -1367,3 +1069,23 @@ func back_to_lobby() -> void:
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+func _clear_map_area(xf: Transform3D, r: Rect2) -> void:
+	# hide map props and buildings standing inside a rectangle of the map
+	var inv := xf.affine_inverse()
+	var n := 0
+	for mi in map.find_children("*", "MeshInstance3D", true, false):
+		if not mi.visible:
+			continue
+		var ab: AABB = mi.global_transform * mi.get_aabb()
+		if ab.size.x > 130.0 or ab.size.z > 130.0:
+			continue
+		var c: Vector3 = inv * ab.get_center()
+		if r.has_point(Vector2(c.x, c.z)) and c.y > -6.0:
+			mi.visible = false
+			for b in mi.find_children("*", "StaticBody3D", true, false):
+				b.queue_free()
+			n += 1
+	print("cleared map meshes on bank lot: ", n)
+

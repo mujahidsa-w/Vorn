@@ -35,8 +35,15 @@ func _ready() -> void:
 	add_child(pic)
 
 	# the design's own menu rows sit at these image positions; the buttons cover them exactly
-	var nav := [["اللعب", "city", true, 222, 270], ["المتجر", "shop", false, 272, 320], ["الملابس", "customize", false, 322, 370],
-		["المهام", "jobs", false, 372, 420], ["الجوائز", "rewards", false, 422, 468], ["الإعدادات", "settings", false, 470, 516]]
+	var nav := [["اللعب", "city", true, 222, 270], ["الملابس", "customize", false, 272, 320], ["الإعدادات", "settings", false, 322, 370]]
+	# the design image still paints old menu rows below ours; a dark panel hides them
+	var old_rows := Panel.new()
+	var old_sb := StyleBoxFlat.new()
+	old_sb.bg_color = Color(0.03, 0.05, 0.08, 1.0)
+	old_rows.add_theme_stylebox_override("panel", old_sb)
+	old_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_place(old_rows, 26.0 * S, 370.0 * S, 184.0 * S, 150.0 * S)
+	add_child(old_rows)
 	for n in nav:
 		var top := float(n[3]) * S + 3.0
 		var h := (float(n[4]) - float(n[3])) * S - 6.0
@@ -147,9 +154,6 @@ func _on_item(target: String) -> void:
 	if target == "exit":
 		on_back()
 		return
-	if target == "rewards":
-		main.toast("قريباً", GOLD)
-		return
 	if target == "city":
 		if not Online.is_signed_in() and not Online.offline_mode:
 			main.toast("سجّل الدخول للدخول إلى VORN CITY", CYAN)
@@ -157,7 +161,7 @@ func _on_item(target: String) -> void:
 			return
 		Online.match_id = ""
 		Online.match_team = ""
-		main.go("loading", {"roleplay": true, "online": Online.is_signed_in()})
+		main.go("loading", {"online": Online.is_signed_in()})
 		return
 	main.go(target)
 
