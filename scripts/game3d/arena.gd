@@ -56,9 +56,9 @@ func spawn_yaw(side: String) -> float:
 
 
 func _build() -> void:
-	var floor_col := Color(0.16, 0.17, 0.19)
+	var floor_col := Color(0.62, 0.45, 0.28)  # wood floor
 	_box(Vector3(HALF_X * 2.0, 1.0, HALF_Z * 2.0), Vector3(0, -0.5, 0), floor_col)
-	var wall_col := Color(0.55, 0.57, 0.6)
+	var wall_col := Color(0.66, 0.64, 0.6)  # stone walls
 	_box(Vector3(HALF_X * 2.0, WALL_H, 1.0), Vector3(0, WALL_H * 0.5, -HALF_Z), wall_col)
 	_box(Vector3(HALF_X * 2.0, WALL_H, 1.0), Vector3(0, WALL_H * 0.5, HALF_Z), wall_col)
 	_box(Vector3(1.0, WALL_H, HALF_Z * 2.0), Vector3(-HALF_X, WALL_H * 0.5, 0), wall_col)
@@ -68,13 +68,13 @@ func _build() -> void:
 	_pad(Vector3(-SPAWN_X, 0.02, 0.0), Vector3(16, 0.04, 26), Color(0.2, 0.45, 0.95), "A")
 	_pad(Vector3(SPAWN_X, 0.02, 0.0), Vector3(16, 0.04, 26), Color(0.95, 0.3, 0.25), "B")
 
-	var crate_col := Color(0.42, 0.33, 0.22)
+	var crate_col := Color(0.55, 0.38, 0.2)  # wooden crates
 	for c in COVER:
 		_box(Vector3(3.0, 2.5, 3.0), c + Vector3(0, 1.25, 0), crate_col)
 
 	# buildings with darker roofs
-	var bld_col := Color(0.5, 0.47, 0.42)
-	var roof_col := Color(0.22, 0.22, 0.24)
+	var bld_col := Color(0.7, 0.66, 0.6)  # stone buildings
+	var roof_col := Color(0.4, 0.36, 0.32)
 	for b in BUILDINGS:
 		var sz: Vector3 = b[1]
 		var pos: Vector3 = b[0]
@@ -82,7 +82,7 @@ func _build() -> void:
 		_box(Vector3(sz.x + 0.6, 0.6, sz.z + 0.6), pos + Vector3(0, sz.y + 0.3, 0), roof_col)
 
 	# lane walls and the bomb sites
-	var wall_mid := Color(0.48, 0.44, 0.38)
+	var wall_mid := Color(0.6, 0.56, 0.5)  # stone lane walls
 	for w in LANE_WALLS:
 		_box(w[1], w[0], wall_mid)
 	for k in SITES:
@@ -91,7 +91,7 @@ func _build() -> void:
 	# shadowed lights: one key light over the middle and one over each side for depth
 	var light := OmniLight3D.new()
 	light.position = Vector3(0, 9.0, 0)
-	light.light_energy = 1.8
+	light.light_energy = 3.5
 	light.omni_range = 140.0
 	light.light_color = Color(1.0, 0.95, 0.85)
 	light.shadow_enabled = true
@@ -99,7 +99,7 @@ func _build() -> void:
 	for x in [-50.0, 50.0]:
 		var side_light := OmniLight3D.new()
 		side_light.position = Vector3(x, 7.0, 0)
-		side_light.light_energy = 1.0
+		side_light.light_energy = 2.0
 		side_light.omni_range = 60.0
 		side_light.light_color = Color(1.0, 0.92, 0.8)
 		side_light.shadow_enabled = true
