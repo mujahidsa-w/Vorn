@@ -333,8 +333,20 @@ func _animate(delta: float) -> void:
 		weapon_node.global_transform = cam.global_transform * Transform3D(vb, off)
 		_vm_off = off
 		_vm_type = str(d2.type)
-		_update_vm_arms(true)
+		if _fpvm_wanted():
+			# rifles: the animated arms model replaces the simple hands and the held weapon
+			if fpvm == null:
+				fpvm = FpViewmodel.new()
+				add_child(fpvm)
+			fpvm.visible = true
+			fpvm.follow(cam)
+			weapon_node.visible = false
+			_update_vm_arms(false)
+		else:
+			_hide_fpvm()
+			_update_vm_arms(true)
 	else:
+		_hide_fpvm()
 		_update_vm_arms(false)
 
 
@@ -345,6 +357,24 @@ var _vm_arms: Node3D
 var _vm_parts := {}
 var _bob_t := 0.0
 var _vm_off := Vector3.ZERO
+const FpViewmodel = preload("res://scripts/game3d/fp_viewmodel.gd")
+var fpvm
+
+
+func _fpvm_wanted() -> bool:
+	# the animated arms model is an M4: used whenever the M4 is in hand
+	return first_person and current == "m4"
+
+
+func _fpvm_active() -> bool:
+	return fpvm != null and fpvm.visible and _fpvm_wanted()
+
+
+func _hide_fpvm() -> void:
+	if fpvm:
+		fpvm.visible = false
+	if weapon_node:
+		weapon_node.visible = true
 var _vm_type := "rifle"
 ## first-person hand spots, camera space, relative to the weapon's view-model offset
 const VM_HANDS := {
@@ -552,6 +582,10 @@ func _reload() -> void:
 		return
 	reload_t = 1.8 if d.type != "rpg" else 2.0
 	_mag_dropped = false
+	if _fpvm_active():
+		var empty := int(ammo.get(current, 0)) == 0
+		var clip_len := 3.8 if empty else 3.64
+		fpvm.play("reload_empty" if empty else "reload", clip_len / reload_t)
 	Game.play_sfx("reload")
 
 
@@ -621,6 +655,8 @@ func _combat_tick(delta: float) -> void:
 		return
 	ammo[current] = int(ammo[current]) - 1
 	fire_hold_t = 0.0
+	if _fpvm_active():
+		fpvm.play("fire", 1.6)
 	rig.recoil = minf(rig.recoil + float(d.recoil) * 40.0, 1.0)
 	var origin := cam.global_position
 	var dir := -cam.global_transform.basis.z

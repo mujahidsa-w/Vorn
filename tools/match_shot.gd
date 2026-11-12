@@ -20,6 +20,16 @@ func run() -> void:
 	await _w(3.0)
 	await _shot("match_buy")
 	var pl = world.player
+	if pl.fpvm:
+		var mains = pl.fpvm.model.find_children("*Main_M4*", "", true, false)
+		var hands = pl.fpvm.model.find_children("*Hand_Mesh*", "", true, false)
+		print("FPVM cam_node=", pl.fpvm.cam_node, " anim=", pl.fpvm.anim, " clips=", pl.fpvm.anim.get_animation_list() if pl.fpvm.anim else [])
+		for m in mains + hands:
+			var mi := m as MeshInstance3D
+			if mi:
+				var c: Vector3 = mi.global_transform * mi.get_aabb().get_center()
+				print("FPVM ", mi.name, " center_in_cam=", pl.cam.to_local(c), " size=", mi.get_aabb().size, " scale=", mi.global_transform.basis.get_scale())
+		print("FPVM bone=", pl.fpvm.cam_bone, " ", pl.fpvm.skel.get_bone_name(pl.fpvm.cam_bone) if pl.fpvm.cam_bone >= 0 else "", " bones=", pl.fpvm.skel.get_bone_count())
 	var W = load("res://scripts/game3d/weapons.gd")
 	var mz: Vector3 = pl.weapon_node.global_transform * W.muzzle_local(pl.current, pl.weapon_node)
 	print("VM muzzle_in_cam=", pl.cam.to_local(mz), " weapon_in_cam=", pl.cam.to_local(pl.weapon_node.global_position))
