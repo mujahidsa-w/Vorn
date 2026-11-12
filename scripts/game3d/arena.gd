@@ -20,6 +20,16 @@ const COVER := [
 ]
 
 
+# bomb sites (floor markers) and the walls that split the arena into lanes
+const SITES := {"A": Vector3(-30, 0, -17), "B": Vector3(30, 0, 17)}
+const LANE_WALLS := [
+	[Vector3(-12, 1.5, -19), Vector3(1.0, 3.0, 20.0)],
+	[Vector3(-12, 1.5, 19), Vector3(1.0, 3.0, 20.0)],
+	[Vector3(12, 1.5, -19), Vector3(1.0, 3.0, 20.0)],
+	[Vector3(12, 1.5, 19), Vector3(1.0, 3.0, 20.0)],
+]
+
+
 func _ready() -> void:
 	position = ORIGIN
 	_build()
@@ -50,12 +60,29 @@ func _build() -> void:
 	for c in COVER:
 		_box(Vector3(3.0, 2.5, 3.0), c + Vector3(0, 1.25, 0), crate_col)
 
+	# lane walls and the bomb sites
+	var wall_mid := Color(0.48, 0.44, 0.38)
+	for w in LANE_WALLS:
+		_box(w[1], w[0], wall_mid)
+	for k in SITES:
+		_pad(SITES[k] + Vector3(0, 0.02, 0), Vector3(12, 0.04, 12), Color(0.9, 0.75, 0.25), "SITE " + k)
+
+	# shadowed lights: one key light over the middle and one over each side for depth
 	var light := OmniLight3D.new()
 	light.position = Vector3(0, 5.5, 0)
 	light.light_energy = 1.6
 	light.omni_range = 90.0
 	light.light_color = Color(1.0, 0.95, 0.85)
+	light.shadow_enabled = true
 	add_child(light)
+	for x in [-30.0, 30.0]:
+		var side_light := OmniLight3D.new()
+		side_light.position = Vector3(x, 5.0, 0)
+		side_light.light_energy = 1.0
+		side_light.omni_range = 40.0
+		side_light.light_color = Color(1.0, 0.92, 0.8)
+		side_light.shadow_enabled = true
+		add_child(side_light)
 
 
 func _box(size: Vector3, pos: Vector3, col: Color) -> void:
