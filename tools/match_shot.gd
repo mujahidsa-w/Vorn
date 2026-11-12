@@ -35,6 +35,18 @@ func run() -> void:
 	print("VM muzzle_in_cam=", pl.cam.to_local(mz), " weapon_in_cam=", pl.cam.to_local(pl.weapon_node.global_position))
 	for k in pl.rig.grips:
 		print("VM grip ", k, " in_cam=", pl.cam.to_local(pl.weapon_node.global_transform * pl.rig.grips[k]))
+	# look at a burning barrel from a few metres
+	var ar = null
+	for c in world.get_children():
+		if c.has_method("spawn_world"):
+			ar = c
+	if ar:
+		var fp: Vector3 = ar.global_position + Vector3(-26, 0, -8)
+		world.player.global_position = fp + Vector3(-6.0, 0.2, 2.0)
+		var to: Vector3 = fp - world.player.global_position
+		world.player.yaw = atan2(-to.x, -to.z)
+		await _w(2.5)
+		await _shot("fire_barrel")
 	var cm: Node = null
 	for c in world.get_children():
 		if c.get("rules") != null:

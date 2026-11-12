@@ -53,8 +53,16 @@ const BUILDINGS := [
 ]
 
 # texture scale per surface (world metres per tile = 1 / scale)
+# burning oil barrels: flames, smoke and a flickering light (also cover)
+const FIRES := [
+	Vector3(-26, 0, -8), Vector3(26, 0, 8), Vector3(-6, 0, -30), Vector3(6, 0, 30),
+	Vector3(-56, 0, 12), Vector3(56, 0, -12),
+]
+var _flames: Array = []
+var _t := 0.0
+
 const SCALE := {
-	"ground": 0.18, "sand": 0.12, "plaster": 0.22, "brick": 0.3, "concrete": 0.25, "crate": 0.42, "roof": 0.3,
+	"ground": 0.18, "metal": 0.9, "sand": 0.12, "plaster": 0.22, "brick": 0.3, "concrete": 0.25, "crate": 0.42, "roof": 0.3,
 }
 
 # per-surface brightness so bright scans (sand) do not wash out in the sun
@@ -109,6 +117,9 @@ func _build() -> void:
 		_site(SITES[k], k)
 	_spawn_mark(Vector3(-SPAWN_X, 0, 0), "A", Color(0.35, 0.6, 1.0))
 	_spawn_mark(Vector3(SPAWN_X, 0, 0), "B", Color(1.0, 0.45, 0.3))
+
+	for f in FIRES:
+		_fire_barrel(f)
 
 	# morning sun from the east: low warm light with long shadows, only on the arena
 	var sun := DirectionalLight3D.new()
@@ -234,6 +245,139 @@ func _slab(pos: Vector3, size: Vector3, surface: String) -> void:
 
 
 ## visual-only detail with a plain material (windows, doors, paint)
+## a rusted oil drum on fire: solid barrel (collision), flame and smoke particles, warm flickering light
+func _fire_barrel(pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.position = pos + Vector3(0, 0.45, 0)
+	add_child(body)
+	var cs := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 0.3
+	cyl.height = 0.9
+	cs.shape = cyl
+	body.add_child(cs)
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.3
+	cm.bottom_radius = 0.3
+	cm.height = 0.9
+	mi.mesh = cm
+	mi.material_override = _mat("metal")
+	mi.layers = ARENA_LAYER
+	body.add_child(mi)
+	# glowing embers inside the rim
+	var ember := StandardMaterial3D.new()
+	ember.albedo_color = Color(0.1, 0.03, 0.0)
+	ember.emission_enabled = true
+	ember.emission = Color(1.0, 0.35, 0.05)
+	ember.emission_energy_multiplier = 3.0
+	_deco(Vector3(0.5, 0.02, 0.5), pos + Vector3(0, 0.88, 0), ember)
+
+	var flame := CPUParticles3D.new()
+	flame.position = pos + Vector3(0, 0.95, 0)
+	flame.amount = 46
+	flame.lifetime = 0.75
+	flame.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	flame.emission_sphere_radius = 0.18
+	flame.direction = Vector3.UP
+	flame.spread = 12.0
+	flame.gravity = Vector3(0, 2.2, 0)
+	flame.initial_velocity_min = 0.6
+	flame.initial_velocity_max = 1.4
+	flame.scale_amount_min = 0.35
+	flame.scale_amount_max = 0.7
+	var sc := Curve.new()
+	sc.add_point(Vector2(0, 0.6))
+	sc.add_point(Vector2(0.35, 1.0))
+	sc.add_point(Vector2(1, 0.0))
+	flame.scale_amount_curve = sc
+	var g := Gradient.new()
+	g.set_color(0, Color(1.0, 0.85, 0.4, 1.0))
+	g.set_color(1, Color(0.9, 0.15, 0.0, 0.0))
+	g.add_point(0.45, Color(1.0, 0.45, 0.08, 0.85))
+	flame.color_ramp = g
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.5, 0.7)
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	fm.vertex_color_use_as_albedo = true
+	fm.albedo_texture = _soft_dot()
+	qm.material = fm
+	flame.mesh = qm
+	flame.layers = ARENA_LAYER
+	add_child(flame)
+
+	var smoke := CPUParticles3D.new()
+	smoke.position = pos + Vector3(0, 1.6, 0)
+	smoke.amount = 26
+	smoke.lifetime = 4.5
+	smoke.direction = Vector3.UP
+	smoke.spread = 18.0
+	smoke.gravity = Vector3(0.35, 0.9, 0.15)
+	smoke.initial_velocity_min = 0.5
+	smoke.initial_velocity_max = 1.0
+	smoke.scale_amount_min = 1.0
+	smoke.scale_amount_max = 1.8
+	var ssc := Curve.new()
+	ssc.add_point(Vector2(0, 0.4))
+	ssc.add_point(Vector2(1, 2.4))
+	smoke.scale_amount_curve = ssc
+	var sg := Gradient.new()
+	sg.set_color(0, Color(0.12, 0.11, 0.1, 0.55))
+	sg.set_color(1, Color(0.35, 0.34, 0.33, 0.0))
+	smoke.color_ramp = sg
+	var sq := QuadMesh.new()
+	sq.size = Vector2(1.2, 1.2)
+	var sm := StandardMaterial3D.new()
+	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	sm.vertex_color_use_as_albedo = true
+	sm.albedo_texture = _soft_dot()
+	sq.material = sm
+	smoke.mesh = sq
+	smoke.layers = ARENA_LAYER
+	add_child(smoke)
+
+	var light := OmniLight3D.new()
+	light.position = pos + Vector3(0, 1.4, 0)
+	light.light_color = Color(1.0, 0.55, 0.2)
+	light.light_energy = 2.2
+	light.omni_range = 9.0
+	light.shadow_enabled = false
+	light.light_cull_mask = ARENA_LAYER
+	add_child(light)
+	_flames.append(light)
+
+
+var _dot: Texture2D
+
+
+## soft round sprite for flames and smoke, generated once
+func _soft_dot() -> Texture2D:
+	if _dot:
+		return _dot
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 64:
+			var d := Vector2(x - 31.5, y - 31.5).length() / 31.5
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a * a))
+	_dot = ImageTexture.create_from_image(img)
+	return _dot
+
+
+func _process(delta: float) -> void:
+	# fire light flicker
+	_t += delta
+	for i in _flames.size():
+		var l: OmniLight3D = _flames[i]
+		l.light_energy = 2.0 + 0.5 * sin(_t * 13.0 + i * 1.7) + 0.35 * sin(_t * 23.0 + i)
+
+
 func _deco(size: Vector3, pos: Vector3, mat: Material) -> void:
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
