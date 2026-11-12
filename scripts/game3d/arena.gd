@@ -7,6 +7,8 @@ const HALF_X := 100.0
 const HALF_Z := 56.0
 const SPAWN_X := 86.0
 const WALL_H := 8.0
+## arena meshes and its lights sit on their own layer, so the morning sun lights only the arena
+const ARENA_LAYER := 1 << 10
 
 # local spawn info per side: position on the pad and the yaw that looks at the middle
 const SPAWN := {
@@ -88,6 +90,15 @@ func _build() -> void:
 	for k in SITES:
 		_pad(SITES[k] + Vector3(0, 0.02, 0), Vector3(12, 0.04, 12), Color(0.9, 0.75, 0.25), "SITE " + k)
 
+	# morning sun from the east: low warm light with shadows, only on the arena
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-28, 55, 0)
+	sun.light_color = Color(1.0, 0.86, 0.66)
+	sun.light_energy = 2.4
+	sun.shadow_enabled = true
+	sun.light_cull_mask = ARENA_LAYER
+	add_child(sun)
+
 	# shadowed lights: one key light over the middle and one over each side for depth
 	var light := OmniLight3D.new()
 	light.position = Vector3(0, 9.0, 0)
@@ -95,6 +106,7 @@ func _build() -> void:
 	light.omni_range = 140.0
 	light.light_color = Color(1.0, 0.95, 0.85)
 	light.shadow_enabled = true
+	light.light_cull_mask = ARENA_LAYER
 	add_child(light)
 	for x in [-50.0, 50.0]:
 		var side_light := OmniLight3D.new()
@@ -103,6 +115,7 @@ func _build() -> void:
 		side_light.omni_range = 60.0
 		side_light.light_color = Color(1.0, 0.92, 0.8)
 		side_light.shadow_enabled = true
+		side_light.light_cull_mask = ARENA_LAYER
 		add_child(side_light)
 
 
@@ -144,6 +157,7 @@ func _box(size: Vector3, pos: Vector3, col: Color) -> void:
 	bm.size = size
 	mi.mesh = bm
 	mi.material_override = _mat(col, 0.85)
+	mi.layers = ARENA_LAYER
 	body.add_child(mi)
 
 
@@ -159,6 +173,7 @@ func _pad(pos: Vector3, size: Vector3, col: Color, txt: String) -> void:
 	mat.emission = col
 	mat.emission_energy_multiplier = 0.4
 	m.material_override = mat
+	m.layers = ARENA_LAYER
 	add_child(m)
 	var lbl := Label3D.new()
 	lbl.text = txt
@@ -166,4 +181,5 @@ func _pad(pos: Vector3, size: Vector3, col: Color, txt: String) -> void:
 	lbl.pixel_size = 0.02
 	lbl.position = pos + Vector3(0, 0.6, 0)
 	lbl.rotation_degrees = Vector3(-90, 0, 0)
+	lbl.layers = ARENA_LAYER
 	add_child(lbl)
