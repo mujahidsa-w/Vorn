@@ -38,6 +38,7 @@ var requests: Array = []    # [{uid, name}]
 var match_id := ""          # current online match (set by the lobby)
 var last_error := ""        # last auth error (shown to the player)
 var match_team := ""
+var comp_mode := false     # competitive rounds (buy, live, end, first to 8) instead of the default match
 var _hb_t := 0.0
 var _fr_t := 0.0
 var _presence_started := false

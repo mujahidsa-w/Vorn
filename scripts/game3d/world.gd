@@ -105,6 +105,10 @@ func _ready() -> void:
 		net = MatchNet.new()
 		net.world = self
 		add_child(net)
+		if Online.comp_mode:
+			var cm: Node = load("res://scripts/game3d/comp_mode.gd").new()
+			cm.set("world", self)
+			add_child(cm)
 	if args.has("--touchtest") and ResourceLoader.exists("res://tools/touch_test.gd"):
 		var tt: Node = load("res://tools/touch_test.gd").new()
 		tt.set("world", self)
