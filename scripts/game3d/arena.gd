@@ -106,6 +106,30 @@ func _build() -> void:
 		add_child(side_light)
 
 
+## shared grain texture, generated in code (no downloaded files); triplanar so every box gets the same scale
+var _noise: NoiseTexture2D
+
+
+func _mat(col: Color, rough: float) -> StandardMaterial3D:
+	if _noise == null:
+		_noise = NoiseTexture2D.new()
+		_noise.width = 256
+		_noise.height = 256
+		_noise.seamless = true
+		var fn := FastNoiseLite.new()
+		fn.frequency = 0.04
+		fn.fractal_octaves = 4
+		_noise.noise = fn
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.albedo_texture = _noise
+	m.roughness = rough
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(0.12, 0.12, 0.12)
+	return m
+
+
 func _box(size: Vector3, pos: Vector3, col: Color) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
@@ -119,10 +143,7 @@ func _box(size: Vector3, pos: Vector3, col: Color) -> void:
 	var bm := BoxMesh.new()
 	bm.size = size
 	mi.mesh = bm
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = col
-	mat.roughness = 0.8
-	mi.material_override = mat
+	mi.material_override = _mat(col, 0.85)
 	body.add_child(mi)
 
 
