@@ -13,6 +13,7 @@ var done := false
 var _tip := 0
 var _tip_t := 0.0
 const MAP_PATH := "res://assets/models/map/la.glb"
+const LOGO: Texture2D = preload("res://assets/img/vorn_logo.png")
 var _real := 0.0
 var video_over := true
 const TIPS := [
@@ -87,7 +88,11 @@ func _paint_bar(c: Control) -> void:
 
 func _paint(c: Control) -> void:
 	var cx := c.size.x * 0.5
-	Game.dtext(c, "VORN CITY", Vector2(cx, 420), 120, Color.WHITE, Game.font_wide, HORIZONTAL_ALIGNMENT_CENTER)
+	# logo first, like a launcher splash: the mark sits centred and the text below stays quiet
+	if LOGO != null:
+		var lw := 560.0
+		var lh := lw * float(LOGO.get_height()) / float(LOGO.get_width())
+		c.draw_texture_rect(LOGO, Rect2(cx - lw * 0.5, 300, lw, lh), false)
 	Game.dtext(c, "REAL LIFE ROLEPLAY  •  CITY CENTER  •  ONLINE WORLD", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
 	var tt := "CITIZEN  •  " + str(Game.player.get("job", "UNEMPLOYED")).to_upper()
 	var tw := Game.font_tag.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
