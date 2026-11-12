@@ -39,6 +39,18 @@ func run() -> void:
 	cm.rules.alive_of = func(t: String) -> int: return _fake[t]
 	await _w(1.0)
 	await _shot("comp_buy")
+	# overview of the arena from above, from the side of team a
+	var cam := Camera3D.new()
+	cam.fov = 60
+	world.add_child(cam)
+	var o: Vector3 = cm.arena.global_position
+	cam.global_position = o + Vector3(-30, 58, -68)
+	cam.look_at_from_position(cam.global_position, o + Vector3(0, 0, 0), Vector3.UP)
+	cam.make_current()
+	await _w(1.0)
+	await _shot("arena_top")
+	if world.player:
+		world.player.visible = false
 	cm.rules.phase = "live"
 	cm.rules.phase_left = 100.0
 	cm.rules.phase_changed.emit("live")

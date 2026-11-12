@@ -27,6 +27,7 @@ var cars: Array = []
 var hud
 var active_car = null
 var team := "citizen"
+var comp_side := "a"          # competitive side of this player (a or b)
 var roleplay := true
 var spawn_xf := Transform3D()
 var rain: GPUParticles3D

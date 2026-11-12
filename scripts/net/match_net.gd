@@ -61,7 +61,7 @@ func _send_state() -> void:
 	var pl = world.player
 	if pl == null:
 		return
-	var s := {"n": str(Game.player.name), "tm": world.team, "hp": int(pl.hp), "dead": pl.dead,
+	var s := {"n": str(Game.player.name), "tm": world.team, "cs": str(world.get("comp_side")), "hp": int(pl.hp), "dead": pl.dead,
 		"st": pl.stance, "w": pl.current, "am": pl.aiming or pl.fire_hold_t < 1.0, "pt": _r(pl.pitch),
 		"t": {".sv": "timestamp"}}
 	if pl.dead:
@@ -117,6 +117,7 @@ func _on_states(all: Dictionary) -> void:
 			r.uid = u
 			r.pname = str(s.get("n", "PLAYER"))
 			r.team = str(s.get("tm", "robbers"))
+			r.side = str(s.get("cs", "a"))
 			r.net = self
 			r.world = world
 			world.add_child(r)

@@ -10,6 +10,7 @@ var world
 var uid := ""
 var pname := "PLAYER"
 var team := "robbers"
+var side := "a"              # competitive side (a or b), sent with every state
 var rig
 var model: Node3D
 var weapon_node: Node3D
@@ -62,6 +63,7 @@ func _ready() -> void:
 
 
 func apply_state(s: Dictionary) -> void:
+	side = str(s.get("cs", side))
 	last_rx = Time.get_ticks_msec() / 1000.0
 	var p := Vector3(float(s.get("x", 0)), float(s.get("y", 0)), float(s.get("z", 0)))
 	_vel = Vector3(float(s.get("vx", 0)), 0, float(s.get("vz", 0)))

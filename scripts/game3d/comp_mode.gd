@@ -3,15 +3,23 @@ extends Node
 ## respawns the dead at the start of each buy phase and draws the round HUD.
 
 const Rules = preload("res://scripts/game3d/comp_rounds.gd")
+const Arena = preload("res://scripts/game3d/arena.gd")
 
 var world
 var rules
 var layer: CanvasLayer
 var label: Label
 var _sub: Label
+var side := "a"          # our side: a or b, from the lobby's team choice
+var arena
 
 
 func _ready() -> void:
+	side = "b" if Online.match_team == "b" else "a"
+	world.comp_side = side
+	arena = Arena.new()
+	world.add_child(arena)
+	_to_spawn()
 	rules = Rules.new()
 	rules.alive_of = Callable(self, "_alive")
 	rules.phase_changed.connect(_on_phase)
@@ -28,20 +36,15 @@ func _process(delta: float) -> void:
 	_refresh()
 
 
-# the local player is on team "a" (their side) and remote players with the same world team are on "a" too
+# alive players on a side: the local player counts for our side, remotes count by the side they send
 func _alive(team: String) -> int:
 	var n := 0
-	var local_side := "a"
-	if team == local_side:
+	if team == side:
 		if world.player and not world.player.dead:
 			n += 1
-		for r in _remotes():
-			if r.team == world.team and not r.dead:
-				n += 1
-	else:
-		for r in _remotes():
-			if r.team != world.team and not r.dead:
-				n += 1
+	for r in _remotes():
+		if r.side == team and not r.dead:
+			n += 1
 	return n
 
 
@@ -54,10 +57,26 @@ func _remotes() -> Array:
 	return out
 
 
+func _to_spawn() -> void:
+	var pl = world.player
+	if pl == null:
+		return
+	pl.global_position = arena.spawn_world(side) + Vector3(0, 1.0, 0)
+	pl.yaw = arena.spawn_yaw(side)
+	pl.velocity = Vector3.ZERO
+
+
 func _on_phase(p: String) -> void:
-	if p == "buy" and world.player and world.player.dead:
-		world.respawn_player()
+	if p == "buy":
+		if world.player and world.player.dead:
+			world.respawn_player()
+		_to_spawn()
+		if world.player:
+			world.player.frozen = true
+		world.hud.notify("BUY PHASE  -  ROUND %d" % rules.round_no)
 	if p == "live":
+		if world.player:
+			world.player.frozen = false
 		world.hud.notify("ROUND %d  -  GO" % rules.round_no)
 
 

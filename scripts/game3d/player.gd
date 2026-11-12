@@ -25,6 +25,7 @@ var yaw := 0.0
 var pitch := -0.12
 var speed_now := 0.0
 var active := true
+var frozen := false          # competitive buy phase: can look around, cannot move or shoot
 var aiming := false
 var first_person := false
 var stance := 0
@@ -120,6 +121,8 @@ func _sens() -> float:
 func _unhandled_input(event: InputEvent) -> void:
 	if not active or not _captured() or dead:
 		return
+	if frozen and event is InputEventMouseButton:
+		return
 	if event is InputEventMouseMotion and not Game.touch:
 		var s := _sens() * (0.45 if aiming else 1.0)
 		if aiming and current == "sniper":
@@ -175,6 +178,8 @@ func _physics_process(delta: float) -> void:
 	if _captured():
 		inp.x = float(_key(KEY_D)) - float(_key(KEY_A))
 		inp.y = float(_key(KEY_S)) - float(_key(KEY_W))
+	if frozen:
+		inp = Vector2.ZERO
 	aiming = _captured() and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) and current != ""
 	var moving := inp.length() > 0.1
 	running = moving and stance == 0 and not aiming and _key(KEY_SHIFT) and reload_t <= 0.0
