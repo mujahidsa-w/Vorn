@@ -46,10 +46,13 @@ var spec_t := 0.0
 
 
 var Q := 1
+## competitive match only (no city): set from Online.comp_mode when the world starts
+var arena_only := false
 
 
 func _ready() -> void:
 	Q = clampi(int(Game.settings.quality), 0, 2)
+	arena_only = Online.comp_mode or OS.get_cmdline_user_args().has("--matchshot")
 	team = "a"
 	Game.stop_music()
 	Engine.time_scale = 1.0
@@ -60,6 +63,40 @@ func _ready() -> void:
 	audio_world = WorldAudio.new()
 	audio_world.world = self
 	add_child(audio_world)
+	if arena_only:
+		# competitive match: no city, no traffic, no country; just the arena (built by comp mode)
+		await get_tree().physics_frame
+		space = get_world_3d().direct_space_state
+		sky.refresh()
+		player = Player.new()
+		player.world = self
+		add_child(player)
+		player.cam.current = true
+		hud = Hud.new()
+		hud.world = self
+		hud.comp = true
+		add_child(hud)
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if Game.touch:
+			var tcl: CanvasLayer = load("res://scripts/game3d/touch_controls.gd").new()
+			tcl.set("world", self)
+			add_child(tcl)
+		if Online.match_id != "":
+			net = MatchNet.new()
+			net.world = self
+			add_child(net)
+		var cmode: Node = load("res://scripts/game3d/comp_mode.gd").new()
+		cmode.set("world", self)
+		add_child(cmode)
+		spawn_xf = player.global_transform
+		var targs := OS.get_cmdline_user_args()
+		if targs.size() >= 2 and targs[0] == "--matchshot" and ResourceLoader.exists("res://tools/match_shot.gd"):
+			var ms: Node = load("res://tools/match_shot.gd").new()
+			ms.set("world", self)
+			ms.set("out", targs[1])
+			add_child(ms)
+			ms.call("run")
+		return
 	_load_map()
 	await get_tree().physics_frame
 	space = get_world_3d().direct_space_state

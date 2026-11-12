@@ -12,6 +12,9 @@ var label: Label
 var _sub: Label
 var side := "a"          # our side: a or b, from the lobby's team choice
 const Rig = preload("res://scripts/game3d/rig.gd")
+const Npc = preload("res://scripts/game3d/npc.gd")
+const BOT_COUNT := 3
+var bots: Array = []           # practice match (no online match): armed bots on the enemy side
 var arena
 
 
@@ -49,7 +52,49 @@ func _alive(team: String) -> int:
 	for r in _remotes():
 		if r.side == team and not r.dead:
 			n += 1
+	if team == _enemy_side():
+		for b in bots:
+			if is_instance_valid(b) and b.state != Npc.DEAD:
+				n += 1
 	return n
+
+
+func _enemy_side() -> String:
+	return "b" if side == "a" else "a"
+
+
+func _practice() -> bool:
+	return Online.match_id == ""
+
+
+## practice bots: fresh each round on the enemy spawn, held still in the buy phase
+func _spawn_bots() -> void:
+	for b in bots:
+		if is_instance_valid(b):
+			b.queue_free()
+	bots.clear()
+	var es := _enemy_side()
+	var base: Vector3 = arena.spawn_world(es)
+	for i in BOT_COUNT:
+		var bot = Npc.new()
+		bot.world = world
+		bot.role = "guard"
+		world.add_child(bot)
+		bot.global_position = base + Vector3(0, 0.2, (i - 1) * 4.0)
+		bot.rotation.y = arena.spawn_yaw(es)
+		bot.face_yaw = bot.rotation.y
+		bot.hp = 100.0
+		bot.timer = 999.0
+		bot.rig.set_team_color(Rig.team_color(es))
+		bots.append(bot)
+
+
+func _wake_bots() -> void:
+	for b in bots:
+		if is_instance_valid(b) and b.state != Npc.DEAD:
+			b.enemy = world.player
+			b.state = Npc.COMBAT
+			b.fire_cd = randf_range(1.0, 2.5)
 
 
 func _remotes() -> Array:
@@ -103,22 +148,26 @@ func _on_phase(p: String) -> void:
 			world.respawn_player()
 		_to_spawn()
 		_loadout()
+		if _practice():
+			_spawn_bots()
 		if world.player:
 			world.player.frozen = true
 		world.hud.notify("BUY PHASE  -  ROUND %d" % rules.round_no)
 	if p == "live":
 		if world.player:
 			world.player.frozen = false
+		if _practice():
+			_wake_bots()
 		world.hud.notify("ROUND %d  -  GO" % rules.round_no)
 
 
 func _on_round_ended(winner: String) -> void:
-	var txt := "ROUND DRAW" if winner == "" else ("YOUR TEAM WINS THE ROUND" if winner == "a" else "ENEMY WINS THE ROUND")
+	var txt := "ROUND DRAW" if winner == "" else ("YOUR TEAM WINS THE ROUND" if winner == side else "ENEMY WINS THE ROUND")
 	world.hud.notify(txt)
 
 
 func _on_over(winner: String) -> void:
-	world.hud.notify("MATCH OVER  -  " + ("YOUR TEAM WINS" if winner == "a" else "ENEMY TEAM WINS"))
+	world.hud.notify("MATCH OVER  -  " + ("YOUR TEAM WINS" if winner == side else "ENEMY TEAM WINS"))
 
 
 func _build_hud() -> void:

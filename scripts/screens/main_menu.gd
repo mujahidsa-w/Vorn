@@ -158,9 +158,11 @@ func _on_item(target: String) -> void:
 				return
 			Online.match_id = ""
 			Online.match_team = ""
-			Online.comp_mode = target == "comp"
+			# every mode is the arena match now (no city): PLAY / QUICK PLAY start a practice match
+			# right away; COMPETITIVE and CUSTOM go through the team lobby for an online match
+			Online.comp_mode = true
 			if target == "quick" or target == "city":
-				main.go("loading", {"online": Online.is_signed_in()})
+				main.go("loading", {"online": false})
 			else:
 				main.go("match")
 		_:

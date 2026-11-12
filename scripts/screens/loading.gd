@@ -18,9 +18,9 @@ var _real := 0.0
 var video_over := true
 const TIPS := [
 "Press V to switch between first and third person.",
-"Use E near a car to enter it and explore the city.",
-"Press M to open the city map and set a GPS destination.",
-"The city changes with the time of day and the weather.",
+"Win 8 rounds to take the match.",
+"Buy phase: 15 seconds to get ready before the round goes live.",
+"Crouch with C for a steadier aim.",
 "Hold RMB to aim down the sights.",
 ]
 
@@ -28,7 +28,9 @@ const TIPS := [
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tip = randi() % TIPS.size()
-	ResourceLoader.load_threaded_request(MAP_PATH)
+	# the arena match needs no city map; only the free-roam city loads it
+	if not Online.comp_mode:
+		ResourceLoader.load_threaded_request(MAP_PATH)
 	var p := UI.paint(self, _paint, Rect2(0, 0, 0, 0), true)
 	Game.lay(p, [0, 0, 1, 1], [0, 0, 0, 0])
 	Game.stop_music()
@@ -44,7 +46,7 @@ func _process(delta: float) -> void:
 		_tip = (_tip + 1) % TIPS.size()
 	if not done:
 		var arr := []
-		var st := ResourceLoader.load_threaded_get_status(MAP_PATH, arr)
+		var st := ResourceLoader.THREAD_LOAD_LOADED if Online.comp_mode else ResourceLoader.load_threaded_get_status(MAP_PATH, arr)
 		if arr.size() > 0:
 			_real = float(arr[0])
 		if st == ResourceLoader.THREAD_LOAD_LOADED:
@@ -54,7 +56,7 @@ func _process(delta: float) -> void:
 		prog = minf(prog + delta * 0.6, maxf(_real, minf(prog + delta * 0.08, 0.9)))
 		if prog >= 0.999 and _real >= 1.0:
 			if video_over:
-				if st == ResourceLoader.THREAD_LOAD_LOADED:
+				if st == ResourceLoader.THREAD_LOAD_LOADED and not Online.comp_mode:
 					ResourceLoader.load_threaded_get(MAP_PATH)
 				_finish()
 
@@ -82,7 +84,7 @@ func _paint_bar(c: Control) -> void:
 	var w := c.size.x
 	c.draw_rect(Rect2(0, c.size.y - 4, w, 4), Color(1, 1, 1, 0.12))
 	c.draw_rect(Rect2(0, c.size.y - 4, w * prog, 4), Game.C_CYAN)
-	var txt := "LOADING CITY  %d%%" % int(prog * 100.0) if prog < 0.999 else "READY"
+	var txt := "LOADING ARENA  %d%%" % int(prog * 100.0) if prog < 0.999 else "READY"
 	Game.dtext(c, txt, Vector2(40, c.size.y - 14), 18, Color(1, 1, 1, 0.7), Game.font_tag)
 
 
@@ -93,7 +95,7 @@ func _paint(c: Control) -> void:
 		var lw := 560.0
 		var lh := lw * float(LOGO.get_height()) / float(LOGO.get_width())
 		c.draw_texture_rect(LOGO, Rect2(cx - lw * 0.5, 300, lw, lh), false)
-	Game.dtext(c, "CITY  •  COMPETITIVE  •  ONLINE", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
+	Game.dtext(c, "TACTICAL  •  COMPETITIVE  •  ONLINE", Vector2(cx, 474), 22, Game.C_DIM, Game.font_tag, HORIZONTAL_ALIGNMENT_CENTER)
 	var tt := "PLAYER  •  " + str(Game.player.get("name", "VORN")).to_upper()
 	var tw := Game.font_tag.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
 	c.draw_rect(Rect2(cx - tw * 0.5 - 24, 520, tw + 48, 46), Color(Game.C_CYAN, 0.2))
@@ -104,7 +106,7 @@ func _paint(c: Control) -> void:
 		var bx := cx - bw * 0.5
 		c.draw_rect(Rect2(bx, 880, bw, 6), Color(1, 1, 1, 0.1))
 		c.draw_rect(Rect2(bx, 880, bw * prog, 6), Game.C_CYAN)
-		Game.dtext(c, "LOADING CITY" + ".".repeat(int(t * 2.0) % 4), Vector2(bx, 866), 18, Game.C_DIM, Game.font_tag)
+		Game.dtext(c, "LOADING ARENA" + ".".repeat(int(t * 2.0) % 4), Vector2(bx, 866), 18, Game.C_DIM, Game.font_tag)
 		Game.dtext(c, "%d%%" % int(prog * 100.0), Vector2(bx + bw, 866), 20, Color.WHITE, Game.font_bold, HORIZONTAL_ALIGNMENT_RIGHT)
 		Game.dtext(c, "TIP:  " + TIPS[_tip], Vector2(cx, 930), 20, Color(1, 1, 1, 0.55), Game.font_med, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
