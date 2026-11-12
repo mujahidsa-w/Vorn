@@ -23,6 +23,9 @@ var home := Vector3.ZERO
 var home_yaw := 0.0
 var danger := Vector3.ZERO
 var enemy = null
+var last_attacker = null      # who hit us last (for the kill feed)
+var last_hs := false
+var bot_name := ""
 var fire_cd := 0.0
 var weapon_node: Node3D
 var _kick := Vector3.ZERO
@@ -86,6 +89,8 @@ func run_over(v: Vector3) -> void:
 func take_damage(amount: float, attacker, dir := Vector3.ZERO) -> void:
 	if state == DEAD:
 		return
+	if attacker != null:
+		last_attacker = attacker
 	hp -= amount
 	if world:
 		world.fx.impact(global_position + Vector3(0, 1.2, 0), -dir.normalized() if dir.length() > 0 else Vector3.UP, true)

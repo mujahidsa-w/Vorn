@@ -318,18 +318,146 @@ func _animate(delta: float) -> void:
 	if weapon_node and current != "" and first_person and W.DATA[current].type != "c4" and stance != 2:
 		# view-model: hold the weapon in front of the camera
 		var d2: Dictionary = W.DATA[current]
-		var vb := Basis(Vector3.UP, deg_to_rad(float(d2.rot.y) + 180.0)) * Basis(Vector3.BACK, deg_to_rad(float(d2.rot.z)))
-		var off := Vector3(0.0, -0.115, -0.5) if aiming else Vector3(0.15, -0.19, -0.4)
+		# first person ignores the third-person roll (rot.z): the barrel points straight at the crosshair
+		var vb := Basis(Vector3.UP, deg_to_rad(float(d2.rot.y) + 180.0))
+		var off := Vector3(0.0, -0.115, -0.5) if aiming else Vector3(0.1, -0.16, -0.46)
 		if d2.type == "pistol":
 			off = Vector3(0.0, -0.1, -0.36) if aiming else Vector3(0.12, -0.15, -0.42)
 		off.z += rig.recoil * 0.05
+		# head bob: small sway while walking / running (view-model only, the camera stays steady)
+		var spd := Vector2(velocity.x, velocity.z).length()
+		if is_on_floor() and spd > 0.5 and not aiming:
+			_bob_t += delta * (9.0 if spd > 4.5 else 6.5)
+			var amp := 0.012 if spd > 4.5 else 0.007
+			off += Vector3(sin(_bob_t) * amp, -absf(cos(_bob_t)) * amp, 0.0)
 		weapon_node.global_transform = cam.global_transform * Transform3D(vb, off)
+		_vm_off = off
+		_vm_type = str(d2.type)
+		_update_vm_arms(true)
+	else:
+		_update_vm_arms(false)
+
+
+# ---------------------------------------------------------------- first-person arms
+## Gloved hands and sleeves for the first-person view-model: each hand sits on the weapon's grip
+## point, the forearm runs from the hand back toward the shoulder below the camera.
+var _vm_arms: Node3D
+var _vm_parts := {}
+var _bob_t := 0.0
+var _vm_off := Vector3.ZERO
+var _vm_type := "rifle"
+## first-person hand spots, camera space, relative to the weapon's view-model offset
+const VM_HANDS := {
+	"rifle": {"R": Vector3(0.03, -0.06, 0.1), "L": Vector3(0.025, -0.04, -0.2)},
+	"pistol": {"R": Vector3(0.0, -0.05, 0.06), "L": Vector3(-0.025, -0.06, 0.05)},
+}
+
+
+func _build_vm_arms() -> void:
+	_vm_arms = Node3D.new()
+	_vm_arms.top_level = true
+	add_child(_vm_arms)
+	var glove := StandardMaterial3D.new()
+	glove.albedo_color = Color(0.07, 0.07, 0.075)
+	glove.roughness = 0.62
+	var knuckle := StandardMaterial3D.new()
+	knuckle.albedo_color = Color(0.11, 0.11, 0.12)
+	knuckle.roughness = 0.5
+	var sleeve := StandardMaterial3D.new()
+	sleeve.albedo_color = Color(0.17, 0.19, 0.16)
+	sleeve.roughness = 0.9
+	var skin := StandardMaterial3D.new()
+	skin.albedo_color = Color(0.72, 0.53, 0.42)
+	skin.roughness = 0.6
+	for k in ["R", "L"]:
+		var arm := Node3D.new()
+		_vm_arms.add_child(arm)
+		# forearm along -Z of `arm`, hand at the origin
+		var fa := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.05
+		cm.height = 0.42
+		fa.mesh = cm
+		fa.material_override = sleeve
+		fa.rotation_degrees = Vector3(90, 0, 0)
+		fa.position = Vector3(0, 0, 0.26)
+		arm.add_child(fa)
+		var wrist := MeshInstance3D.new()
+		var wm := CylinderMesh.new()
+		wm.top_radius = 0.031
+		wm.bottom_radius = 0.033
+		wm.height = 0.05
+		wrist.mesh = wm
+		wrist.material_override = skin
+		wrist.rotation_degrees = Vector3(90, 0, 0)
+		wrist.position = Vector3(0, 0, 0.065)
+		arm.add_child(wrist)
+		var palm := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(0.1, 0.048, 0.11)
+		palm.mesh = pm
+		palm.material_override = glove
+		arm.add_child(palm)
+		# curled fingers wrapping the grip, and the thumb on top
+		var fingers := MeshInstance3D.new()
+		var fm := CapsuleMesh.new()
+		fm.radius = 0.028
+		fm.height = 0.11
+		fingers.mesh = fm
+		fingers.material_override = knuckle
+		fingers.rotation_degrees = Vector3(0, 0, 90)
+		fingers.position = Vector3(0, -0.03, -0.045)
+		arm.add_child(fingers)
+		var thumb := MeshInstance3D.new()
+		var tm := CapsuleMesh.new()
+		tm.radius = 0.016
+		tm.height = 0.07
+		thumb.mesh = tm
+		thumb.material_override = glove
+		thumb.rotation_degrees = Vector3(70, 0, 0)
+		thumb.position = Vector3(0.035 if k == "R" else -0.035, 0.02, -0.03)
+		arm.add_child(thumb)
+		for mi in arm.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_vm_parts[k] = arm
+
+
+func _update_vm_arms(on: bool) -> void:
+	if not on or weapon_node == null or rig.grips.is_empty():
+		if _vm_arms:
+			_vm_arms.visible = false
+		return
+	if _vm_arms == null:
+		_build_vm_arms()
+	_vm_arms.visible = true
+	var cxf := cam.global_transform
+	for k in ["R", "L"]:
+		var arm: Node3D = _vm_parts[k]
+		if not rig.grips.has(k):
+			arm.visible = false
+			continue
+		arm.visible = true
+		var spots: Dictionary = VM_HANDS.get(_vm_type, VM_HANDS.rifle)
+		var hand: Vector3 = cxf * (_vm_off + (spots[k] as Vector3))
+		# the elbow sits low and behind the hand, toward the matching shoulder
+		var elbow: Vector3 = cxf * (Vector3(0.24, -0.42, -0.02) if k == "R" else Vector3(-0.12, -0.44, -0.12))
+		var back := (elbow - hand).normalized()
+		var up := cxf.basis.y
+		if absf(back.dot(up)) > 0.95:
+			up = cxf.basis.z
+		arm.global_transform = Transform3D(Basis.looking_at(-back, up), hand)
 
 
 # ---------------------------------------------------------------- health
+var last_attacker = null       # who hit us last (for the kill feed)
+var last_hs := false
+
+
 func take_damage(amount: float, attacker, dir := Vector3.ZERO) -> void:
 	if dead or amount <= 0.0:
 		return
+	if attacker != null:
+		last_attacker = attacker
 	if armor > 0.0:
 		var absorbed := minf(armor, amount * 0.66)
 		armor -= absorbed

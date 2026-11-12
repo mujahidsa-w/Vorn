@@ -767,7 +767,10 @@ func fire_bullet(shooter, origin: Vector3, dir: Vector3, muzzle: Vector3, dmg: f
 			var d := dmg
 			if flesh:
 				var hy: float = hit.position.y - c.global_position.y
-				if hy > 1.5 and int(c.get("stance") if c.get("stance") != null else 0) == 0:
+				var hs: bool = hy > 1.5 and int(c.get("stance") if c.get("stance") != null else 0) == 0
+				if c.get("last_hs") != null:
+					c.set("last_hs", hs)
+				if hs:
 					d *= 2.5     # headshot
 				c.take_damage(d, shooter, dir)
 				if c.has_method("push"):

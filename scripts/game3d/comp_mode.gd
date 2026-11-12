@@ -12,9 +12,15 @@ var label: Label
 var _sub: Label
 var side := "a"          # our side: a or b, from the lobby's team choice
 const Rig = preload("res://scripts/game3d/rig.gd")
+const W = preload("res://scripts/game3d/weapons.gd")
 const Npc = preload("res://scripts/game3d/npc.gd")
 const BOT_COUNT := 3
 var bots: Array = []           # practice match (no online match): armed bots on the enemy side
+const MatchStats = preload("res://scripts/game3d/match_stats.gd")
+const BOT_NAMES := ["VIPER", "KESTREL", "ONYX", "RAVEN", "SABLE"]
+var stats
+var my_name := "YOU"
+var _dead_seen := {}
 var arena
 
 
@@ -33,6 +39,15 @@ func _ready() -> void:
 	rules.match_over.connect(_on_over)
 	rules.round_ended.connect(_on_round_ended)
 	_build_hud()
+	stats = MatchStats.new()
+	stats.my_side = side
+	stats.on_leave = _leave
+	add_child(stats)
+	my_name = str(Game.player.name) if str(Game.player.name) != "" else "YOU"
+	stats.add_player(my_name, side, true)
+	if _practice():
+		for i in BOT_COUNT:
+			stats.add_player("BOT " + BOT_NAMES[i], _enemy_side())
 	rules.start()
 
 
@@ -40,7 +55,51 @@ func _process(delta: float) -> void:
 	if rules.is_over():
 		return
 	rules.tick(delta)
+	_track_kills()
 	_refresh()
+
+
+## turns deaths into kill-feed entries and scoreboard stats
+func _track_kills() -> void:
+	var pl = world.player
+	if pl:
+		var was: bool = _dead_seen.get(pl, false)
+		if pl.dead and not was:
+			stats.kill(_name_of(pl.last_attacker), my_name, _weapon_of(pl.last_attacker), bool(pl.last_hs))
+		_dead_seen[pl] = pl.dead
+	for b in bots:
+		if not is_instance_valid(b):
+			continue
+		var bd: bool = b.state == Npc.DEAD
+		if bd and not _dead_seen.get(b, false):
+			stats.kill(_name_of(b.last_attacker), b.bot_name, _weapon_of(b.last_attacker), bool(b.last_hs))
+		_dead_seen[b] = bd
+
+
+func _name_of(who) -> String:
+	if who == null or not is_instance_valid(who):
+		return ""
+	if who == world.player:
+		return my_name
+	if who.get("bot_name") != null and str(who.bot_name) != "":
+		return str(who.bot_name)
+	if who.get("uname") != null:
+		return str(who.uname)
+	return ""
+
+
+func _weapon_of(who) -> String:
+	if who == null or not is_instance_valid(who):
+		return "WORLD"
+	if who.get("current") != null and str(who.current) != "":
+		return str(W.DATA[who.current].name) if W.DATA.has(who.current) else str(who.current).to_upper()
+	return "M4 CARBINE"
+
+
+func _leave() -> void:
+	Online.comp_mode = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
 # alive players on a side: the local player counts for our side, remotes count by the side they send
@@ -86,6 +145,7 @@ func _spawn_bots() -> void:
 		bot.hp = 100.0
 		bot.timer = 999.0
 		bot.rig.set_team_color(Rig.team_color(es))
+		bot.bot_name = "BOT " + BOT_NAMES[i]
 		bots.append(bot)
 
 
@@ -168,6 +228,10 @@ func _on_round_ended(winner: String) -> void:
 
 func _on_over(winner: String) -> void:
 	world.hud.notify("MATCH OVER  -  " + ("YOUR TEAM WINS" if winner == side else "ENEMY TEAM WINS"))
+	if world.player:
+		world.player.frozen = true
+	layer.visible = false
+	stats.show_results(winner, rules.score)
 
 
 func _build_hud() -> void:
@@ -196,5 +260,6 @@ func _refresh() -> void:
 	var secs := int(ceil(maxf(rules.phase_left, 0.0)))
 	var phase_name: String = {"buy": "BUY TIME", "live": "LIVE", "end": "ROUND OVER", "over": "MATCH OVER"}.get(rules.phase, "")
 	label.text = "%d : %d" % [int(rules.score["a"]), int(rules.score["b"])]
+	stats.score = rules.score
 	_sub.text = "ROUND %d   |   %s   %02d:%02d   |   ALIVE %d vs %d" % [
 		rules.round_no, phase_name, secs / 60, secs % 60, _alive("a"), _alive("b")]

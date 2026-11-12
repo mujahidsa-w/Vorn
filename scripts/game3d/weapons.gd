@@ -10,7 +10,7 @@ const DATA := {
 	},
 	"m4": {
 		"name": "M4 CARBINE", "path": "res://assets/models/weapons/m4.glb", "type": "rifle",
-		"pos": Vector3(-0.05, 1.36, 0.3), "rot": Vector3(0, -90, 22), "muzzle": 0.44,
+		"pos": Vector3(-0.05, 1.36, 0.3), "rot": Vector3(0, -90, 0), "muzzle": 0.44,
 		"mag": 30, "rate": 0.095, "auto": true, "sound": "shot_rifle", "spread": 0.01, "recoil": 0.008, "damage": 28.0,
 	},
 	"akm": {
