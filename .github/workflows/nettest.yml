@@ -1,0 +1,36 @@
+name: Online mode test
+
+# Checks the online mode against the real database (development branch only).
+on:
+  push:
+    branches: [vorn-shooter]
+    paths:
+      - "tools/nettest/**"
+      - ".github/workflows/nettest.yml"
+
+permissions:
+  contents: read
+
+env:
+  DB: "https://ms-company-e7166-default-rtdb.europe-west1.firebasedatabase.app"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: REST probe
+        run: |
+          set -x
+          curl -sS -m 20 -w "\nHTTP %{http_code}\n" "$DB/vorn/_probe/rest.json"
+          curl -sS -m 20 -w "\nHTTP %{http_code}\n" -X PUT -d '{"ok":true}' "$DB/vorn/_probe/rest.json"
+          curl -sS -m 20 -w "\nHTTP %{http_code}\n" "$DB/vorn/_probe/rest.json"
+          curl -sS -m 20 -w "\nHTTP %{http_code}\n" -X DELETE "$DB/vorn/_probe/rest.json"
+          # is anything outside /vorn open to everybody? (reads a random, non-existent key only)
+          curl -sS -m 20 -w "\nHTTP %{http_code}\n" "$DB/_vorn_rules_check_$RANDOM.json"
+      - name: WebSocket probe
+        run: |
+          cd tools/nettest
+          npm install --no-save --silent ws@8
+          node probe.mjs "$DB"
