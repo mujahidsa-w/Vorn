@@ -19,6 +19,7 @@ var mobile := false          # phone / tablet build
 var touch := false           # on-screen controls are in use
 var inset := 0.0             # side safe-area margin (notch), in canvas units
 var inset_b := 0.0           # bottom safe-area margin (home indicator)
+var warm: Array = []         # resources loaded during the start-up picture, kept so the menu opens quickly
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
