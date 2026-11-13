@@ -1,0 +1,5 @@
+; Helper project: only used to run unpack_assets.gd
+config_version=5
+
+[application]
+config/name="vorn-unpack"

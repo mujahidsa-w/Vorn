@@ -39,22 +39,57 @@ jobs:
           rm -f godot.zip templates.tpz
           echo "GODOT=$HOME/godot/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
 
+      # The character models, animations, sounds and music are not part of the sources: they ship only
+      # inside the original game executable. The original archive is kept as a file of a (draft) release
+      # of this repository; this step unpacks what the game needs from it.
+      - name: Unpack models, animations and sounds from the original game
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -f assets/models/chars/ct_1.scn ]; then echo "Assets are already in the repository."; exit 0; fi
+          mkdir -p _orig
+          URL="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '[.[].assets[] | select(.name | test("fable.?strike.*\\.(zip|rar|exe|pck)$"; "i"))] | sort_by(.size) | last | .url // empty')"
+          if [ -z "$URL" ]; then
+            echo "::error::The original game archive (FABLESTRIKE.rar) was not found among the releases of this repository."
+            exit 1
+          fi
+          gh api -H "Accept: application/octet-stream" "$URL" > _orig/pack.bin
+          SRC="_orig/pack.bin"
+          if [ "$(head -c 2 "$SRC")" = "PK" ]; then
+            unzip -q -o "$SRC" -d _orig/zip
+            rm -f _orig/pack.bin
+            SRC="$(find _orig/zip -type f -size +300M \( -iname '*.rar' -o -iname 'FableStrike2.exe' -o -iname '*.pck' \) | head -1)"
+          fi
+          if [ "$(head -c 4 "$SRC")" = "Rar!" ]; then
+            (cd tools/unpack && npm install --no-save --silent node-unrar-js@2.0.2)
+            node tools/unpack/unrar.mjs "$SRC" _orig/rar
+            SRC="$(find _orig/rar -type f -size +300M -iname 'FableStrike2.exe' | head -1)"
+          fi
+          test -n "$SRC"
+          "$GODOT" --headless --path tools/unpack --script unpack_assets.gd -- "$PWD/$SRC" "$PWD"
+          rm -rf _orig tools/unpack/node_modules
+          test -f assets/models/chars/ct_1.scn
+          du -sh assets/models assets/sounds assets/music
+
       - name: Export the Xcode project from Godot
         run: |
           set -euo pipefail
           # Godot wants a 10-character team ID even for an unsigned build.
           sed -i '' "s/__TEAM_ID__/0000000000/g" export_presets.cfg
           "$GODOT" --headless --path . --import || true
+          "$GODOT" --headless --path . --import || true
           mkdir -p build/ios
           "$GODOT" --headless --path . --export-release "iOS" "build/ios/${APP_NAME}.ipa"
           test -d "build/ios/${APP_NAME}.xcodeproj"
-          test -f "build/ios/${APP_NAME}.pck"
+          ls -la "build/ios/${APP_NAME}.pck"
+          test "$(stat -f %z "build/ios/${APP_NAME}.pck")" -gt 60000000
 
       - name: Build the app (unsigned)
         run: |
           set -uo pipefail
           PROJ="build/ios/${APP_NAME}.xcodeproj"
-          ls -d /Applications/Xcode*.app || true
           DEFAULT_X="$(xcode-select -p | sed 's#/Contents/Developer##')"
           NEWEST_X="$(ls -d /Applications/Xcode_[0-9]*.app 2>/dev/null | grep -vi beta | sort -V | tail -1 || true)"
           OK=0

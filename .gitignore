@@ -3,6 +3,13 @@
 build/
 *.ipa
 
+# Unpacked from the original game at build time (see tools/unpack and the workflow)
+/assets/models/
+/assets/sounds/
+/assets/music/
+/_orig/
+node_modules/
+
 # Secrets: never commit signing keys or certificates
 *.keystore
 *.jks
