@@ -1,136 +1,110 @@
 name: Build iOS IPA
 
+# Builds an unsigned Vorn.ipa (sideload with Sideloadly / AltStore / TrollStore ...).
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.6.2"
+  APP_NAME: Vorn
 
 jobs:
   build-ios:
     runs-on: macos-15
-    timeout-minutes: 90
-    env:
-      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
-      IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
-      IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
-      IOS_PROFILE_BASE64: ${{ secrets.IOS_PROFILE_BASE64 }}
-      IOS_SIGN_IDENTITY: ${{ secrets.IOS_SIGN_IDENTITY }}
-      IOS_EXPORT_METHOD: ${{ secrets.IOS_EXPORT_METHOD }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Godot 4.3 and iOS export templates
+      - name: Install Godot and the iOS export template
         run: |
-          set -e
-          BASE=https://github.com/godotengine/godot/releases/download/4.3-stable
-          curl -fL -o godot.zip "$BASE/Godot_v4.3-stable_macos.universal.zip"
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fL --retry 3 -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
           unzip -q godot.zip -d "$HOME/godot"
-          curl -fL -o templates.tpz "$BASE/Godot_v4.3-stable_export_templates.tpz"
-          unzip -q templates.tpz -d tpl
-          TDIR="$HOME/Library/Application Support/Godot/export_templates/4.3.stable"
+          curl -fL --retry 3 -o templates.tpz "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          TDIR="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
           mkdir -p "$TDIR"
-          mv tpl/templates/* "$TDIR/"
+          unzip -q -j templates.tpz "templates/ios.zip" "templates/version.txt" -d "$TDIR"
+          rm -f godot.zip templates.tpz
           echo "GODOT=$HOME/godot/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
 
-      - name: Fill team ID in export preset
+      - name: Export the Xcode project from Godot
         run: |
-          # Godot requires a non-empty 10-character Team ID even for unsigned export.
-          TEAM="${IOS_TEAM_ID:-0000000000}"
-          sed -i '' "s/__TEAM_ID__/${TEAM}/g" export_presets.cfg
-
-      - name: Export Xcode project from Godot
-        run: |
+          set -euo pipefail
+          # Godot wants a 10-character team ID even for an unsigned build.
+          sed -i '' "s/__TEAM_ID__/0000000000/g" export_presets.cfg
           "$GODOT" --headless --path . --import || true
           mkdir -p build/ios
-          # Export only the Xcode project; signing/building is handled below.
-          sed -i '' 's/application\/export_project_only=false/application\/export_project_only=true/' export_presets.cfg
-          "$GODOT" --headless --path . --export-release "iOS" build/ios/VORN.xcodeproj
-          PROJ=$(find build/ios -maxdepth 2 -name "*.xcodeproj" | head -1)
-          if [ -z "$PROJ" ]; then echo "Xcode project not found"; find build -maxdepth 3; exit 1; fi
-          echo "PROJ=$PROJ" >> "$GITHUB_ENV"
-          echo "TARGET=$(basename "$PROJ" .xcodeproj)" >> "$GITHUB_ENV"
+          "$GODOT" --headless --path . --export-release "iOS" "build/ios/${APP_NAME}.ipa"
+          test -d "build/ios/${APP_NAME}.xcodeproj"
+          test -f "build/ios/${APP_NAME}.pck"
 
-      - name: Detect signing mode
+      - name: Build the app (unsigned)
         run: |
-          if [ -n "$IOS_P12_BASE64" ] && [ -n "$IOS_PROFILE_BASE64" ]; then
-            echo "SIGNED=true" >> "$GITHUB_ENV"
-          else
-            echo "SIGNED=false" >> "$GITHUB_ENV"
-            echo "No signing secrets found: building UNSIGNED IPA (sideload with Sideloadly/AltStore)."
-          fi
+          set -uo pipefail
+          PROJ="build/ios/${APP_NAME}.xcodeproj"
+          ls -d /Applications/Xcode*.app || true
+          DEFAULT_X="$(xcode-select -p | sed 's#/Contents/Developer##')"
+          NEWEST_X="$(ls -d /Applications/Xcode_[0-9]*.app 2>/dev/null | grep -vi beta | sort -V | tail -1 || true)"
+          OK=0
+          TRIED=""
+          # Newest stable Xcode first (the engine library may be built with a recent SDK), then the runner default.
+          for X in "$NEWEST_X" "$DEFAULT_X"; do
+            if [ -z "$X" ] || [ ! -d "$X" ] || [ "$X" = "$TRIED" ]; then continue; fi
+            TRIED="$X"
+            echo "=== xcodebuild with $X"
+            export DEVELOPER_DIR="$X/Contents/Developer"
+            xcodebuild -version
+            rm -rf build/dd
+            if xcodebuild -quiet -project "$PROJ" -scheme "$APP_NAME" -configuration Release -sdk iphoneos \
+                 -destination "generic/platform=iOS" -derivedDataPath build/dd \
+                 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 \
+                 | tee "build/xcodebuild-$(basename "$X").log" | tail -n 120; then
+              OK=1
+              echo "=== build succeeded with $X"
+              break
+            fi
+            echo "=== build failed with $X"
+          done
+          [ "$OK" = "1" ]
 
-      # ---------- UNSIGNED (no Apple account needed) ----------
-      - name: Build unsigned app
-        if: env.SIGNED == 'false'
+      - name: Package the unsigned IPA
         run: |
-          xcodebuild -project "$PROJ" -scheme "$TARGET" -configuration Release -sdk iphoneos \
-            -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
-
-      - name: Package unsigned IPA
-        if: env.SIGNED == 'false'
-        run: |
-          APP=$(find build/dd -name "*.app" -path "*Release-iphoneos*" | head -1)
-          if [ -z "$APP" ]; then echo "App bundle not found"; exit 1; fi
+          set -euo pipefail
+          APP="$(find build/dd/Build/Products -maxdepth 2 -name "*.app" -path "*Release-iphoneos*" | head -1)"
+          if [ -z "$APP" ]; then echo "App bundle not found"; find build/dd/Build/Products -maxdepth 3; exit 1; fi
+          ls -la "$APP" | head -40
           mkdir -p build/ipa/Payload
           cp -R "$APP" build/ipa/Payload/
-          (cd build/ipa && zip -qr "../VORN-unsigned.ipa" Payload)
-
-      # ---------- SIGNED (needs Apple Developer secrets) ----------
-      - name: Import certificate and provisioning profile
-        if: env.SIGNED == 'true'
-        run: |
-          KC="$RUNNER_TEMP/build.keychain-db"
-          KCPASS=$(openssl rand -hex 16)
-          echo "$IOS_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
-          echo "$IOS_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
-          security create-keychain -p "$KCPASS" "$KC"
-          security set-keychain-settings -lut 21600 "$KC"
-          security unlock-keychain -p "$KCPASS" "$KC"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$IOS_P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
-          security set-key-partition-list -S apple-tool:,apple: -s -k "$KCPASS" "$KC"
-          security list-keychains -d user -s "$KC" login.keychain-db
-          PDIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "$PDIR"
-          UUID=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract UUID raw -)
-          NAME=$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract Name raw -)
-          cp "$RUNNER_TEMP/profile.mobileprovision" "$PDIR/$UUID.mobileprovision"
-          echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
-
-      - name: Archive signed app
-        if: env.SIGNED == 'true'
-        run: |
-          xcodebuild archive -project "$PROJ" -scheme "$TARGET" -configuration Release -sdk iphoneos \
-            -archivePath build/VORN.xcarchive \
-            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
-            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
-            CODE_SIGN_IDENTITY="${IOS_SIGN_IDENTITY:-Apple Distribution}"
-
-      - name: Export signed IPA
-        if: env.SIGNED == 'true'
-        run: |
-          METHOD="${IOS_EXPORT_METHOD:-ad-hoc}"
-          BUNDLE_ID=$(plutil -extract CFBundleIdentifier raw build/VORN.xcarchive/Products/Applications/*.app/Info.plist)
-          cat > build/exportOptions.plist <<PLIST
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>${METHOD}</string>
-            <key>teamID</key><string>${IOS_TEAM_ID}</string>
-            <key>signingStyle</key><string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
-            </dict>
-          </dict>
-          </plist>
-          PLIST
-          xcodebuild -exportArchive -archivePath build/VORN.xcarchive \
-            -exportPath build/ipa -exportOptionsPlist build/exportOptions.plist
+          (cd build/ipa && zip -qr "../${APP_NAME}.ipa" Payload)
+          ls -la "build/${APP_NAME}.ipa"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: VORN-iOS
-          path: |
-            build/VORN-unsigned.ipa
-            build/ipa/*.ipa
+          name: Vorn-iOS
+          path: build/Vorn.ipa
           if-no-files-found: error
+
+      - name: Publish the IPA as the "latest" release (direct download link)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest "build/${APP_NAME}.ipa" --target "${GITHUB_SHA}" \
+            --title "Vorn — iOS" \
+            --notes "Unsigned IPA built automatically from commit ${GITHUB_SHA}. Install it with a sideloading tool (Sideloadly, AltStore, TrollStore ...)."

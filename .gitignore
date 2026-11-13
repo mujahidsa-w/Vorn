@@ -1,7 +1,7 @@
 # Godot cache and local builds
 .godot/
 build/
-*.import.bak
+*.ipa
 
 # Secrets: never commit signing keys or certificates
 *.keystore

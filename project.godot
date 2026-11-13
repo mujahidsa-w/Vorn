@@ -1,44 +1,44 @@
 ; Engine configuration file.
+; Vorn — Godot 4.6
+
 config_version=5
 
 [application]
 
-config/quit_on_go_back=false
-config/project_settings_override="user://override.cfg"
-
-config/name="Vorn City"
-config/description="VORN - City competitive"
-config/version="0.9.0-vorn-city"
-run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.3", "GL Compatibility")
-config/icon="res://assets/img/vorn_logo.png"
-boot_splash/bg_color=Color(0.01, 0.015, 0.03, 1)
-boot_splash/show_image=false
-config/windows_native_icon=""
-
-[autoload]
-
-Game="*res://scripts/game.gd"
-Online="*res://scripts/online.gd"
+config/name="Vorn"
+config/version="1.0.0"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.6", "Forward Plus")
+config/icon="res://icon.png"
+boot_splash/bg_color=Color(0.043, 0.051, 0.066, 1)
+boot_splash/image="res://splash.png"
+boot_splash/fullsize=false
 
 [display]
-
-window/handheld/orientation=4
 
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=4
+
+[gui]
+
+theme/custom_font="res://fonts/Cairo.ttf"
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=false
+pointing/emulate_touch_from_mouse=false
+
+[internationalization]
+
+rendering/root_node_layout_direction=1
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
-gl_compatibility/driver.windows="opengl3_angle"
-gl_compatibility/fallback_to_native=true
+renderer/rendering_method.mobile="mobile"
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.01, 0.015, 0.03, 1)
-limits/opengl/max_lights_per_object=16
-limits/opengl/max_renderable_lights=160
-lights_and_shadows/directional_shadow/size=4096
+anti_aliasing/quality/msaa_3d=2
+scaling_3d/scale.mobile=0.85
