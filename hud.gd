@@ -390,6 +390,22 @@ func cbtn(id: String, icon: String, label := "", active := false) -> void:
 func _icon(n: String, c: Vector2, s: float, col: Color) -> void:
 	match n:
 		"fire":
+			# a cartridge pointing up-right: rim, casing and bullet
+			var d := Vector2(0.7071, -0.7071)
+			var nv := Vector2(0.7071, 0.7071)
+			var k: float = s * 1.12
+			var parts := [
+				[[-1.02, -0.37], [-0.90, -0.37], [-0.90, 0.37], [-1.02, 0.37]],
+				[[-0.84, -0.31], [0.16, -0.31], [0.16, 0.31], [-0.84, 0.31]],
+				[[0.25, -0.30], [0.50, -0.28], [0.74, -0.20], [0.94, -0.09], [1.04, 0.0], [0.94, 0.09], [0.74, 0.20], [0.50, 0.28], [0.25, 0.30]],
+			]
+			for part in parts:
+				var pts := PackedVector2Array()
+				for q in part: pts.append(c + d * (q[0] * k) + nv * (q[1] * k))
+				pad.draw_colored_polygon(pts, col)
+				pts.append(pts[0])
+				pad.draw_polyline(pts, col, 1.5, true)
+		"aim":
 			pad.draw_arc(c, s * 0.62, 0, TAU, 40, col, 5.0, true)
 			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 				pad.draw_line(c + d * s * 0.30, c + d * s * 1.02, col, 5.0, true)
@@ -406,10 +422,6 @@ func _icon(n: String, c: Vector2, s: float, col: Color) -> void:
 			var nrm := Vector2(cos(a0), sin(a0))
 			var tng := Vector2(sin(a0), -cos(a0))
 			pad.draw_colored_polygon(PackedVector2Array([e + tng * s * 0.42, e + nrm * s * 0.30 - tng * s * 0.06, e - nrm * s * 0.30 - tng * s * 0.06]), col)
-		"scope":
-			pad.draw_arc(c, s * 0.72, 0, TAU, 40, col, 5.0, true)
-			pad.draw_line(c - Vector2(s * 1.05, 0), c + Vector2(s * 1.05, 0), col, 3.0, true)
-			pad.draw_line(c - Vector2(0, s * 1.05), c + Vector2(0, s * 1.05), col, 3.0, true)
 		"he":
 			pad.draw_circle(c + Vector2(0, s * 0.20), s * 0.58, col)
 			pad.draw_rect(Rect2(c + Vector2(-s * 0.20, -s * 0.66), Vector2(s * 0.40, s * 0.34)), col)
@@ -657,7 +669,7 @@ func _draw_touch(p) -> void:
 	if p.reload_t > 0.0 and w.reload > 0.0:
 		var rb: Array = btn["reload"]
 		pad.draw_arc(rb[0], rb[1] + 7, -PI * 0.5, -PI * 0.5 + TAU * (1.0 - p.reload_t / w.reload), 48, AMBER, 6.0, true)
-	if _vis("scope"): cbtn("scope", "scope", "", p.scoped)
+	if _vis("scope"): cbtn("scope", "aim", "", p.scoped)
 	if _vis("he"): cbtn("he", "he")
 	if _vis("use"):
 		cbtn("use", "bomb", "ازرع" if p.team == "t" else "فكّك", true)
