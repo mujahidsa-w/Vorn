@@ -110,6 +110,7 @@ const SPEC := {
 const SHOTGUN_FWD := 0.12
 
 static var _mounts := {}
+static var _builtins := {}
 
 var kind := ""
 var spec: Dictionary
@@ -118,6 +119,7 @@ var relief := 0.3
 var lens: MeshInstance3D
 var lens_mat: ShaderMaterial
 var first_person := false
+var builtin := false            # the model has its own scope: only the live lens is added at its eyepiece
 
 static func _rel(root: Node, n: Node) -> Transform3D:
 	var t := Transform3D.IDENTITY
@@ -163,13 +165,29 @@ static func _mount(weapon: Node3D, wid: String, kind: String) -> Dictionary:
 				xmin = minf(xmin, v.x)
 				xmax = maxf(xmax, v.x)
 	var cx := (xmin + xmax) * 0.5 if xmin < xmax else grip.x
+	# only triangles that cross the strip under the optic's base take part in the rays
+	var near := PackedVector3Array()
+	for i in range(0, tris.size() - 2, 3):
+		var a := tris[i]
+		var b := tris[i + 1]
+		var c := tris[i + 2]
+		if maxf(a.x, maxf(b.x, c.x)) < cx - 0.008 or minf(a.x, minf(b.x, c.x)) > cx + 0.008:
+			continue
+		near.append(a)
+		near.append(b)
+		near.append(c)
 	var top := -INF
 	for k in 9:
 		var z := mz - half + half * 2.0 * k / 8.0
 		for dx in [-0.006, 0.0, 0.006]:
 			var from := Vector3(cx + dx, 1.0, z)
-			for i in range(0, tris.size() - 2, 3):
-				var hit = Geometry3D.ray_intersects_triangle(from, Vector3.DOWN, tris[i], tris[i + 1], tris[i + 2])
+			for i in range(0, near.size() - 2, 3):
+				var a2 := near[i]
+				var b2 := near[i + 1]
+				var c2 := near[i + 2]
+				if maxf(a2.z, maxf(b2.z, c2.z)) < z or minf(a2.z, minf(b2.z, c2.z)) > z:
+					continue
+				var hit = Geometry3D.ray_intersects_triangle(from, Vector3.DOWN, a2, b2, c2)
 				if hit != null and (hit as Vector3).y > top:
 					top = (hit as Vector3).y
 	if top == -INF:
@@ -191,6 +209,89 @@ static func precompute() -> void:
 		_mount(w, wid, String(d["sight"]))
 		w.free()
 
+static func _builtin_scope(weapon: Node3D, wid: String) -> Dictionary:
+	## A scope already modelled on the weapon (the AWP has one): a long raised run along the top, much higher than the
+	## barrel. Returns its eyepiece centre and radius in weapon space, or {} when the model has none.
+	if _builtins.has(wid):
+		return _builtins[wid]
+	var pts := PackedVector3Array()
+	for mi in weapon.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		var xf := _rel(weapon, m)
+		for v in m.mesh.get_faces():
+			pts.append(xf * v)
+	var res := {}
+	if pts.size() > 0:
+		var top := {}
+		var zmin := INF
+		var zmax := -INF
+		# height of the top along the barrel, 1 cm bins; a triangle counts in every bin it spans
+		# (long tubes and flat tops have vertices only at their ends)
+		for i in range(0, pts.size() - 2, 3):
+			var a := pts[i]
+			var b := pts[i + 1]
+			var c := pts[i + 2]
+			var y := maxf(a.y, maxf(b.y, c.y))
+			var k0 := int(floor(minf(a.z, minf(b.z, c.z)) / 0.01))
+			var k1 := int(floor(maxf(a.z, maxf(b.z, c.z)) / 0.01))
+			for k in range(k0, k1 + 1):
+				top[k] = maxf(float(top.get(k, -INF)), y)
+			zmin = minf(zmin, minf(a.z, minf(b.z, c.z)))
+			zmax = maxf(zmax, maxf(a.z, maxf(b.z, c.z)))
+		var front: Array = []
+		for k in top:
+			if float(k) * 0.01 < zmin + (zmax - zmin) * 0.15:
+				front.append(top[k])
+		front.sort()
+		var barrel: float = front[front.size() / 2] if front.size() > 0 else 0.0
+		var best_k := 0
+		var ymax := -INF
+		for k in top:
+			if float(top[k]) > ymax:
+				ymax = float(top[k])
+				best_k = k
+		if ymax - barrel > 0.05:
+			var thr := barrel + 0.55 * (ymax - barrel)
+			var rear := best_k
+			var gap := 0
+			var k2 := best_k
+			while gap <= 2 and k2 < best_k + 200:
+				k2 += 1
+				if float(top.get(k2, -INF)) > thr:
+					rear = k2
+					gap = 0
+				else:
+					gap += 1
+			var front_k := best_k
+			gap = 0
+			k2 = best_k
+			while gap <= 2 and k2 > best_k - 200:
+				k2 -= 1
+				if float(top.get(k2, -INF)) > thr:
+					front_k = k2
+					gap = 0
+				else:
+					gap += 1
+			if (rear - front_k) * 0.01 > 0.12:
+				var z_r := (rear + 1) * 0.01
+				var xmn := INF
+				var xmx := -INF
+				var ytop := -INF
+				var zr := -INF
+				for p in pts:
+					if p.z > z_r - 0.04 and p.z < z_r + 0.005 and p.y > thr - 0.03:
+						xmn = minf(xmn, p.x)
+						xmx = maxf(xmx, p.x)
+						ytop = maxf(ytop, p.y)
+						zr = maxf(zr, p.z)
+				var r := (xmx - xmn) * 0.5
+				if r > 0.008 and r < 0.045:
+					res = {"pos": Vector3((xmn + xmx) * 0.5, ytop - r, zr), "r": r, "barrel": barrel, "top": ymax, "run": [front_k * 0.01, rear * 0.01]}
+	_builtins[wid] = res
+	return res
+
 static func attach(weapon: Node3D, wid: String, fp: bool) -> Sight:
 	var d: Dictionary = DB.W.get(wid, {})
 	if not d.has("sight"):
@@ -202,8 +303,18 @@ static func attach(weapon: Node3D, wid: String, fp: bool) -> Sight:
 	var sd: Dictionary = DB.SIGHTS[s.kind]
 	s.zoom = float(sd["zoom"])
 	s.relief = float(sd["relief"])
-	var m := _mount(weapon, wid, s.kind)
 	s.name = "Sight"
+	if s.kind == "sniper":
+		var b := _builtin_scope(weapon, wid)
+		if not b.is_empty():
+			s.builtin = true
+			s.spec = {"h": 0.0, "lens_z": 0.001, "r": float(b["r"]) * 0.86, "len": 0.0, "fwd": 0.0}
+			weapon.add_child(s)
+			s.transform = Transform3D(Basis.IDENTITY, b["pos"])
+			s._mats()
+			s._scope_lens()
+			return s
+	var m := _mount(weapon, wid, s.kind)
 	# pistols: the red dot rides on the slide
 	var host: Node3D = weapon
 	var slide := weapon.find_child("mv_slide", true, false) as Node3D

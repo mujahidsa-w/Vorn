@@ -51,6 +51,19 @@ func _gun(name: String, pistol: bool) -> void:
 			n.name = p[0]
 			n.position = p[1]
 			model.add_child(n)
+	if name == "awp":
+		# a modelled scope like the real AWP: tube on two rings over the receiver
+		var tube := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.02
+		cm.bottom_radius = 0.02
+		cm.height = 0.32
+		tube.mesh = cm
+		tube.rotation.x = PI / 2.0
+		tube.position = Vector3(0, 0.085, -0.08)
+		model.add_child(tube)
+		_box(model, Vector3(0.02, 0.05, 0.02), Vector3(0, 0.05, -0.15), c)
+		_box(model, Vector3(0.02, 0.05, 0.02), Vector3(0, 0.05, 0.0), c)
 	_own(root, root)
 	var ps := PackedScene.new()
 	ps.pack(root)

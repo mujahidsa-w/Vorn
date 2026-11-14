@@ -53,5 +53,8 @@ func _init() -> void:
 		for k in ks:
 			row.append("%.2f:%.3f" % [k * 0.02, prof[k][0]])
 		print("PROFILE %s %s" % [wid, " ".join(row)])
+		var kind: String = DB.W[wid].get("sight", "")
+		if kind != "":
+			print("MOUNT %s %s mount %s scope %s" % [wid, kind, Sight._mount(w, wid, kind), Sight._builtin_scope(w, wid)])
 		w.queue_free()
 	quit(0)

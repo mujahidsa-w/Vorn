@@ -207,7 +207,7 @@ func set_weapon(id: String) -> void:
 		var eye_w: Vector3 = Sight._rel(weapon, sight) * sight.eye_local()
 		ads_xf = Transform3D(Basis.IDENTITY, -eye_w)
 		if G.args.has("vmtest"):
-			print("SIGHT %s %s eye_w %s mount %s" % [id, sight.kind, eye_w.snapped(Vector3.ONE * 0.001), Sight._mounts.get(id, {})])
+			print("SIGHT %s %s builtin %s eye_w %s mount %s scope %s" % [id, sight.kind, sight.builtin, eye_w.snapped(Vector3.ONE * 0.001), Sight._mounts.get(id, {}), Sight._builtins.get(id, {})])
 	if parts.has("p_muzzle"):
 		flash = MeshInstance3D.new()
 		var qm := QuadMesh.new()
