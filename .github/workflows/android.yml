@@ -1,0 +1,95 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.6.2"
+  APP_NAME: Vorn
+
+jobs:
+  build-android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Java and Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Godot and Android export template
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fL --retry 3 -o godot.zip "$BASE/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d "$HOME/godot"
+          curl -fL --retry 3 -o templates.tpz "$BASE/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          TDIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$TDIR"
+          unzip -q -j templates.tpz "templates/android_source.zip" "templates/android_debug.apk" "templates/android_release.apk" "templates/version.txt" -d "$TDIR"
+          rm -f godot.zip templates.tpz
+          echo "GODOT=$HOME/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+
+      - name: Unpack models, animations and sounds from the original game
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -f assets/models/chars/ct_1.scn ]; then echo "Assets are already in the repository."; exit 0; fi
+          mkdir -p _orig
+          URL="$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '[.[].assets[] | select(.name | test("fable.?strike.*\\.(zip|rar|exe|pck)$"; "i"))] | sort_by(.size) | last | .url // empty')"
+          if [ -z "$URL" ]; then
+            echo "::error::The original game archive was not found among the releases of this repository."
+            exit 1
+          fi
+          gh api -H "Accept: application/octet-stream" "$URL" > _orig/pack.bin
+          SRC="_orig/pack.bin"
+          if [ "$(head -c 2 "$SRC")" = "PK" ]; then
+            unzip -q -o "$SRC" -d _orig/zip
+            rm -f _orig/pack.bin
+            SRC="$(find _orig/zip -type f -size +300M \( -iname '*.rar' -o -iname 'FableStrike2.exe' -o -iname '*.pck' \) | head -1)"
+          fi
+          if [ "$(head -c 4 "$SRC")" = "Rar!" ]; then
+            (cd tools/unpack && npm install --no-save --silent node-unrar-js@2.0.2)
+            node tools/unpack/unrar.mjs "$SRC" _orig/rar
+            SRC="$(find _orig/rar -type f -size +300M -iname 'FableStrike2.exe' | head -1)"
+          fi
+          test -n "$SRC"
+          "$GODOT" --headless --path tools/unpack --script unpack_assets.gd -- "$PWD/$SRC" "$PWD"
+          rm -rf _orig tools/unpack/node_modules
+          test -f assets/models/chars/ct_1.scn
+
+      - name: Import and export Android APK
+        run: |
+          set -euo pipefail
+          "$GODOT" --headless --path . --import
+          mkdir -p build/android
+          "$GODOT" --headless --path . --export-release "Android" "build/android/${APP_NAME}.apk"
+          test -s "build/android/${APP_NAME}.apk"
+          ls -lh "build/android/${APP_NAME}.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vorn-Android
+          path: build/android/Vorn.apk
+          if-no-files-found: error
