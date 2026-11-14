@@ -666,8 +666,10 @@ func _lights() -> void:
 	env.sky = sky
 	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	# the rest of the ambient is the warm light bounced off the sand (left black, shadows went navy)
 	env.ambient_light_sky_contribution = 0.45
-	env.ambient_light_energy = 0.9
+	env.ambient_light_color = Color(0.80, 0.74, 0.66)
+	env.ambient_light_energy = 0.95
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_white = 6.0

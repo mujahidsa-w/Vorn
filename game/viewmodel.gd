@@ -354,6 +354,8 @@ func _part(n: String, off: Vector3, rot := Vector3.ZERO) -> void:
 	node.transform = Transform3D(r.basis * Basis.from_euler(rot), r.origin + off)
 
 func tick(dt: float, look_delta: Vector2) -> void:
+	if arms:
+		arms.visible = weapon != null    # no weapon, no pose: never show the arms in their rest pose
 	if weapon == null or player == null:
 		return
 	idle_t += dt

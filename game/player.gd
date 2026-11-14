@@ -89,6 +89,9 @@ func init_player() -> void:
 	vm_cam.add_child(vm)
 	vm.setup(self)
 	weapon_changed.connect(func(w): vm.set_weapon(w); Sfx.play("draw", -10.0))
+	# a weapon given before the view existed (battle royale starts with the knife already in hand)
+	if cur != "":
+		vm.set_weapon(cur)
 	shot.connect(func(w):
 		vm.on_shot()
 		# короткая встряска камеры по силе отдачи
