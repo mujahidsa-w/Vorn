@@ -4,6 +4,11 @@ name: Dev preview (models check and screenshots)
 # on the build machine). Run it by hand from the Actions tab; the screenshots are in the "preview-shots" artifact.
 on:
   workflow_dispatch:
+    inputs:
+      lobby_shots:
+        description: "Commit phone-size lobby screenshots (attackers and defenders) to docs/screenshots on this branch"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -71,6 +76,26 @@ jobs:
             --match --vmtest "${VMLIST:-ak,m4,awp,shotgun,mp9,mac10,glock,usp,deagle}" --vmads --windowed --mute --nosave --shots shots > shots/vm.log 2>&1 || true
           grep -E "SHOT|SCRIPT ERROR" shots/vm.log | sort | uniq -c | head -40
           ls shots
+
+      - name: Lobby screenshots, phone size (committed to the branch)
+        if: ${{ inputs.lobby_shots }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/screenshots
+          for team in t ct; do
+            rm -rf "lobby_$team"; mkdir -p "lobby_$team"
+            timeout 300 xvfb-run -a -s "-screen 0 2340x1080x24" "$GODOT" --path . --rendering-driver opengl3 --resolution 2340x1080 -- \
+              --nosplash --windowed --touch --uiscale 1.5 --team "$team" --mute --nosave --shots "lobby_$team" --quit_menu > "lobby_$team.log" 2>&1 || true
+            grep -E "\[anims\]" "lobby_$team.log" | head -4 || true
+            test -f "lobby_$team/lobby_main.png"
+            convert "lobby_$team/lobby_main.png" -quality 88 "docs/screenshots/lobby_$team.jpg"
+          done
+          ls -la docs/screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          git commit -m "Lobby screenshots with the real character models (attackers and defenders)" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Weapon geometry and optic placement (last, so the log tail holds it)
         run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'
