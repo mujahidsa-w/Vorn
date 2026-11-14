@@ -48,6 +48,7 @@ func prepare_weapons() -> void:
 	if _weapons_ready:
 		return
 	_weapons_ready = true
+	Sight.precompute()
 	var dir := DirAccess.open("res://assets/models/weapons")
 	if dir == null:
 		return

@@ -38,7 +38,7 @@ void fragment() {
 	float ret = clamp(max(d, ring) + glow, 0.0, 1.0) * on * front;
 	vec2 e = UV * 2.0 - 1.0;
 	float edge = smoothstep(0.55, 1.0, max(abs(e.x), abs(e.y)));
-	ALBEDO = mix(tint, vec3(1.0, 0.10, 0.06) * 1.8, ret);
+	ALBEDO = mix(tint, vec3(1.0, 0.025, 0.015) * 1.5, ret);
 	ALPHA = clamp(0.05 + 0.12 * edge + ret, 0.0, 1.0);
 }"
 
@@ -129,7 +129,9 @@ static func _rel(root: Node, n: Node) -> Transform3D:
 	return t
 
 static func _mount(weapon: Node3D, wid: String, kind: String) -> Dictionary:
-	## top surface of the weapon over the receiver: (x, y, z) in weapon space; cached per weapon
+	## top surface of the weapon over the receiver: (x, y, z) in weapon space; cached per weapon.
+	## Rays are cast straight down onto the mesh triangles along the optic's footprint (flat receiver tops of
+	## low-poly models have no vertices in the middle, so vertex heights alone would miss them).
 	if _mounts.has(wid):
 		return _mounts[wid]
 	var grip := Vector3.ZERO
@@ -139,42 +141,55 @@ static func _mount(weapon: Node3D, wid: String, kind: String) -> Dictionary:
 	var fwd: float = SHOTGUN_FWD if wid == "shotgun" else float(SPEC[kind]["fwd"])
 	var mz := grip.z - fwd
 	var half: float = float(SPEC[kind]["len"]) * 0.5
-	var pts := PackedVector3Array()
+	var tris := PackedVector3Array()
+	var xmin := INF
+	var xmax := -INF
 	for mi in weapon.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		if m.mesh == null:
 			continue
 		var xf := _rel(weapon, m)
-		for s in m.mesh.get_surface_count():
-			var arr := m.mesh.surface_get_arrays(s)
-			if arr.is_empty():
+		var f := m.mesh.get_faces()
+		for i in range(0, f.size() - 2, 3):
+			var a := xf * f[i]
+			var b := xf * f[i + 1]
+			var c := xf * f[i + 2]
+			if maxf(a.z, maxf(b.z, c.z)) < mz - half or minf(a.z, minf(b.z, c.z)) > mz + half:
 				continue
-			var vv: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-			var step := maxi(1, vv.size() / 6000)
-			for i in range(0, vv.size(), step):
-				pts.append(xf * vv[i])
+			tris.append(a)
+			tris.append(b)
+			tris.append(c)
+			for v in [a, b, c]:
+				xmin = minf(xmin, v.x)
+				xmax = maxf(xmax, v.x)
+	var cx := (xmin + xmax) * 0.5 if xmin < xmax else grip.x
 	var top := -INF
-	var cx := 0.0
-	var n := 0
-	# centre line first (|x| near the bore), then the highest point inside the footprint
-	var xs := PackedFloat32Array()
-	for p in pts:
-		if absf(p.z - mz) < half:
-			xs.append(p.x)
-	xs.sort()
-	var mid := xs[xs.size() / 2] if xs.size() > 0 else 0.0
-	for p in pts:
-		if absf(p.z - mz) < half and absf(p.x - mid) < 0.018:
-			if p.y > top:
-				top = p.y
-			cx += p.x
-			n += 1
-	if n == 0:
-		top = 0.03
-		mid = grip.x
-	var r := {"pos": Vector3(mid, top, mz), "grip": grip, "n": pts.size()}
+	for k in 9:
+		var z := mz - half + half * 2.0 * k / 8.0
+		for dx in [-0.006, 0.0, 0.006]:
+			var from := Vector3(cx + dx, 1.0, z)
+			for i in range(0, tris.size() - 2, 3):
+				var hit = Geometry3D.ray_intersects_triangle(from, Vector3.DOWN, tris[i], tris[i + 1], tris[i + 2])
+				if hit != null and (hit as Vector3).y > top:
+					top = (hit as Vector3).y
+	if top == -INF:
+		top = grip.y + 0.06
+	var r := {"pos": Vector3(cx, top, mz), "grip": grip, "tris": tris.size() / 3}
 	_mounts[wid] = r
 	return r
+
+static func precompute() -> void:
+	## mount points for every weapon with an optic, while the loading screen is up
+	for wid in DB.W:
+		var d: Dictionary = DB.W[wid]
+		if not d.has("sight") or _mounts.has(wid):
+			continue
+		var path := "res://assets/models/weapons/%s.scn" % wid
+		if not ResourceLoader.exists(path):
+			continue
+		var w := (load(path) as PackedScene).instantiate() as Node3D
+		_mount(w, wid, String(d["sight"]))
+		w.free()
 
 static func attach(weapon: Node3D, wid: String, fp: bool) -> Sight:
 	var d: Dictionary = DB.W.get(wid, {})
@@ -262,7 +277,7 @@ static func disc_mesh(r: float, seg := 48) -> ArrayMesh:
 	for i in seg:
 		var a0 := TAU * i / seg
 		var a1 := TAU * (i + 1) / seg
-		for p in [Vector2.ZERO, Vector2(cos(a0), sin(a0)), Vector2(cos(a1), sin(a1))]:
+		for p in [Vector2.ZERO, Vector2(cos(a1), sin(a1)), Vector2(cos(a0), sin(a0))]:      # clockwise = front face
 			st.set_normal(Vector3(0, 0, 1))
 			st.set_uv(Vector2(0.5 + p.x * 0.5, 0.5 - p.y * 0.5))
 			st.add_vertex(Vector3(p.x * r, p.y * r, 0))

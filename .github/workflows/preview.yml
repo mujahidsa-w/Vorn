@@ -63,7 +63,7 @@ jobs:
         run: '"$GODOT" --headless --path . --import > /dev/null 2>&1 || true'
 
       - name: Weapon geometry
-        run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -E "^(DUMP|PROFILE|  )" || true'
+        run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'
 
       - name: Screenshots
         run: |
@@ -80,17 +80,24 @@ jobs:
         run: |
           set -uo pipefail
           cd shots
-          for set in "lobby_main lobby_team_t" "vm_ak_ads vm_m4_ads vm_awp_ads vm_mp9_ads" "vm_shotgun_ads vm_mac10_ads vm_glock_ads vm_deagle_ads" "vm_ak vm_awp vm_glock vm_mp9"; do
+          sheet() {
+            name="$1"; shift; geo="$1"; shift; crop="$1"; shift
             files=""
-            for f in $set; do [ -f "$f.png" ] && files="$files $f.png"; done
-            [ -z "$files" ] && continue
-            name="$(echo $set | cut -d' ' -f1)"
-            montage $files -tile 2x -geometry 480x270+2+2 -background black "sheet_$name.jpg"
-            convert "sheet_$name.jpg" -quality 55 "sheet_$name.jpg"
-            echo "=====SHEET sheet_$name.jpg $(stat -c %s "sheet_$name.jpg")"
-            base64 -w 0 "sheet_$name.jpg"
+            for f in "$@"; do
+              [ -f "$f.png" ] || continue
+              if [ "$crop" = "1" ]; then convert "$f.png" -gravity center -crop 50%x50%+0+0 +repage "c_$f.png"; else cp "$f.png" "c_$f.png"; fi
+              files="$files c_$f.png"
+            done
+            [ -z "$files" ] && return
+            montage $files -tile 2x -geometry "$geo+1+1" -background black -quality 50 "$name.jpg"
+            echo "=====SHEET $name $(stat -c %s "$name.jpg")"
+            base64 -w 0 "$name.jpg"
             echo
-          done
+          }
+          sheet lobby 320x180 0 lobby_main lobby_team_t
+          sheet ads1 320x180 1 vm_ak_ads vm_m4_ads vm_awp_ads vm_mp9_ads
+          sheet ads2 320x180 1 vm_shotgun_ads vm_mac10_ads vm_glock_ads vm_deagle_ads
+          sheet hip 320x180 0 vm_ak vm_awp vm_glock vm_mp9
 
       - uses: actions/upload-artifact@v4
         with:

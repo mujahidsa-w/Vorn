@@ -202,6 +202,9 @@ func _vm_test() -> void:
 			p.scoped = true
 			await get_tree().create_timer(0.9).timeout
 			await G.shot("vm_%s_ads" % wid)
+			if p.vm.sight and p.vm.sight.magnified() and G.shots_dir != "":
+				p.vm.scope_vp.get_texture().get_image().save_png("%s/vm_%s_scopeview.png" % [G.shots_dir, wid])
+				print("SIGHT view %s fov %.2f live %s off %s" % [wid, p.vm.scope_cam.fov, p.vm.sight.lens_mat.get_shader_parameter("live"), p.vm.sight.lens_mat.get_shader_parameter("shadow_off")])
 			p.scoped = false
 			await get_tree().create_timer(0.4).timeout
 		if G.args.has("vmdbg"):

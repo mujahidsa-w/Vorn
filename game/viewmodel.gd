@@ -131,6 +131,7 @@ func setup(p: Actor) -> void:
 	scope_cam.near = 0.3
 	scope_cam.far = 400.0
 	scope_vp.add_child(scope_cam)
+	scope_cam.current = true
 
 func _load_arms(team: String) -> void:
 	if team_arms == team and arms:
