@@ -16,7 +16,7 @@ concurrency:
 
 env:
   GODOT_VERSION: "4.6.2"
-  APP_NAME: Vorn
+  APP_NAME: AurumStrike
 
 jobs:
   build-android:
@@ -98,6 +98,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Vorn-Android
-          path: build/android/Vorn.apk
+          name: AurumStrike-Android
+          path: build/android/AurumStrike.apk
           if-no-files-found: error

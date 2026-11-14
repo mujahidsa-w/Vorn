@@ -11,9 +11,21 @@ const TEXT := Color(0.93, 0.94, 0.95)
 const DIM := Color(0.62, 0.66, 0.70)
 const RED := Color(0.93, 0.27, 0.22)
 const GREEN := Color(0.45, 0.86, 0.42)
+# AURUM STRIKE: золото бренда, тёмный графит лобби
+const GOLD := Color(0.95, 0.76, 0.33)
+const GOLD_HI := Color(1.0, 0.90, 0.60)
+const GOLD_DK := Color(0.55, 0.38, 0.10)
+const INK := Color(0.035, 0.04, 0.05, 0.86)
+
+const GAME_NAME := "AURUM STRIKE"
+const GAME_NAME_AR := "أوروم سترايك"
+const STUDIO := "SAQR STUDIOS"
+const STUDIO_AR := "استوديوهات صقر"
+const DEVELOPER := "Mujahid"
 
 static var _font: Font
 static var _bold: Font
+static var _latin: Font
 static var _icons := {}
 
 static func team_col(t: String) -> Color:
@@ -37,6 +49,19 @@ static func bold() -> Font:
 	if _bold == null:
 		_bold = _mk(800)
 	return _bold
+
+static func latin() -> Font:
+	## Oxanium for numbers, levels and Latin labels; Cairo stays as the fallback for Arabic glyphs
+	if _latin == null:
+		var fv := FontVariation.new()
+		fv.base_font = load("res://assets/fonts/Oxanium.ttf")
+		var fb: Array[Font] = [bold()]
+		fv.fallbacks = fb
+		_latin = fv
+	return _latin
+
+static func tex(path: String) -> Texture2D:
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 static func rtl(c: Control) -> Control:
 	## Arabic panels read right to left: rows, sliders and labels are mirrored inside the control.

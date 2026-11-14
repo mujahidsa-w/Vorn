@@ -3,12 +3,12 @@ extends Node
 
 const CFG := "user://settings.json"
 const SAVE := "user://profile.json"
-const VERSION := "1.0"
+const VERSION := "2.1.0"
 
 var settings := {
 	"sens": 1.0, "fov": 90.0, "vol_master": 0.8, "vol_music": 0.45, "vol_sfx": 0.9,
 	"quality": 2, "fullscreen": true, "vsync": true, "crosshair": 0, "cross_color": 0,
-	"name": "اللاعب", "team": "ct", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
+	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
 }
 var profile := {"credits": 1500, "inv": [], "equip": {}, "cases": 0, "matches": 0, "wins": 0, "kills": 0}
 var args := {}
@@ -35,16 +35,19 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(fit_screen)
 	if args.has("mute"):
 		AudioServer.set_bus_mute(0, true)
-	_prep_weapons()
 	if args.has("dev"):
 		# development driver (screenshots, simulated touches); only ever passed on the command line
 		add_child((load(args["dev"]) as GDScript).new())
 
 var _wkeep := {}
+var _weapons_ready := false
 
-func _prep_weapons() -> void:
+func prepare_weapons() -> void:
 	## Материалы оружия: в запечённой карте канал затенения почти чёрный и гасил весь рассеянный свет —
 	## стволы выходили чёрными силуэтами. Затенение отключается, тёмная сталь чуть высветляется.
+	if _weapons_ready:
+		return
+	_weapons_ready = true
 	var dir := DirAccess.open("res://assets/models/weapons")
 	if dir == null:
 		return
@@ -198,12 +201,14 @@ func _input_map() -> void:
 
 # ------------------------------------------------------------------ сцены
 func to_menu() -> void:
+	prepare_weapons()
 	get_tree().paused = false
 	Engine.time_scale = 1.0
 	set_mouse(Input.MOUSE_MODE_VISIBLE)
 	get_tree().change_scene_to_file("res://game/menu.tscn")
 
 func start_match() -> void:
+	prepare_weapons()
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://game/match.tscn")
 

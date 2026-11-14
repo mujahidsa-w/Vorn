@@ -36,6 +36,10 @@ var _foot_up := [false, false]
 var _foot_min := 1.0
 var _step_cd := 0.0
 
+static func available(n: String) -> bool:
+	## character models come from the original game archive at build time; local checkouts may not have them
+	return ResourceLoader.exists("res://assets/models/chars/%s.scn" % n) and ResourceLoader.exists(AnimLib.SRC)
+
 static func scene(n: String) -> PackedScene:
 	if not _scenes.has(n):
 		_scenes[n] = load("res://assets/models/chars/%s.scn" % n)

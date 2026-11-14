@@ -302,6 +302,86 @@ func _lights() -> void:
 		add_child(o)
 		n += 1
 
+func golden_hour(haze := 1.0) -> void:
+	## Вечерний свет для лобби и заставок: низкое солнце с запада, тёплая дымка, глубокое небо, холмы на горизонте.
+	if env == null or sun == null:
+		return
+	_hills()
+	var sm := env.sky.sky_material as ProceduralSkyMaterial
+	sm.sky_top_color = Color(0.09, 0.17, 0.33)
+	sm.sky_horizon_color = Color(0.98, 0.60, 0.34)
+	sm.ground_horizon_color = Color(0.62, 0.42, 0.28)
+	sm.ground_bottom_color = Color(0.22, 0.17, 0.13)
+	sm.sky_curve = 0.18
+	sm.sun_angle_max = 34.0
+	sm.sun_curve = 0.12
+	sm.sky_energy_multiplier = 1.1
+	env.ambient_light_color = Color(0.78, 0.62, 0.55)
+	env.ambient_light_energy = 0.85
+	env.ambient_light_sky_contribution = 0.5
+	env.fog_light_color = Color(0.92, 0.58, 0.38)
+	env.fog_density = 0.0024 * haze
+	env.fog_sun_scatter = 0.45
+	env.fog_aerial_perspective = 0.25
+	env.fog_sky_affect = 0.2
+	env.tonemap_exposure = 0.9
+	env.glow_intensity = 0.8
+	env.glow_bloom = 0.12
+	env.adjustment_saturation = 1.08
+	env.adjustment_contrast = 1.08
+	sun.light_color = Color(1.0, 0.66, 0.40)
+	sun.light_energy = 2.1
+	sun.look_at_from_position(Vector3.ZERO, Vector3(0.88, -0.24, -0.40).normalized(), Vector3.UP)
+
+func _hills() -> void:
+	## Кольцо далёких холмов вокруг карты: закрывает край плоскости, у заката появляется силуэт.
+	if has_node("Hills"):
+		return
+	var c := w(size.x * 0.5, size.y * 0.5, 0.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 160
+	for i in n:
+		for k in 2:
+			var a := TAU * float(i + k) / n
+			var h := 14.0 + 10.0 * sin(a * 3.0 + 1.3) + 7.0 * sin(a * 7.0 + 0.4) + 4.0 * sin(a * 17.0 + 2.1) + 2.0 * sin(a * 37.0)
+			var r := 230.0 + 30.0 * sin(a * 5.0 + 0.7)
+			var dir := Vector3(cos(a), 0, sin(a))
+			if k == 0:
+				var a1 := TAU * float(i + 1) / n
+				var h1 := 14.0 + 10.0 * sin(a1 * 3.0 + 1.3) + 7.0 * sin(a1 * 7.0 + 0.4) + 4.0 * sin(a1 * 17.0 + 2.1) + 2.0 * sin(a1 * 37.0)
+				var r1 := 230.0 + 30.0 * sin(a1 * 5.0 + 0.7)
+				var d1 := Vector3(cos(a1), 0, sin(a1))
+				var p0 := c + dir * r + Vector3(0, -2, 0)
+				var p1 := c + dir * (r + 40.0) + Vector3(0, maxf(h, 2.0), 0)
+				var p2 := c + d1 * r1 + Vector3(0, -2, 0)
+				var p3 := c + d1 * (r1 + 40.0) + Vector3(0, maxf(h1, 2.0), 0)
+				for v in [p0, p1, p2, p2, p1, p3]:
+					st.add_vertex(v)
+	# ground skirt between the map and the hills
+	var g := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(620, 620)
+	g.mesh = pm
+	g.position = c + Vector3(0, -0.05, 0)
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(0.55, 0.42, 0.30)
+	gm.roughness = 1.0
+	g.material_override = gm
+	g.name = "Skirt"
+	add_child(g)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.name = "Hills"
+	mi.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.36, 0.25, 0.20)
+	m.roughness = 1.0
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
 func _x_texture() -> ImageTexture:
 	var s := 256
 	var img := Image.create(s, s, false, Image.FORMAT_RGBA8)

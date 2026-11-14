@@ -410,7 +410,7 @@ func _scoreboard(sz: Vector2) -> void:
 	var x := sz.x / 2 - w / 2
 	var y := sz.y / 2 - hh / 2 + 10
 	_panel(Rect2(x, y, w, hh), Color(0.045, 0.055, 0.07, 0.94), 14)
-	var title := "القصبة  ·  Vorn"
+	var title := "القصبة  ·  AURUM STRIKE"
 	if not over.is_empty():
 		title = {"win": "انتصار", "lose": "هزيمة", "draw": "تعادل"}[over["res"]]
 	_text(Vector2(x, y + 44), title, 30, UI.TEXT if over.is_empty() else ({"win": UI.GREEN, "lose": UI.RED, "draw": UI.TEXT}[over["res"]] as Color), HORIZONTAL_ALIGNMENT_CENTER, w)

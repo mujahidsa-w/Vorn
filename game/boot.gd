@@ -1,14 +1,15 @@
 extends Node
-## Точка входа: обычный запуск -> заставка разработчика -> меню; с ключами проверки -> сразу нужная сцена.
+## Entry point. A normal start runs: studio logo -> credits -> loading screen (real loading) -> lobby.
+## Test switches jump straight to the needed scene.
 
-const SPLASH_TIME := 5.0
 const WARM := ["res://assets/maps/kasbah.glb", "res://assets/models/chars/anims.scn", "res://assets/models/chars/ct_1.scn",
-	"res://assets/models/chars/ct_2.scn", "res://assets/models/chars/t_1.scn", "res://assets/models/chars/t_2.scn"]
+	"res://assets/models/chars/ct_2.scn", "res://assets/models/chars/t_1.scn", "res://assets/models/chars/t_2.scn",
+	"res://assets/brand/game_logo.png", "res://assets/brand/emblem.png"]
 
 func _ready() -> void:
 	await get_tree().process_frame
 	if G.mobile:
-		# give the screen a few frames so the safe area (notch) is known before the menu is laid out
+		# give the screen a few frames so the safe area (notch) is known before anything is laid out
 		for i in 4:
 			await get_tree().process_frame
 		G.fit_screen()
@@ -17,34 +18,32 @@ func _ready() -> void:
 	elif G.args.has("test"):
 		get_tree().change_scene_to_file("res://tools/test_%s.tscn" % G.args["test"])
 	else:
-		if not (G.args.has("nosplash") or G.shots_dir != "" or G.args.has("loop") or G.args.has("panel")):
-			await _splash()
+		var quick := G.args.has("nosplash") or G.args.has("loop") or G.args.has("panel") or (G.shots_dir != "" and not G.args.has("intro"))
+		if not quick:
+			await _start_up()
 		G.to_menu()
 
-func _splash() -> void:
-	## Developer picture for five seconds; the menu's heavy resources load in the background meanwhile.
+func _start_up() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 100
 	add_child(layer)
-	var bg := ColorRect.new()
-	bg.color = Color(0.043, 0.051, 0.066)
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(bg)
-	var pic := TextureRect.new()
-	pic.texture = load("res://assets/ui/developer.png")
-	pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pic.modulate.a = 0.0
-	layer.add_child(pic)
-	var asked: Array[String] = []
-	for p in WARM:
-		if ResourceLoader.exists(p) and ResourceLoader.load_threaded_request(p) == OK:
-			asked.append(p)
-	var tw := create_tween()
-	tw.tween_property(pic, "modulate:a", 1.0, 0.4)
-	tw.tween_interval(SPLASH_TIME - 0.9)
-	tw.tween_property(pic, "modulate:a", 0.0, 0.5)
-	await tw.finished
-	for p in asked:
-		G.warm.append(ResourceLoader.load_threaded_get(p))
+	var intro := Intro.new()
+	layer.add_child(intro)
+	if G.shots_dir != "":
+		_shot_later("intro_1_studio", 0.9)
+	await intro.studio()
+	if G.shots_dir != "":
+		_shot_later("intro_2_credits", 1.6)
+	await intro.credits()
+	intro.queue_free()
+	var ls := LoadingScreen.new()
+	layer.add_child(ls)
+	if G.shots_dir != "":
+		_shot_later("intro_3_loading", 2.2)
+	await ls.run(WARM)
+
+func _shot_later(n: String, delay: float) -> void:
+	## development screenshots of the start-up screens (only with --shots and --intro)
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	await G.shot(n)

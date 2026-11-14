@@ -93,6 +93,7 @@ func apply_volumes() -> void:
 		return
 	var s: Dictionary = G.settings
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.0001, float(s["vol_master"]))))
+	AudioServer.set_bus_mute(0, bool(s.get("muted", false)) or G.args.has("mute"))
 	if G.args.has("silent"):
 		AudioServer.set_bus_volume_db(0, -80.0)       # проверки без звука: шина считается, но в колонки не слышна
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(maxf(0.0001, float(s["vol_music"]))))

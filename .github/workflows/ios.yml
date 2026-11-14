@@ -1,6 +1,6 @@
 name: Build iOS IPA
 
-# Builds an unsigned Vorn.ipa (sideload with Sideloadly / AltStore / TrollStore ...).
+# Builds an unsigned AurumStrike.ipa (sideload with Sideloadly / AltStore / TrollStore ...).
 on:
   push:
     branches: [main]
@@ -17,7 +17,7 @@ concurrency:
 
 env:
   GODOT_VERSION: "4.6.2"
-  APP_NAME: Vorn
+  APP_NAME: AurumStrike
 
 jobs:
   build-ios:
@@ -128,8 +128,8 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Vorn-iOS
-          path: build/Vorn.ipa
+          name: AurumStrike-iOS
+          path: build/AurumStrike.ipa
           if-no-files-found: error
 
       - name: Publish the IPA as the "latest" release (direct download link)
@@ -141,5 +141,5 @@ jobs:
           set -euo pipefail
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
           gh release create latest "build/${APP_NAME}.ipa" --target "${GITHUB_SHA}" \
-            --title "Vorn — iOS" \
+            --title "AURUM STRIKE — iOS" \
             --notes "Unsigned IPA built automatically from commit ${GITHUB_SHA}. Install it with a sideloading tool (Sideloadly, AltStore, TrollStore ...)."
