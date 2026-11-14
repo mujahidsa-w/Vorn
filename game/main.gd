@@ -8,7 +8,7 @@ const VERSION := "2.1.0"
 var settings := {
 	"sens": 1.0, "fov": 90.0, "vol_master": 0.8, "vol_music": 0.45, "vol_sfx": 0.9,
 	"quality": 2, "fullscreen": true, "vsync": true, "crosshair": 0, "cross_color": 0,
-	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "outfit": 0, "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
+	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "outfit": 0, "mode": "br", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
 }
 var profile := {"credits": 1500, "inv": [], "equip": {}, "cases": 0, "matches": 0, "wins": 0, "kills": 0}
 var args := {}
@@ -211,7 +211,12 @@ func to_menu() -> void:
 func start_match() -> void:
 	prepare_weapons()
 	get_tree().paused = false
-	get_tree().change_scene_to_file("res://game/match.tscn")
+	if args.has("mode"):
+		settings["mode"] = args["mode"]
+	if String(settings.get("mode", "br")) == "br" and not Network.online:
+		get_tree().change_scene_to_file("res://game/br/br.tscn")
+	else:
+		get_tree().change_scene_to_file("res://game/match.tscn")
 
 func quit() -> void:
 	save_settings()

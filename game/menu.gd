@@ -498,7 +498,7 @@ func _build_hud() -> void:
 	hud.add_child(bl)
 	var mode := Button.new()
 	mode.focus_mode = Control.FOCUS_NONE
-	mode.custom_minimum_size = Vector2(310, 62)
+	mode.custom_minimum_size = Vector2(350, 62)
 	mode.add_theme_stylebox_override("normal", _box(Color(0.03, 0.035, 0.045, 0.82), 6, 1, Color(UI.GOLD.r, UI.GOLD.g, UI.GOLD.b, 0.5)))
 	mode.add_theme_stylebox_override("hover", _box(Color(0.07, 0.07, 0.08, 0.9), 6, 2, UI.GOLD))
 	mode.add_theme_stylebox_override("pressed", _box(Color(0.12, 0.10, 0.06, 0.95), 6, 2, UI.GOLD_HI))
@@ -510,10 +510,11 @@ func _build_hud() -> void:
 	mv.position = Vector2(14, 5)
 	mv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var diff_name: String = ["مبتدئون", "مقاتلون", "محترفون"][int(G.settings["difficulty"])]
-	var ml := UI.label("كلاسيكي — القصبة", 20, UI.TEXT, true)
+	var br_mode := String(G.settings.get("mode", "br")) == "br"
+	var ml := UI.label("باتل رويال — وادي الذهب" if br_mode else "كلاسيكي — القصبة", 20, UI.TEXT, true)
 	ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ml)
-	var ms := UI.label("زرع القنبلة · 5 ضد 5 · بوتات %s" % diff_name, 15, UI.GOLD)
+	var ms := UI.label(("30 مقاتلاً · العاصفة الرملية · كل واحد لنفسه") if br_mode else ("زرع القنبلة · 5 ضد 5 · بوتات %s" % diff_name), 15, UI.GOLD)
 	ms.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ms)
 	mode.add_child(mv)
@@ -745,8 +746,10 @@ func _panel_play() -> Control:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	p.add_child(vb)
-	vb.add_child(UI.label("كلاسيكي — خريطة القصبة", 28, UI.TEXT, true))
-	vb.add_child(UI.label("زرع القنبلة: الهجوم يزرعها في «أ» أو «ب»، والدفاع يمنعه أو يفكّكها.", 15, UI.DIM))
+	vb.add_child(UI.label("اختر الطور", 28, UI.TEXT, true))
+	_choice(vb, "الطور", "mode", [["باتل رويال · وادي الذهب", "br"], ["كلاسيكي 5 ضد 5 · القصبة", "classic"]])
+	vb.add_child(UI.label("باتل رويال: اقفز من الطائرة، اجمع السلاح والعتاد، ابقَ داخل المنطقة الآمنة من العاصفة الرملية، وكن آخر من يبقى.", 15, UI.DIM))
+	vb.add_child(UI.label("كلاسيكي: الهجوم يزرع القنبلة في «أ» أو «ب»، والدفاع يمنعه أو يفكّكها.", 15, UI.DIM))
 	_choice(vb, "فريقك في الشوط الأول", "team", [["الدفاع", "ct"], ["الهجوم", "t"]])
 	_choice(vb, "طول المباراة", "match_len", [["قصيرة · حتى 4", 4], ["عادية · حتى 7", 7], ["كاملة · حتى 13", 13]])
 	_choice(vb, "مستوى البوتات", "difficulty", [["مبتدئون", 0], ["مقاتلون", 1], ["محترفون", 2]])

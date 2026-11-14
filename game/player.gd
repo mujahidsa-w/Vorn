@@ -17,6 +17,7 @@ var orbit := 0.0
 var fov_cur := 90.0
 var bob_ph := 0.0
 var land_dip := 0.0
+var cam_mode := ""                # "" — normal; "free" — the game places the camera (plane); "sky" — no weapon in hands (fall, parachute)
 
 func init_player() -> void:
 	head = Node3D.new()
@@ -120,7 +121,7 @@ func aim_on_enemy() -> bool:
 	var fwd := aim_dir()
 	for a in game.actors:
 		var e2 := a as Actor
-		if not e2.alive or e2.team == team:
+		if not e2.alive or not game.hostile(e2, self):
 			continue
 		var to: Vector3 = e2.global_position + Vector3(0, 1.1, 0) - o
 		var d := to.length()
@@ -133,7 +134,7 @@ func _physics_process(dt: float) -> void:
 		tick_weapon(dt)
 		return
 	if game.auto and has_meta("brain"):
-		(get_meta("brain") as Brain).think(dt)
+		get_meta("brain").think(dt)
 		tick_weapon(dt)
 		return
 	var block: bool = ui_block or game.state == game.S.OVER
@@ -201,6 +202,10 @@ func _next_spect() -> void:
 	spect = mates[(i + 1) % mates.size()]
 
 func _process(dt: float) -> void:
+	if cam_mode == "free":
+		vm.visible = false
+		vm_cam.global_transform = cam.global_transform
+		return
 	shake_amp = maxf(0.0, shake_amp - dt * 1.6)
 	var sh := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amp * 0.035
 	var want_fov := float(G.settings["fov"])
@@ -218,7 +223,7 @@ func _process(dt: float) -> void:
 		var p := view_pitch + deg_to_rad(punch.x) * 0.5
 		var y := view_yaw + deg_to_rad(punch.y) * 0.5
 		head.global_transform.basis = Basis(Vector3.UP, y) * Basis(Vector3.RIGHT, clampf(p, -1.55, 1.55)) * Basis.from_euler(sh)
-		vm.visible = true
+		vm.visible = cam_mode != "sky"
 		vm.fov_world = cam.fov
 		vm.fov_vm = vm_cam.fov
 		vm.tick(dt, look_acc)

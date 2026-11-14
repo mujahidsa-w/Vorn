@@ -250,7 +250,7 @@ func _draw_hud() -> void:
 	for f in feed:
 		var e: Dictionary = f[0]
 		var a2 := clampf(f[1] / 0.6, 0.0, 1.0)
-		var wname: String = DB.W.get(e["w"], {}).get("name", {"he": "قنبلة", "fire": "نار", "c4": "القنبلة"}.get(e["w"], "")) as String
+		var wname: String = DB.W.get(e["w"], {}).get("name", {"he": "قنبلة", "fire": "نار", "c4": "القنبلة", "zone": "العاصفة", "fall": "سقوط"}.get(e["w"], "")) as String
 		var mid := "  [%s%s]  " % [wname, " ✚" if e["hs"] else ""]
 		var f1 := UI.bold()
 		var w1 := f1.get_string_size(e["k"], HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x

@@ -172,6 +172,8 @@ func _use_mode() -> String:
 	var p: Player = game.player
 	if not p.alive:
 		return ""
+	if game.has_method("touch_use_label"):
+		return "br" if game.touch_use_label() != "" else ""
 	if game.state == game.S.LIVE and p.inv[5] == "c4" and game.world.site_at(p.global_position) != "":
 		return "plant"
 	if game.state == game.S.PLANTED and p.team == "ct" and p.global_position.distance_to(game.bomb["pos"]) < 1.7:
@@ -449,7 +451,10 @@ func _draw_all() -> void:
 			_cbtn("alt", "", _alt_label())
 	var um := _use_mode()
 	if um != "":
-		_cbtn("use", "bomb", "ازرع" if um == "plant" else "فكّك", true)
+		if um == "br":
+			_cbtn("use", "", game.touch_use_label(), true)
+		else:
+			_cbtn("use", "bomb", "ازرع" if um == "plant" else "فكّك", true)
 		var prog := -1.0
 		if p.plant_t >= 0.0:
 			prog = p.plant_t / DB.T_PLANT
@@ -459,7 +464,10 @@ func _draw_all() -> void:
 			var ub: Array = btn["use"]
 			pad.draw_arc(ub[0], ub[1] + 9, -PI * 0.5, -PI * 0.5 + TAU * clampf(prog, 0.0, 1.0), 64, AMBER, 8.0, true)
 	if _vis("buy"):
-		_cbtn("buy", "buy", "المتجر", sin(clock * 5.0) > 0.0)
+		if game.has_method("touch_use_label"):
+			_cbtn("buy", "", "علاج", false)
+		else:
+			_cbtn("buy", "buy", "المتجر", sin(clock * 5.0) > 0.0)
 
 func _draw_status(p: Player) -> void:
 	## bottom-centre cluster: health, armour, ammo and the weapon cells (tap a cell to switch)

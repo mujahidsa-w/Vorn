@@ -9,6 +9,10 @@ on:
         description: "Commit phone-size lobby screenshots (attackers and defenders) to docs/screenshots on this branch"
         type: boolean
         default: false
+      br_shots:
+        description: "Commit battle royale screenshots (plane, jump, village, scope, map) to docs/screenshots on this branch"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -95,6 +99,22 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots
           git commit -m "Lobby screenshots with the real character models (attackers and defenders)" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Battle royale screenshots (committed to the branch)
+        if: ${{ inputs.br_shots }}
+        run: |
+          set -euo pipefail
+          mkdir -p docs/screenshots br
+          timeout 600 xvfb-run -a -s "-screen 0 2340x1080x24" "$GODOT" --path . --rendering-driver opengl3 --resolution 2340x1080 -- \
+            --match --mode br --windowed --touch --uiscale 1.5 --mute --nosave --shots br --quit_after --seed 7 > br.log 2>&1 || true
+          grep -E "SHOT|SCRIPT ERROR|\[br\]" br.log | head -30 || true
+          for f in br/*.png; do convert "$f" -quality 85 "docs/screenshots/$(basename "${f%.png}").jpg"; done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase -q origin "${GITHUB_REF_NAME}" || true
+          git add docs/screenshots
+          git commit -m "Battle royale screenshots with the real models" || exit 0
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Weapon geometry and optic placement (last, so the log tail holds it)

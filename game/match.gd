@@ -35,6 +35,11 @@ var over_t := 0.0
 var stats_first_blood := false
 var _test_t := 0.0
 var _online_started := false
+var bullet_range := 190.0          # m; the battle royale map is far bigger
+
+func hostile(a: Actor, b: Actor) -> bool:
+	## who may hurt whom: the other team here, everybody else in the battle royale
+	return a.team != b.team
 
 func _ready() -> void:
 	rng.randomize()
@@ -777,8 +782,8 @@ func smoke_blocks(a: Vector3, b: Vector3) -> bool:
 
 func noise(pos: Vector3, from: Actor) -> void:
 	for a in actors:
-		if a != from and a.alive and a.team != from.team and a.has_meta("brain"):
-			(a.get_meta("brain") as Brain).hear(pos)
+		if a != from and a.alive and hostile(a, from) and a.has_meta("brain"):
+			a.get_meta("brain").hear(pos)
 
 # ------------------------------------------------------------------ звук
 func sound_at(n: String, pos: Vector3, vol := 0.0, who: Actor = null) -> void:
@@ -826,8 +831,8 @@ func footstep(a: Actor) -> void:
 	else:
 		Sfx.at(n, a.global_position, -3.0, randf_range(0.93, 1.07), 5.0, 38.0)
 		for o in actors:
-			if o != a and o.alive and o.team != a.team and o.has_meta("brain") and o.global_position.distance_to(a.global_position) < 16.0:
-				(o.get_meta("brain") as Brain).hear(a.global_position)
+			if o != a and o.alive and hostile(o, a) and o.has_meta("brain") and o.global_position.distance_to(a.global_position) < 16.0:
+				o.get_meta("brain").hear(a.global_position)
 
 # ------------------------------------------------------------------ пули
 func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: bool) -> void:
@@ -836,7 +841,7 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 	var pen_left: float = d.get("wall", 0.5)
 	var pos := from
 	var space := get_world_3d().direct_space_state
-	var remaining := 190.0
+	var remaining := bullet_range
 	var start_vis := from
 	if shooter == player and player.vm:
 		start_vis = player.vm.muzzle_world()
@@ -857,7 +862,7 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 		if col.has_meta("actor"):
 			var v: Actor = col.get_meta("actor")
 			var zone: String = col.get_meta("zone")
-			if v.team != shooter.team and v.alive:
+			if hostile(v, shooter) and v.alive:
 				var dm := dmg * pow(float(d["rmod"]), travelled / 12.7) * float(DB.ZONE[zone])
 				fx.blood(hp, -dir)
 				v.take_damage(dm, shooter, wid, zone, from)
@@ -897,7 +902,7 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 	if first:
 		fx.tracer(start_vis, end)
 		# свист пули рядом с головой игрока
-		if shooter != player and player and player.alive and shooter.team != player.team:
+		if shooter != player and player and player.alive and hostile(shooter, player):
 			var pe := player.eye()
 			var ab := end - from
 			var tt := clampf((pe - from).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
@@ -917,7 +922,7 @@ func knife_hit(a: Actor, alt: bool) -> void:
 	var col: Object = hit["collider"]
 	if col.has_meta("actor"):
 		var v: Actor = col.get_meta("actor")
-		if v.team != a.team and v.alive:
+		if hostile(v, a) and v.alive:
 			var back := (-Basis(Vector3.UP, v.view_yaw).z).dot(dir) > 0.45
 			var dm := 65.0 if alt else 40.0
 			if back:
@@ -943,7 +948,7 @@ func on_hurt(v: Actor, attacker: Actor, n: int, zone: String, armored: bool, fro
 	else:
 		Sfx.at("hit_body", v.eye(), -8.0, 1.0, 4.0, 40.0)
 	if v.has_meta("brain") and attacker and attacker.alive:
-		(v.get_meta("brain") as Brain).hear(attacker.global_position)
+		v.get_meta("brain").hear(attacker.global_position)
 
 func on_death(v: Actor, killer: Actor, wid: String, headshot: bool) -> void:
 	if killer and killer != v:

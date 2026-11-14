@@ -584,7 +584,7 @@ func take_damage(dmg: float, attacker: Actor, wid: String, zone: String, from_po
 		return
 	var real := dmg
 	var absorbed := false
-	if armor > 0 and zone != "legs" and (zone != "head" or helmet) and wid != "fall" and wid != "fire":
+	if armor > 0 and zone != "legs" and (zone != "head" or helmet) and wid not in ["fall", "fire", "zone"]:
 		var pen: float = DB.W.get(wid, {}).get("pen", 0.5)
 		real = dmg * pen
 		var loss := (dmg - real) * 0.5

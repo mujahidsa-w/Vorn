@@ -4,5 +4,5 @@ extends Actor
 
 func _physics_process(dt: float) -> void:
 	if alive and has_meta("brain"):
-		(get_meta("brain") as Brain).think(dt)
+		get_meta("brain").think(dt)
 	tick_weapon(dt)
