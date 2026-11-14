@@ -119,6 +119,7 @@ func set_weapon(wid: String) -> void:
 			w_linv = Basis.looking_at(v.normalized(), Vector3.UP).inverse()
 	var sk := G.equipped_skin(wid) if (actor == null or not actor.is_bot) else ""
 	Skins.apply(weapon, wid, sk)
+	Sight.attach(weapon, wid, false)
 	_muzzle = weapon.find_child("p_muzzle", true, false)
 	if _muzzle and actor:
 		_flash = MeshInstance3D.new()

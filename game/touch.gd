@@ -189,7 +189,7 @@ func _alt_label() -> String:
 func _vis(id: String) -> bool:
 	var p: Player = game.player
 	match id:
-		"alt": return p.wd().get("scope", false) or p.wd()["cls"] in ["knife", "nade"]
+		"alt": return p.wd().has("sight") or p.wd()["cls"] in ["knife", "nade"]
 		"use": return _use_mode() != ""
 		"buy": return game.can_buy(p)
 		"reload": return p.ammo.has(p.cur)
@@ -443,7 +443,7 @@ func _draw_all() -> void:
 			var rb: Array = btn["reload"]
 			pad.draw_arc(rb[0], rb[1] + 7, -PI * 0.5, -PI * 0.5 + TAU * (1.0 - p.reload_t / p.reload_total), 48, AMBER, 6.0, true)
 	if _vis("alt"):
-		if p.wd().get("scope", false):
+		if p.wd().has("sight"):
 			_cbtn("alt", "aim", "", p.scoped)
 		else:
 			_cbtn("alt", "", _alt_label())

@@ -7,23 +7,23 @@ const W := {
 	"knife": {"name": "سكين", "slot": 3, "cls": "knife", "price": 0, "dmg": 40, "dmg2": 65, "pen": 0.85, "rpm": 150, "mag": 0, "res": 0, "reload": 0.0,
 		"speed": 6.35, "rmod": 1.0, "reward": 1500, "auto": true, "hold": "knife", "snd": "knife"},
 	"glock": {"name": "جي 18", "slot": 2, "cls": "pistol", "team": "t", "price": 200, "dmg": 30, "pen": 0.47, "rpm": 400, "mag": 20, "res": 120, "reload": 2.2,
-		"speed": 6.1, "rmod": 0.85, "reward": 300, "auto": false, "hold": "pistol", "snd": "pistol", "rec": [1.1, 0.5, 6.0], "spread": [0.35, 2.6, 6.0], "wall": 0.5},
+		"speed": 6.1, "rmod": 0.85, "reward": 300, "auto": false, "hold": "pistol", "snd": "pistol", "rec": [1.1, 0.5, 6.0], "spread": [0.35, 2.6, 6.0], "wall": 0.5, "sight": "rmr"},
 	"usp": {"name": "يو إس بي", "slot": 2, "cls": "pistol", "team": "ct", "price": 200, "dmg": 35, "pen": 0.505, "rpm": 352, "mag": 12, "res": 24, "reload": 2.2,
-		"speed": 6.1, "rmod": 0.91, "reward": 300, "auto": false, "hold": "pistol", "snd": "usp", "rec": [1.2, 0.4, 6.0], "spread": [0.22, 2.4, 6.0], "wall": 0.5},
+		"speed": 6.1, "rmod": 0.91, "reward": 300, "auto": false, "hold": "pistol", "snd": "usp", "rec": [1.2, 0.4, 6.0], "spread": [0.22, 2.4, 6.0], "wall": 0.5, "sight": "rmr"},
 	"deagle": {"name": "نسر الصحراء", "slot": 2, "cls": "pistol", "price": 700, "dmg": 53, "pen": 0.932, "rpm": 267, "mag": 7, "res": 35, "reload": 2.2,
-		"speed": 5.85, "rmod": 0.92, "reward": 300, "auto": false, "hold": "pistol", "snd": "deagle", "rec": [3.6, 1.1, 4.5], "spread": [0.3, 4.2, 8.0], "wall": 1.2},
+		"speed": 5.85, "rmod": 0.92, "reward": 300, "auto": false, "hold": "pistol", "snd": "deagle", "rec": [3.6, 1.1, 4.5], "spread": [0.3, 4.2, 8.0], "wall": 1.2, "sight": "rmr"},
 	"mac10": {"name": "ماك", "slot": 1, "cls": "smg", "team": "t", "price": 1050, "dmg": 29, "pen": 0.575, "rpm": 800, "mag": 30, "res": 100, "reload": 2.6,
-		"speed": 6.1, "rmod": 0.8, "reward": 600, "auto": true, "hold": "smg", "snd": "smg", "rec": [0.75, 0.55, 7.0], "spread": [0.55, 1.4, 5.0], "wall": 0.6},
+		"speed": 6.1, "rmod": 0.8, "reward": 600, "auto": true, "hold": "smg", "snd": "smg", "rec": [0.75, 0.55, 7.0], "spread": [0.55, 1.4, 5.0], "wall": 0.6, "sight": "holo"},
 	"mp9": {"name": "إم بي 9", "slot": 1, "cls": "smg", "team": "ct", "price": 1250, "dmg": 26, "pen": 0.6, "rpm": 857, "mag": 30, "res": 120, "reload": 2.1,
-		"speed": 6.1, "rmod": 0.87, "reward": 600, "auto": true, "hold": "smg", "snd": "smg", "rec": [0.7, 0.5, 7.0], "spread": [0.5, 1.3, 5.0], "wall": 0.6},
+		"speed": 6.1, "rmod": 0.87, "reward": 600, "auto": true, "hold": "smg", "snd": "smg", "rec": [0.7, 0.5, 7.0], "spread": [0.5, 1.3, 5.0], "wall": 0.6, "sight": "holo"},
 	"shotgun": {"name": "خرطوش", "slot": 1, "cls": "shotgun", "price": 1050, "dmg": 26, "pellets": 9, "pen": 0.5, "rpm": 68, "mag": 8, "res": 32, "reload": 0.55,
-		"speed": 5.6, "rmod": 0.7, "reward": 900, "auto": false, "hold": "rifle", "snd": "shotgun", "rec": [5.0, 1.0, 4.0], "spread": [2.6, 3.2, 6.0], "wall": 0.3},
+		"speed": 5.6, "rmod": 0.7, "reward": 900, "auto": false, "hold": "rifle", "snd": "shotgun", "rec": [5.0, 1.0, 4.0], "spread": [2.6, 3.2, 6.0], "wall": 0.3, "sight": "holo"},
 	"ak": {"name": "كلاشنكوف", "slot": 1, "cls": "rifle", "team": "t", "price": 2700, "dmg": 36, "pen": 0.775, "rpm": 600, "mag": 30, "res": 90, "reload": 2.5,
-		"speed": 5.46, "rmod": 0.98, "reward": 300, "auto": true, "hold": "rifle", "snd": "ak", "rec": [1.05, 0.75, 6.5], "spread": [0.18, 3.6, 9.0], "wall": 1.6},
+		"speed": 5.46, "rmod": 0.98, "reward": 300, "auto": true, "hold": "rifle", "snd": "ak", "rec": [1.05, 0.75, 6.5], "spread": [0.18, 3.6, 9.0], "wall": 1.6, "sight": "acog"},
 	"m4": {"name": "إم 4", "slot": 1, "cls": "rifle", "team": "ct", "price": 2900, "dmg": 33, "pen": 0.7, "rpm": 666, "mag": 30, "res": 90, "reload": 3.1,
-		"speed": 5.7, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "m4", "rec": [0.85, 0.6, 7.0], "spread": [0.16, 3.2, 9.0], "wall": 1.4},
+		"speed": 5.7, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "m4", "rec": [0.85, 0.6, 7.0], "spread": [0.16, 3.2, 9.0], "wall": 1.4, "sight": "acog"},
 	"awp": {"name": "الشاهين", "slot": 1, "cls": "sniper", "price": 4750, "dmg": 115, "pen": 0.975, "rpm": 41, "mag": 5, "res": 30, "reload": 3.7,
-		"speed": 5.08, "rmod": 0.99, "reward": 100, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [6.0, 0.6, 3.0], "spread": [2.2, 6.0, 12.0], "scope": true, "wall": 2.2},
+		"speed": 5.08, "rmod": 0.99, "reward": 100, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [6.0, 0.6, 3.0], "spread": [2.2, 6.0, 12.0], "scope": true, "wall": 2.2, "sight": "sniper"},
 	"he": {"name": "متفجّرة", "slot": 4, "cls": "nade", "price": 300, "speed": 6.2, "hold": "nade"},
 	"flash": {"name": "وميضية", "slot": 4, "cls": "nade", "price": 200, "speed": 6.2, "hold": "nade"},
 	"smoke": {"name": "دخانية", "slot": 4, "cls": "nade", "price": 300, "speed": 6.2, "hold": "nade"},
@@ -32,6 +32,16 @@ const W := {
 	"c4": {"name": "القنبلة", "slot": 5, "cls": "c4", "price": 0, "speed": 6.35, "hold": "c4"},
 }
 const NADES := ["he", "flash", "smoke", "molotov", "decoy"]
+
+# прицелы на оружии (вид через сам прицел, без накладки на экран):
+#   zoom — кратность линзы (1 — коллиматор, картинка мира видна сквозь стекло), fov_k — сужение обзора при прицеливании,
+#   sens — чувствительность, move — скорость, relief — расстояние от глаза до окуляра, м; spread_k — разброс стоя
+const SIGHTS := {
+	"rmr": {"name": "مصغّر أحمر", "zoom": 1.0, "fov_k": 0.88, "sens": 0.85, "move": 0.8, "relief": 0.30, "spread_k": 0.7, "ads_t": 0.16},
+	"holo": {"name": "هولوغرافي", "zoom": 1.0, "fov_k": 0.84, "sens": 0.8, "move": 0.75, "relief": 0.20, "spread_k": 0.65, "ads_t": 0.2},
+	"acog": {"name": "منظار ×3", "zoom": 3.0, "fov_k": 0.80, "sens": 0.42, "move": 0.65, "relief": 0.065, "spread_k": 0.5, "ads_t": 0.26},
+	"sniper": {"name": "منظار قنّاص ×8", "zoom": 8.0, "fov_k": 0.76, "sens": 0.2, "move": 0.48, "relief": 0.058, "spread_k": 0.0, "ads_t": 0.32},
+}
 const GEAR := {
 	"kevlar": {"name": "سترة واقية", "price": 650},
 	"helmet": {"name": "سترة وخوذة", "price": 1000},

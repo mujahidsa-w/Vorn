@@ -88,7 +88,12 @@ func init_player() -> void:
 	vm_cam.add_child(vm)
 	vm.setup(self)
 	weapon_changed.connect(func(w): vm.set_weapon(w); Sfx.play("draw", -10.0))
-	shot.connect(func(_w): vm.on_shot())
+	shot.connect(func(w):
+		vm.on_shot()
+		# короткая встряска камеры по силе отдачи
+		var rec: Array = DB.W.get(w, {}).get("rec", [0.0])
+		if DB.W.get(w, {}).has("rec"):
+			shake(0.05 + 0.04 * float(rec[0])))
 	reload_started.connect(func(w, t): vm.on_reload(w, t))
 	died.connect(func(): vm.visible = false)
 
@@ -98,8 +103,8 @@ func _unhandled_input(e: InputEvent) -> void:
 
 func look(rel: Vector2, k: float) -> void:
 	## Turns the view; shared by the mouse and the touch screen (k = radians per unit of motion).
-	if scoped:
-		k *= 0.42
+	if vm and vm.sight:
+		k *= lerpf(1.0, float(DB.SIGHTS[vm.sight.kind]["sens"]), vm.ads_e)
 	if alive and not game.auto:
 		view_yaw = wrapf(view_yaw - rel.x * k, -PI, PI)
 		view_pitch = clampf(view_pitch - rel.y * k, -1.5, 1.5)
@@ -200,8 +205,8 @@ func _process(dt: float) -> void:
 	var sh := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amp * 0.035
 	var want_fov := float(G.settings["fov"])
 	if alive:
-		if scoped:
-			want_fov = 28.0
+		if vm.sight:
+			want_fov *= lerpf(1.0, float(DB.SIGHTS[vm.sight.kind]["fov_k"]), vm.ads_e)
 		var sp := speed_h()
 		bob_ph = step_ph
 		var bob := -absf(sin(bob_ph)) * 0.012 * clampf(sp / 5.5, 0.0, 1.0) if is_on_floor() else 0.0
@@ -213,7 +218,7 @@ func _process(dt: float) -> void:
 		var p := view_pitch + deg_to_rad(punch.x) * 0.5
 		var y := view_yaw + deg_to_rad(punch.y) * 0.5
 		head.global_transform.basis = Basis(Vector3.UP, y) * Basis(Vector3.RIGHT, clampf(p, -1.55, 1.55)) * Basis.from_euler(sh)
-		vm.visible = not scoped
+		vm.visible = true
 		vm.fov_world = cam.fov
 		vm.fov_vm = vm_cam.fov
 		vm.tick(dt, look_acc)
@@ -237,6 +242,6 @@ func _process(dt: float) -> void:
 			cp = (hit["position"] as Vector3) - back.normalized() * 0.25
 		head.global_position = head.global_position.lerp(cp, 1.0 - exp(-10.0 * dt))
 		head.look_at(focus, Vector3.UP)
-	fov_cur = lerpf(fov_cur, want_fov, 1.0 - exp(-18.0 * dt))
+	fov_cur = lerpf(fov_cur, want_fov, 1.0 - exp(-30.0 * dt))
 	cam.fov = fov_cur
 	vm_cam.global_transform = cam.global_transform

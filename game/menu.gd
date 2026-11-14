@@ -133,27 +133,52 @@ func _stage() -> void:
 	add_child(back)
 	_hero()
 
-func _hero() -> void:
-	var team := String(G.settings["team"])
-	var model := "ct_1" if team == "ct" else "t_1"
-	var gun := "m4" if team == "ct" else "ak"
-	if hero_key == model:
-		return
-	hero_key = model
-	if hero:
-		hero.queue_free()
+const OUTFITS := {"ct": ["ct_1", "ct_2"], "t": ["t_1", "t_2"]}
+const OUTFIT_NAMES := {"ct": ["طقم المدافعين الأول", "طقم المدافعين الثاني"], "t": ["طقم المهاجمين الأول", "طقم المهاجمين الثاني"]}
+var mate: Node3D
+
+func _fighter(parent: Node3D, model: String, gun: String, idle: String) -> Node3D:
 	if FighterBody.available(model):
 		var fb := FighterBody.new()
-		stage.add_child(fb)
+		parent.add_child(fb)
 		fb.setup(null, model)
-		fb.pose("rifle_idle")
+		fb.pose(idle)
 		fb.set_weapon(gun)
-		hero = fb
-	else:
-		hero = _mannequin()      # builds without the character archive (local tests) show a stand-in
-		stage.add_child(hero)
+		return fb
+	var m := _mannequin()      # builds without the character archive (local tests) show a stand-in
+	parent.add_child(m)
+	return m
+
+func _hero() -> void:
+	## the team's two outfits: the chosen one on the stand, the other one beside him as the squad mate
+	var team := String(G.settings["team"])
+	var oi := int(G.settings.get("outfit", 0)) % 2
+	var key := "%s:%d" % [team, oi]
+	if hero_key == key:
+		return
+	hero_key = key
+	var gun := "m4" if team == "ct" else "ak"
+	var gun2 := "mp9" if team == "ct" else "mac10"
+	if hero:
+		hero.queue_free()
+	if mate:
+		mate.queue_free()
+	hero = _fighter(stage, OUTFITS[team][oi], gun, "rifle_idle")
 	var d := World.w(CAM_AT.x, CAM_AT.y, 0.0) - stage.position
 	hero.rotation.y = atan2(-d.x, -d.z)          # faces the camera
+	mate = _fighter(self, OUTFITS[team][1 - oi], gun2, "rifle_idle_aiming")
+	var to_cam := Vector3(d.x, 0, d.z).normalized()
+	var right := Vector3.UP.cross(to_cam).normalized()          # camera right
+	mate.global_position = stage.global_position + right * 1.45 - to_cam * 0.9
+	var d2 := World.w(CAM_AT.x, CAM_AT.y, 0.0) - mate.global_position
+	mate.rotation.y = atan2(-d2.x, -d2.z) + 0.35
+
+func _switch_outfit(step: int) -> void:
+	G.settings["outfit"] = posmod(int(G.settings.get("outfit", 0)) + step, 2)
+	G.save_settings()
+	_hero()
+	built_for = Vector3(-1, -1, -1)
+	Sfx.ui("ui_click", -8.0)
 
 func _mannequin() -> Node3D:
 	var n := Node3D.new()
@@ -564,7 +589,7 @@ func _build_hud() -> void:
 	name_tag.add_child(lt)
 	hud.add_child(name_tag)
 	name_tag.reset_size()
-	for i in 2:
+	for i in 1:
 		var s := Button.new()
 		s.focus_mode = Control.FOCUS_NONE
 		s.custom_minimum_size = Vector2(150, 46)
@@ -580,6 +605,30 @@ func _build_hud() -> void:
 		hud.add_child(s)
 		s.reset_size()
 		slots.append(s)
+	# ---- outfit selector under the stand
+	var team := String(G.settings["team"])
+	var oi := int(G.settings.get("outfit", 0)) % 2
+	var os := HBoxContainer.new()
+	os.add_theme_constant_override("separation", 10)
+	hud.add_child(os)
+	var prev_b := _round_btn("play", 44)
+	(prev_b.get_child(0) as Glyph).rotation = PI
+	(prev_b.get_child(0) as Glyph).pivot_offset = (prev_b.get_child(0) as Glyph).size * 0.5
+	prev_b.pressed.connect(_switch_outfit.bind(-1))
+	os.add_child(prev_b)
+	var opan := PanelContainer.new()
+	opan.add_theme_stylebox_override("panel", _box(Color(0.03, 0.035, 0.045, 0.82), 22, 1, Color(UI.GOLD.r, UI.GOLD.g, UI.GOLD.b, 0.5)))
+	opan.custom_minimum_size = Vector2(250, 44)
+	var ol := UI.label(OUTFIT_NAMES[team][oi], 18, UI.TEXT, true)
+	ol.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ol.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	opan.add_child(ol)
+	os.add_child(opan)
+	var next_b := _round_btn("play", 44)
+	next_b.pressed.connect(_switch_outfit.bind(1))
+	os.add_child(next_b)
+	os.reset_size()
+	os.position = Vector2((vs.x - os.size.x) * 0.5, vs.y - mb - os.size.y - 6)
 	_place_tags()
 	_refresh()
 

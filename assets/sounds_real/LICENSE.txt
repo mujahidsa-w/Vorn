@@ -1,0 +1,12 @@
+Gunshot recordings: "The Free Firearm Sound Library" (Prepared SFX Library) by Still North Media,
+released into the public domain under CC0 1.0 — https://opengameart.org/content/the-free-firearm-sound-library
+
+Each file is one shot cut from the original 96 kHz recordings, peak-limited and encoded to Ogg Vorbis:
+  ak_shot_*          AK-47 7.62x39, near            ak_shot_far_*       AK-47, mid distance
+  m4_shot_*          AR-15 5.56x45, near            m4_shot_far_*       AR-15, mid distance
+  pistol_shot_*      Walther PPQ 9mm, near          pistol_shot_far_*   Walther PPQ, mid distance
+  deagle_shot_*      Colt 1911 .45 (pitched down)   deagle_shot_far_*   1911, mid distance
+  smg_shot_*         Carl Gustav M45 9mm, near      smg_shot_far_*      M45, mid distance
+  shotgun_shot_*     Benelli Nova 12 ga, near       shotgun_shot_far_*  Nova, mid distance
+  sniper_shot_*      Mosin-Nagant 7.62x54R, near    sniper_shot_far_*   Mosin-Nagant, mid distance
+  usp_shot_*         Ruger Mark III .22, low-passed (suppressed pistol)

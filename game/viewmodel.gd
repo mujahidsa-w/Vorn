@@ -96,6 +96,17 @@ var fov_world := 90.0
 var fov_vm := 62.0
 var team_arms := ""
 var grip_cam := Vector3(0.19, -0.2, -0.5)
+# прицел на оружии и вскидка к глазу
+var sight: Sight
+var ads := 0.0                  # 0 — от бедра, 1 — глаз у окуляра
+var ads_e := 0.0                # то же со сглаживанием
+var hip_xf := Transform3D.IDENTITY
+var ads_xf := Transform3D.IDENTITY
+var grip_w := Vector3.ZERO      # рукоять в осях оружия
+var scope_vp: SubViewport
+var scope_cam: Camera3D
+var shake_t := 0.0              # дрожь оружия после выстрела
+var shake_k := 0.0
 
 func setup(p: Actor) -> void:
 	player = p
@@ -106,6 +117,20 @@ func setup(p: Actor) -> void:
 	pivot.name = "Pivot"
 	rig.add_child(pivot)
 	_load_arms(p.team)
+	# picture for magnified optics: a second camera in the world, rendered only while aiming through one
+	scope_vp = SubViewport.new()
+	scope_vp.name = "ScopeView"
+	var px := 384 if G.mobile else 640
+	scope_vp.size = Vector2i(px, px)
+	scope_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	scope_vp.msaa_3d = Viewport.MSAA_DISABLED if G.mobile else Viewport.MSAA_2X
+	scope_vp.audio_listener_enable_3d = false
+	add_child(scope_vp)
+	scope_cam = Camera3D.new()
+	scope_cam.cull_mask = 0xFFFFF & ~2
+	scope_cam.near = 0.3
+	scope_cam.far = 400.0
+	scope_vp.add_child(scope_cam)
 
 func _load_arms(team: String) -> void:
 	if team_arms == team and arms:
@@ -161,6 +186,9 @@ func set_weapon(id: String) -> void:
 	for c in wroot.get_children():
 		parts[String(c.name)] = c
 		part_rest[String(c.name)] = (c as Node3D).transform
+	sight = Sight.attach(weapon, id, true)
+	if sight:
+		sight.set_scope_texture(scope_vp.get_texture())
 	_layer(weapon)
 	Skins.apply(weapon, id, G.equipped_skin(id))
 	var h: Dictionary = HOLD.get(hold, HOLD["rifle"])
@@ -169,6 +197,16 @@ func set_weapon(id: String) -> void:
 	var b := Basis.from_euler(Vector3(deg_to_rad(r.x), deg_to_rad(r.y), deg_to_rad(r.z)))
 	grip_cam = (h["pos"] as Vector3) + (HOLD_W.get(id, Vector3.ZERO) as Vector3)
 	weapon.transform = Transform3D(b, grip_cam - b * g)
+	hip_xf = weapon.transform
+	grip_w = g
+	ads = 0.0
+	ads_e = 0.0
+	if sight:
+		# aiming: weapon axes along the camera, the eye point of the optic at the camera itself
+		var eye_w: Vector3 = Sight._rel(weapon, sight) * sight.eye_local()
+		ads_xf = Transform3D(Basis.IDENTITY, -eye_w)
+		if G.args.has("vmtest"):
+			print("SIGHT %s %s eye_w %s mount %s" % [id, sight.kind, eye_w.snapped(Vector3.ONE * 0.001), Sight._mounts.get(id, {})])
 	if parts.has("p_muzzle"):
 		flash = MeshInstance3D.new()
 		var qm := QuadMesh.new()
@@ -207,6 +245,8 @@ func on_shot() -> void:
 	rkick_vel += Vector3(1.8 + 1.5 * k, randf_range(-0.9, 0.9), randf_range(-1.6, 1.6)) * 0.35
 	trig = 1.0
 	bolt_k = 1.0
+	shake_t = 1.0
+	shake_k = clampf(0.35 + 0.22 * k, 0.4, 1.6)
 	if flash and (cls != "pistol" or wid != "usp"):
 		flash.visible = true
 		flash.rotation.z = randf() * TAU
@@ -339,10 +379,26 @@ func tick(dt: float, look_delta: Vector2) -> void:
 		rkick_vel = Vector3.ZERO
 	trig = maxf(0.0, trig - dt * 9.0)
 	bolt_k = maxf(0.0, bolt_k - dt * 14.0)
-	var pos := Vector3(sin(bob_ph * 0.5) * 0.0055, -absf(sin(bob_ph)) * 0.0045, 0.0) * bob_amt
-	pos += Vector3(0, sin(idle_t * 1.3) * 0.0012 + land - player.crouch_t * 0.012, 0)
-	pos += Vector3(kick_pos.x, kick_pos.y, kick_pos.z)
-	var rot := Vector3(deg_to_rad(kick_rot.x) + sway.y * 0.9, sway.x * 1.1 + deg_to_rad(kick_rot.y), deg_to_rad(kick_rot.z) + sway.x * 1.4 - sin(bob_ph * 0.5) * 0.012 * bob_amt)
+	# ---- вскидка к прицелу
+	var want_ads := 1.0 if (sight and player.scoped and draw_t <= 0.0 and rel_t < 0.0 and inspect_t < 0.0) else 0.0
+	var ads_time: float = float(DB.SIGHTS[sight.kind]["ads_t"]) if sight else 0.2
+	ads = move_toward(ads, want_ads, dt / ads_time)
+	ads_e = ss(0.0, 1.0, ads)
+	var loose := 1.0 - 0.8 * ads_e          # у глаза оружие почти не качается
+	var pos := Vector3(sin(bob_ph * 0.5) * 0.0055, -absf(sin(bob_ph)) * 0.0045, 0.0) * bob_amt * loose
+	pos += Vector3(0, (sin(idle_t * 1.3) * 0.0012 + land - player.crouch_t * 0.012) * loose, 0)
+	# дыхание у прицела
+	pos += Vector3(sin(idle_t * 0.9) * 0.0005, sin(idle_t * 1.7) * 0.0004, 0) * ads_e
+	var kk := 1.0 - 0.35 * ads_e
+	pos += Vector3(kick_pos.x, kick_pos.y, kick_pos.z) * kk
+	var rot := Vector3(deg_to_rad(kick_rot.x) * kk + sway.y * 0.9 * loose, sway.x * 1.1 * loose + deg_to_rad(kick_rot.y) * kk, deg_to_rad(kick_rot.z) * kk + sway.x * 1.4 * loose - sin(bob_ph * 0.5) * 0.012 * bob_amt * loose)
+	# ---- дрожь после выстрела: короткая мелкая вибрация, затухает за ~0.12 с
+	if shake_t > 0.0:
+		shake_t = maxf(0.0, shake_t - dt * 8.5)
+		var a := shake_t * shake_t * shake_k
+		pos += Vector3(randf_range(-1, 1) * 0.0022, randf_range(-1, 1) * 0.0018, randf_range(-0.5, 1.0) * 0.003) * a
+		rot += Vector3(randf_range(-1, 1) * 0.011, randf_range(-1, 1) * 0.008, randf_range(-1, 1) * 0.016) * a
+	weapon.transform = hip_xf.interpolate_with(ads_xf, ads_e) if sight else hip_xf
 	# ---- доставание
 	if draw_t > 0.0:
 		draw_t = maxf(0.0, draw_t - dt)
@@ -522,16 +578,26 @@ func tick(dt: float, look_delta: Vector2) -> void:
 		pos += Vector3(0, -0.3, 0.1)
 	# повороты — вокруг рукояти (кисти), а не вокруг камеры
 	var rb := Basis.from_euler(rot)
-	rig.transform = Transform3D(rb, pos + grip_cam - rb * grip_cam)
-	# ---- руки
+	var piv := (hip_xf * grip_w).lerp(ads_xf * grip_w, ads_e)
+	rig.transform = Transform3D(rb, pos + piv - rb * piv)
+	# ---- руки (у прицела локти сходятся к центру)
 	var rx := _hand_xf(rspec)
-	_place("r", rx, rcurl)
+	_place("r", rx, rcurl, Vector3(-0.15, 0.05, 0.06) * ads_e)
 	if lspec:
 		var lx := _hand_xf(lspec)
 		if l_shift != Vector3.ZERO:
 			lx.origin += _rel(weapon).basis.orthonormalized() * l_shift
 		if l_over != null and l_mix > 0.001:
 			lx = lx.interpolate_with(l_over, l_mix)
-		_place("l", lx, lcurl)
+		_place("l", lx, lcurl, Vector3(0.05, 0.04, 0.0) * ads_e)
 	else:
 		_hide_arm("l")
+	# ---- прицел: сетка коллиматора на бесконечности или картинка оптики
+	if sight:
+		var vcam := get_parent() as Camera3D
+		var live := ss(0.45, 0.9, ads_e)
+		var need_view := sight.magnified() and ads_e > 0.3 and visible
+		scope_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if need_view else SubViewport.UPDATE_DISABLED
+		sight.update_fp(vcam, fov_world, fov_vm, live, scope_cam)
+	elif scope_vp.render_target_update_mode != SubViewport.UPDATE_DISABLED:
+		scope_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED

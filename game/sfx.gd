@@ -3,6 +3,7 @@ extends Node
 ## 2D и 3D проигрыватели из пула, музыка с плавной сменой, фон окружения.
 
 const DIRS := ["res://assets/sounds", "res://assets/music"]
+const REAL := "res://assets/sounds_real"         # real CC0 gun recordings: their groups replace the same names
 var lib := {}                      # имя -> Array[AudioStream]
 var _p2: Array[AudioStreamPlayer] = []
 var _p3: Array[AudioStreamPlayer3D] = []
@@ -25,6 +26,7 @@ func _ready() -> void:
 	AudioServer.add_bus_effect(0, lim)
 	for d in DIRS:
 		_scan(d)
+	_scan_real()
 	for i in 16:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"
@@ -78,6 +80,30 @@ func _scan(dir: String) -> void:
 			var g := String(k).substr(1)
 			if not lib.has(g):
 				lib[g] = lib[k]
+
+func _scan_real() -> void:
+	## ak_shot_1.ogg, ak_shot_2.ogg ... become the "ak_shot" group and take the place of the old single sound
+	var da := DirAccess.open(REAL)
+	if da == null:
+		return
+	var groups := {}
+	var seen := {}
+	for f in da.get_files():
+		var n := String(f).trim_suffix(".import").trim_suffix(".remap")
+		if n.get_extension().to_lower() not in ["ogg", "wav", "mp3", "oggvorbisstr", "sample", "mp3str"] or seen.has(n):
+			continue
+		seen[n] = true
+		var s = load(REAL + "/" + n)
+		if s == null:
+			continue
+		var key := n.get_basename()
+		var grp := key.rstrip("0123456789").rstrip("_")
+		if not groups.has(grp):
+			groups[grp] = []
+		groups[grp].append(s)
+	for g in groups:
+		lib[g] = groups[g]
+		lib["#" + g] = groups[g]
 
 func has(n: String) -> bool:
 	return lib.has(n)

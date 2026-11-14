@@ -324,8 +324,8 @@ func aim_dir() -> Vector3:
 
 func max_speed() -> float:
 	var s: float = wd().get("speed", 6.0)
-	if scoped:
-		s *= 0.48
+	if scoped and wd().has("sight"):
+		s *= float(DB.SIGHTS[wd()["sight"]]["move"])
 	if crouch_t > 0.5:
 		s *= 0.34
 	elif walking:
@@ -448,9 +448,11 @@ func spread_deg() -> float:
 	var s: float = sp[0]
 	if d.get("scope", false):
 		s = 0.04 if scoped else sp[0]
+	elif scoped and d.has("sight"):
+		s *= float(DB.SIGHTS[d["sight"]]["spread_k"])
 	var ms: float = d.get("speed", 6.0)
 	var k := clampf((speed_h() / ms - 0.34) / 0.66, 0.0, 1.0)
-	s += float(sp[1]) * k
+	s += float(sp[1]) * k * (0.85 if scoped else 1.0)
 	if not is_on_floor():
 		s += float(sp[2])
 	if crouch_t > 0.5:
@@ -486,10 +488,10 @@ func try_fire(alt := false) -> bool:
 		else:
 			return false
 	if alt:
-		if d.get("scope", false):
+		if d.has("sight"):
 			scoped = not scoped
 			fire_cd = 0.12
-			game.sound_at("scope", eye(), -10.0, self)
+			game.sound_at("scope", eye(), -10.0 if d["sight"] == "sniper" else -18.0, self)
 		return false
 	if mag() <= 0:
 		fire_cd = 0.25
@@ -526,8 +528,8 @@ func try_fire(alt := false) -> bool:
 	punch.y += side
 	shots += 1
 	shot_age = 0.0
-	if d.get("scope", false):
-		scoped = false
+	if d.get("scope", false) and is_bot:
+		scoped = false          # bots re-scope between bolt shots; the player stays on the optic
 	shot.emit(cur)
 	game.gun_sound(self, cur)
 	if mag() <= 0 and reserve() > 0 and is_bot:

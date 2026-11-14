@@ -198,6 +198,12 @@ func _vm_test() -> void:
 		p.switch_to(wid, true)
 		await get_tree().create_timer(0.9).timeout
 		await G.shot("vm_%s" % wid)
+		if G.args.has("vmads") and d.has("sight"):
+			p.scoped = true
+			await get_tree().create_timer(0.9).timeout
+			await G.shot("vm_%s_ads" % wid)
+			p.scoped = false
+			await get_tree().create_timer(0.4).timeout
 		if G.args.has("vmdbg"):
 			# отладочные ракурсы: оружие и руки крутятся перед камерой (слева, справа, сверху, снизу, три четверти)
 			hud.visible = false
@@ -383,7 +389,8 @@ func _spawn_teams() -> void:
 				a = Bot.new()
 			a.name = "%s_%d" % [team, i]
 			add_child(a)
-			a.setup(self, team, (String(G.settings["name"]) if is_p else names[i]), not is_p, models[team][i % 2])
+			var outfit: int = int(G.settings.get("outfit", 0)) if team == pteam else 0
+			a.setup(self, team, (String(G.settings["name"]) if is_p else names[i]), not is_p, models[team][(i + outfit) % 2])
 			a.full_reset()
 			if is_p:
 				player.init_player()
@@ -782,14 +789,19 @@ func gun_sound(a: Actor, wid: String) -> void:
 	var n := {"ak": "ak_shot", "m4": "m4_shot", "pistol": "pistol_shot", "usp": "usp_shot", "deagle": "deagle_shot", "smg": "smg_shot", "shotgun": "shotgun_shot", "sniper": "sniper_shot"}.get(snd, "pistol_shot") as String
 	if not Sfx.has(n):
 		n = "pistol_shot"
-	var pitch := randf_range(0.96, 1.04)
+	var pitch := randf_range(0.97, 1.03)
 	if a == player and player.alive:
-		Sfx.play(n, -5.0, pitch)
+		Sfx.play(n, -2.0, pitch)
 	else:
+		# real recordings: the close take nearby, the mid-distance take (more room, less crack) further away
 		var d := a.global_position.distance_to(player.global_position if player else Vector3.ZERO)
-		Sfx.at(n, a.eye(), 2.0, pitch, 9.0, 140.0)
-		if d > 35.0 and Sfx.has("shot_far"):
-			Sfx.at("shot_far", a.eye(), -4.0, pitch, 16.0, 200.0)
+		var far := n + "_far"
+		if d > 22.0 and Sfx.has(far):
+			Sfx.at(far, a.eye(), 4.0, pitch, 14.0, 220.0)
+		else:
+			Sfx.at(n, a.eye(), 3.0, pitch, 9.0, 140.0)
+			if d > 35.0 and Sfx.has("shot_far"):
+				Sfx.at("shot_far", a.eye(), -4.0, pitch, 16.0, 200.0)
 	if snd != "usp":
 		noise(a.global_position, a)
 	fx.flash(a.eye() - Basis(Vector3.UP, a.view_yaw).z * 0.9, 2.2, 6.0, 0.05)

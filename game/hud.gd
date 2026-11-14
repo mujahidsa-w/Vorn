@@ -188,23 +188,8 @@ func _draw_hud() -> void:
 		root.draw_rect(Rect2(sz.x - 70, 0, 70, sz.y), c)
 	# ---- прицел
 	if p.alive and not buy.visible and not pause.visible:
-		if p.scoped:
-			var r := sz.y * 0.46
-			var col := Color(0, 0, 0, 1)
-			root.draw_rect(Rect2(0, 0, cx - r + 1.5, sz.y), col)
-			root.draw_rect(Rect2(cx + r - 1.5, 0, sz.x - cx - r + 1.5, sz.y), col)
-			var pts := PackedVector2Array()
-			for i in 65:
-				var a := TAU * i / 64.0
-				pts.append(Vector2(cx + cos(a) * r, cy + sin(a) * r))
-			for i in 64:
-				var a0 := pts[i]
-				var a1 := pts[i + 1]
-				var corner := Vector2(cx + (r if a0.x >= cx else -r), 0.0 if a0.y < cy else sz.y)
-				root.draw_colored_polygon(PackedVector2Array([a0, a1, Vector2(a1.x, corner.y), Vector2(a0.x, corner.y)]), col)
-			root.draw_arc(Vector2(cx, cy), r, 0, TAU, 96, Color(0, 0, 0, 1), 6.0, true)
-			root.draw_line(Vector2(cx - r, cy), Vector2(cx + r, cy), Color(0, 0, 0, 0.9), 1.5)
-			root.draw_line(Vector2(cx, cy - r), Vector2(cx, cy + r), Color(0, 0, 0, 0.9), 1.5)
+		if p.scoped and p.wd().has("sight"):
+			pass                # aiming through the optic on the weapon: no crosshair, no overlay
 		elif p.wd()["cls"] != "sniper":
 			var spread := p.spread_deg()
 			var gap := 5.0 + spread * 5.5
