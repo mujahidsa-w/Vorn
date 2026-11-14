@@ -68,7 +68,8 @@ jobs:
           mkdir -p shots
           R="xvfb-run -a -s '-screen 0 1280x720x24'"
           timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path . --rendering-driver opengl3 --resolution 1280x720 -- \
-            --nosplash --windowed --mute --nosave --shots shots --quit_menu 2>&1 | grep -E "SHOT|ERROR|SCRIPT" | head -40 || true
+            --nosplash --windowed --mute --nosave --shots shots --quit_menu > shots/lobby.log 2>&1 || true
+          grep -c "SHOT" shots/lobby.log || true
           timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path . --rendering-driver opengl3 --resolution 1280x720 -- \
             --match --vmtest "${VMLIST:-ak,m4,awp,shotgun,mp9,mac10,glock,usp,deagle}" --vmads --windowed --mute --nosave --shots shots > shots/vm.log 2>&1 || true
           grep -E "SHOT|SCRIPT ERROR" shots/vm.log | sort | uniq -c | head -40
@@ -101,7 +102,13 @@ jobs:
         run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'
 
       - name: Optic summary
-        run: 'grep -h "SIGHT" shots/*.log 2>/dev/null || true'
+        run: |
+          grep -h "SIGHT" shots/*.log 2>/dev/null | cut -c1-400 || true
+          for f in shots/lobby.log shots/vm.log; do
+            echo "== script errors in $f (by place):"
+            grep -A2 "SCRIPT ERROR" "$f" | grep -oE "res://[a-z_/]+\.gd:[0-9]+" | sort | uniq -c | sort -rn | head -12 || true
+            grep "SCRIPT ERROR" "$f" | sort | uniq -c | sort -rn | head -6 || true
+          done
 
       - uses: actions/upload-artifact@v4
         with:
