@@ -44,6 +44,7 @@ var storm := {"c": Vector2.ZERO, "r": 720.0, "c0": Vector2.ZERO, "r0": 720.0, "c
 var storm_wall: MeshInstance3D
 var storm_tick := 0.0
 var air: AirSound
+var drops: AirDrops
 var match_t := 0.0
 var player_place := 0
 var result := {}
@@ -85,6 +86,10 @@ func _ready() -> void:
 	state = S.LIVE
 	_storm_wall()
 	_scatter_loot()
+	drops = AirDrops.new()
+	drops.name = "AirDrops"
+	add_child(drops)
+	drops.setup(self, rng.randi())
 	_start_plane()
 	overlay.queue_free()
 	hud.announce("وادي الذهب", 4.0, "اقفز من الطائرة عندما تكون فوق المكان الذي تريد الهبوط فيه", UI.GOLD)

@@ -92,6 +92,44 @@ func setup(a: Actor, model_name: String) -> void:
 	skel.add_child(gun_mod)
 	_play("rifle_idle_aiming")
 
+# ------------------------------------------------------------------ helmet worn on the head (assets/gear/helmet.glb)
+const HELMET_FIT := 1.04
+var helmet_node: Node3D
+var helmet_on := false
+
+func _wear_helmet(on: bool) -> void:
+	helmet_on = on
+	if on and helmet_node == null:
+		helmet_node = _make_helmet()
+	if helmet_node:
+		helmet_node.visible = on
+
+func _make_helmet() -> Node3D:
+	if skel == null or not ResourceLoader.exists(Gear.HELMET):
+		return null
+	var bi := skel.find_bone("mixamorig_Head")
+	if bi < 0:
+		return null
+	var ti := skel.find_bone("mixamorig_HeadTop_End")
+	# skeleton units -> metres (the character scene may be scaled)
+	var k := Gear._xf(self, skel).basis.get_scale().x
+	if k <= 0.0:
+		k = 1.0
+	var head := skel.get_bone_global_rest(bi)
+	var top: Vector3 = skel.get_bone_global_rest(ti).origin if ti >= 0 else head.origin + Vector3(0, 0.2 / k, 0)
+	var att := BoneAttachment3D.new()
+	att.name = "HelmetAt"
+	att.bone_name = "mixamorig_Head"
+	skel.add_child(att)
+	var h := (load(Gear.HELMET) as PackedScene).instantiate() as Node3D
+	# helmet space: face +Z like the Mixamo skeleton, rim at y -0.05, crown of the shell ~0.2 m over the rim
+	var want := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * HELMET_FIT / k), top + Vector3(0, -0.185, -0.005) / k)
+	h.transform = head.affine_inverse() * want
+	att.add_child(h)
+	for g in h.find_children("*", "GeometryInstance3D", true, false):
+		(g as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	return att
+
 func set_weapon(wid: String) -> void:
 	if wid == weapon_id:
 		return
@@ -290,6 +328,8 @@ func _process(_dt: float) -> void:
 		model.visible = cam.global_position.distance_to(actor.global_position + Vector3(0, 1.2, 0)) > 0.85
 	if actor.cur != weapon_id:
 		set_weapon(actor.cur)
+	if actor.helmet != helmet_on:
+		_wear_helmet(actor.helmet)
 	var hold: String = actor.wd()["hold"]
 	var rifle := hold in ["rifle", "smg"]
 	var v := actor.velocity

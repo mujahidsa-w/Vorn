@@ -84,18 +84,9 @@ func _ready() -> void:
 		"armor":
 			col = INFO[id]["col"]
 			if id == "helmet":
-				var mi := MeshInstance3D.new()
-				var sm := SphereMesh.new()
-				sm.radius = 0.16
-				sm.height = 0.32
-				sm.is_hemisphere = true
-				mi.mesh = sm
-				mi.position.y = 0.02
-				var m := StandardMaterial3D.new()
-				m.albedo_color = Color(0.26, 0.30, 0.20)
-				m.roughness = 0.7
-				mi.material_override = m
-				add_child(mi)
+				var hm := Gear.helmet()
+				hm.rotation.y = randf() * TAU
+				add_child(hm)
 			else:
 				_box(Vector3(0.48, 0.10, 0.55), Vector3(0, 0.05, 0), Color(0.22, 0.26, 0.18) if id == "vest1" else Color(0.18, 0.18, 0.2))
 				_box(Vector3(0.20, 0.03, 0.12), Vector3(0, 0.115, -0.18), Color(0.1, 0.1, 0.1))

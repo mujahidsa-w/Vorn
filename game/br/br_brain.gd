@@ -242,7 +242,9 @@ func _pick_goal() -> void:
 		for l in game.items:
 			var it := l as Loot
 			var d := it.global_position.distance_to(a.global_position)
-			if d > radius or int(skip.get(it, 0)) > now:
+			# supply-drop loot pulls armed fighters from much farther away
+			var far := 300.0 if it.has_meta("drop") and not unarmed else radius
+			if d > far or int(skip.get(it, 0)) > now:
 				continue
 			var v := _value(it)
 			if unarmed and it.kind == "weapon":

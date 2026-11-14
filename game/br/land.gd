@@ -632,22 +632,31 @@ func _rocks() -> void:
 
 func _open_crates() -> void:
 	## loose supply crates in the open desert
-	var sts := {"wood": SurfaceTool.new()}
-	sts["wood"].begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in 26:
 		var x := rng.randf_range(-420, 420)
 		var z := rng.randf_range(-420, 420)
 		var h := height_at(x, z)
-		var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(x, h, z))
-		_solid(sts, "wood", xf, Vector3(0, 0.5, 0), Vector3(1.2, 1.0, 1.2), 1.2, props_body)
-		if rng.randf() < 0.5:
-			_solid(sts, "wood", xf, Vector3(1.0, 0.4, 0.4), Vector3(0.8, 0.8, 0.8), 1.2, props_body)
+		var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(x, h - 0.05, z))
+		# a small stack of rifle crates: two side by side, sometimes a third across the top
+		var L := 1.35
+		var sz := Gear.crate_size(L)
+		for c in 2:
+			_crate_at(xf * Transform3D(Basis.IDENTITY, Vector3((c - 0.5) * (sz.x + 0.04), 0, rng.randf_range(-0.1, 0.1))), L)
+		if rng.randf() < 0.6:
+			_crate_at(xf * Transform3D(Basis(Vector3.UP, PI / 2.0 + rng.randf_range(-0.2, 0.2)), Vector3(0, sz.y, 0)), L)
 		_loot(xf * Vector3(0, 0.3, -1.3), xf * Vector3(0, 0.3, -1.3), false)
-	var mi := MeshInstance3D.new()
-	var st: SurfaceTool = sts["wood"]
-	mi.mesh = st.commit()
-	mi.material_override = _mat("crate", "wood_planks")
-	add_child(mi)
+
+func _crate_at(xf: Transform3D, length: float) -> void:
+	var c := Gear.crate(length)
+	c.transform = xf
+	add_child(c)
+	var sz := Gear.crate_size(length)
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = sz
+	cs.shape = bs
+	cs.transform = xf * Transform3D(Basis.IDENTITY, Vector3(0, sz.y * 0.5, 0))
+	props_body.add_child(cs)
 
 func _loot(pos: Vector3, door: Vector3, inside: bool, path: Array = []) -> void:
 	loot_points.append({"pos": pos, "door": door, "inside": inside, "path": path})

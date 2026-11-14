@@ -128,6 +128,18 @@ func _draw_mini(c: Control, full: bool) -> void:
 		c.draw_line(_to_map(Vector2(a0.x, a0.z), center, span, box), _to_map(Vector2(a1.x, a1.z), center, span, box), Color(1, 1, 1, 0.55), 2.0)
 		var pp := _to_map(Vector2(game.plane.global_position.x, game.plane.global_position.z), center, span, box)
 		c.draw_circle(pp, 5.0, UI.GOLD_HI)
+	# supply drops: planes on their way and crates (falling or still full) as red boxes
+	if game.drops:
+		for pl in game.drops.planes():
+			var pp2 := _to_map(Vector2(pl[0].x, pl[0].z), center, span, box)
+			if Rect2(Vector2.ZERO, box).has_point(pp2):
+				c.draw_circle(pp2, 4.0, Color(1.0, 0.4, 0.3))
+		var blink := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.008)
+		for m in game.drops.markers():
+			var dp := _to_map(Vector2(m.x, m.z), center, span, box)
+			dp = dp.clamp(Vector2(6, 6), box - Vector2(6, 6))
+			c.draw_rect(Rect2(dp - Vector2(6, 6), Vector2(12, 12)), Color(0.85, 0.1, 0.06, blink))
+			c.draw_rect(Rect2(dp - Vector2(6, 6), Vector2(12, 12)), Color(1, 1, 1, blink), false, 2.0)
 	if full:
 		for t in land.towns:
 			var tp := _to_map(t["c"], center, span, box)
