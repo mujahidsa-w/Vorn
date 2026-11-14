@@ -505,7 +505,11 @@ func try_fire(alt := false) -> bool:
 		var a := randf() * TAU
 		var r := deg_to_rad(sdeg) * sqrt(randf()) * (1.0 if pellets == 1 else 1.0)
 		var dir := (ab * Vector3(cos(a) * tan(r), sin(a) * tan(r), -1.0)).normalized()
-		game.bullet(self, eye(), dir, cur, i == 0)
+		if Network.online and self == game.player and not Network.is_host:
+			if i == 0:
+				Network.request_shot(eye(), dir, cur)
+		else:
+			game.bullet(self, eye(), dir, cur, i == 0)
 	# отдача: вверх, потом змейкой влево-вправо
 	var rec: Array = d.get("rec", [1.0, 0.5, 6.0])
 	var up: float = rec[0] * (1.0 if shots < 9 else 0.22)

@@ -34,6 +34,7 @@ var auto := false
 var over_t := 0.0
 var stats_first_blood := false
 var _test_t := 0.0
+var _online_started := false
 
 func _ready() -> void:
 	rng.randomize()
@@ -62,7 +63,14 @@ func _ready() -> void:
 	G.set_mouse(Input.MOUSE_MODE_CAPTURED)
 	if G.args.has("timescale"):
 		Engine.time_scale = float(G.args["timescale"])
-	_start_round()
+	if Network.online and actors.size() < 2:
+		_online_started = false
+		state = S.FREEZE
+		t_left = 9999.0
+		hud.announce("بانتظار لاعب آخر للانضمام", 9999.0)
+	else:
+		_online_started = true
+		_start_round()
 	if G.args.has("vmtest"):
 		_vm_test()
 	elif G.args.has("hudtest"):
@@ -354,6 +362,13 @@ func _auto_shots() -> void:
 		n += 1
 
 func _spawn_teams() -> void:
+	if Network.online:
+		Network.match_ref = self
+		_spawn_online_players()
+		Network.peer_joined.connect(_on_network_peer_joined)
+		Network.peer_left.connect(_on_network_peer_left)
+		Network.state_received.connect(_on_network_state)
+		return
 	var pteam: String = G.settings["team"]
 	var models := {"t": ["t_1", "t_2"], "ct": ["ct_1", "ct_2"]}
 	for team in ["t", "ct"]:
@@ -387,6 +402,63 @@ func _spawn_teams() -> void:
 				a.shot.connect(fb.on_shot.unbind(1))
 				a.reload_started.connect(func(_w, t): fb.on_reload(t))
 			actors.append(a)
+
+
+func _spawn_online_players() -> void:
+	var ids: Array[int] = [1]
+	for id in multiplayer.get_peers():
+		ids.append(int(id))
+	ids.sort()
+	for id in ids:
+		_add_network_actor(id)
+
+func _add_network_actor(peer_id: int) -> void:
+	if get_node_or_null(str("Peer_", peer_id)) != null:
+		return
+	var team := Network.peer_team(peer_id)
+	var slot := Network.peer_slot(peer_id)
+	var models := {"t": ["t_1", "t_2"], "ct": ["ct_1", "ct_2"]}
+	var a: Actor
+	if peer_id == multiplayer.get_unique_id():
+		player = Player.new()
+		a = player
+	else:
+		a = RemoteActor.new()
+	a.name = "Peer_%d" % peer_id
+	if peer_id != multiplayer.get_unique_id():
+		a.set_meta("network_peer_id", peer_id)
+	add_child(a)
+	a.setup(self, team, (String(G.settings["name"]) if peer_id == multiplayer.get_unique_id() else "Player %d" % peer_id), false, models[team][slot % 2])
+	a.full_reset()
+	if a == player:
+		player.init_player()
+	else:
+		var fb := FighterBody.new()
+		fb.name = "Body"
+		a.add_child(fb)
+		fb.setup(a, a.model_name)
+		a.body = fb
+		a.shot.connect(fb.on_shot.unbind(1))
+		a.reload_started.connect(func(_w, t): fb.on_reload(t))
+	actors.append(a)
+	var xf := world.spawn(team, slot)
+	a.spawn_at(xf.origin, world.spawn_yaw(team, slot), false)
+	if a == player:
+		player.team = team
+
+func _on_network_peer_joined(peer_id: int) -> void:
+	_add_network_actor(peer_id)
+
+func _on_network_peer_left(peer_id: int) -> void:
+	var node := get_node_or_null("Peer_%d" % peer_id)
+	if node:
+		actors.erase(node)
+		node.queue_free()
+
+func _on_network_state(peer_id: int, pos: Vector3, yaw: float, pitch: float, hp: int, alive: bool, crouch: float, weapon: String) -> void:
+	var a := get_node_or_null("Peer_%d" % peer_id) as Actor
+	if a is RemoteActor:
+		a.apply_network_state(pos, yaw, pitch, hp, alive, crouch, weapon)
 
 func team_of(t: String) -> Array:
 	return actors.filter(func(x): return x.team == t)
@@ -502,6 +574,13 @@ func _bot_buy(a: Actor) -> void:
 		a.buy(["he", "flash", "smoke"][rng.randi() % 3])
 
 func _physics_process(dt: float) -> void:
+	if Network.online and player:
+		Network.send_player_state(player, dt)
+	if Network.online and not _online_started:
+		if actors.size() >= 2:
+			_online_started = true
+			_start_round()
+		return
 	match state:
 		S.FREEZE:
 			t_left -= dt

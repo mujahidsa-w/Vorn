@@ -216,11 +216,42 @@ func _panel_play() -> Control:
 	var help := UI.label("حرّك العصا اليسرى للمشي  ·  اسحب على يمين الشاشة للتصويب  ·  زر الرصاصة للإطلاق" if G.touch else "الحركة: WASD  ·  مشي: Shift  ·  انحناء: Ctrl  ·  المتجر: B  ·  تفكيك: E  ·  تفحّص السلاح: F  ·  النتائج: Tab", 14, UI.DIM)
 	help.text_direction = Control.TEXT_DIRECTION_RTL
 	vb.add_child(help)
-	var go := UI.button("إلى المعركة", 28, UI.TEAL, Vector2(300, 66))
+	var go := UI.button("مباراة أوفلاين ضد البوتات", 24, UI.TEAL, Vector2(340, 58))
 	go.pressed.connect(func():
+		Network.close_session()
 		G.save_settings()
 		G.start_match())
 	vb.add_child(go)
+	var online_title := UI.label("اللعب عبر الشبكة · تجربة أولية", 20, UI.AMBER, true)
+	vb.add_child(online_title)
+	var address := LineEdit.new()
+	address.placeholder_text = "عنوان IP للمضيف"
+	address.text = "127.0.0.1"
+	address.custom_minimum_size = Vector2(340, 48)
+	address.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(address)
+	var online_status := UI.label("المضيف واللاعبون يجب أن يستخدموا المنفذ 24567", 13, UI.DIM)
+	vb.add_child(online_status)
+	Network.connection_failed.connect(func(reason): online_status.text = reason)
+	var host_btn := UI.button("إنشاء غرفة (Host)", 22, UI.AMBER, Vector2(340, 54))
+	host_btn.pressed.connect(func():
+		var err := Network.host()
+		if err == OK:
+			online_status.text = "الغرفة بدأت على المنفذ 24567. أعطِ عنوان IP للاعب الآخر."
+			G.start_match())
+	vb.add_child(host_btn)
+	var join_btn := UI.button("انضمام إلى غرفة (Join)", 22, UI.TEAL, Vector2(340, 54))
+	join_btn.pressed.connect(func():
+		var err := Network.join(address.text)
+		if err == OK:
+			online_status.text = "جارٍ الاتصال..."
+			var start_online := func():
+				if is_inside_tree():
+					online_status.text = "تم الاتصال، جارٍ تحميل المباراة."
+					G.start_match()
+			if not Network.session_ready.is_connected(start_online):
+				Network.session_ready.connect(start_online, CONNECT_ONE_SHOT))
+	vb.add_child(join_btn)
 	return p
 
 # ------------------------------------------------------------------ кейсы

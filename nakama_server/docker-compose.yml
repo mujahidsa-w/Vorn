@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nakama
+      POSTGRES_USER: nakama
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nakama -d nakama"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  nakama:
+    image: heroiclabs/nakama:3.22.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - "/bin/sh"
+      - "-ec"
+      - >
+        /nakama/nakama migrate up
+        --database.address postgres:${POSTGRES_PASSWORD:-change-this-local-password}@postgres:5432/nakama
+        && exec /nakama/nakama
+        --name vorn-nakama
+        --database.address postgres:${POSTGRES_PASSWORD:-change-this-local-password}@postgres:5432/nakama
+        --logger.level INFO
+        --runtime.path /nakama/data/modules
+        --session.token_expiry_sec 7200
+        --socket.server_key ${NAKAMA_SERVER_KEY:-vorn-dev-server-key-change-me}
+        --console.username ${NAKAMA_CONSOLE_USER:-admin}
+        --console.password ${NAKAMA_CONSOLE_PASSWORD:-change-this-console-password}
+        --console.signing_key ${NAKAMA_CONSOLE_SIGNING_KEY:-change-this-signing-key}
+    volumes:
+      - ./data/modules:/nakama/data/modules:ro
+    ports:
+      - "7350:7350"
+      - "7351:7351"
+      - "7349:7349"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

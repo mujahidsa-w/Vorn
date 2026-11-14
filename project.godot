@@ -19,6 +19,7 @@ boot_splash/image="res://splash.png"
 G="*res://game/main.gd"
 Sfx="*res://game/sfx.gd"
 Touch="*res://game/touch.gd"
+Network="*res://game/network.gd"
 
 [display]
 
