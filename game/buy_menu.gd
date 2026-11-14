@@ -50,13 +50,13 @@ func _ready() -> void:
 	vb.add_child(hb)
 	for col in DB.BUY:
 		var cb := VBoxContainer.new()
-		cb.custom_minimum_size = Vector2(190, 0)
+		cb.custom_minimum_size = Vector2(178, 0)
 		cb.add_theme_constant_override("separation", 8)
 		hb.add_child(cb)
 		var head := UI.label(col[0], 17, UI.DIM, true)
 		cb.add_child(head)
 		for id in col[1]:
-			var b := UI.button("", 17, UI.TEAL, Vector2(190, 78))
+			var b := UI.button("", 17, UI.TEAL, Vector2(178, 78))
 			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			b.pressed.connect(_buy.bind(id))
 			b.mouse_entered.connect(_show.bind(id))

@@ -178,7 +178,7 @@ func set_weapon(id: String) -> void:
 	if id == "" or not DB.W.has(id):
 		return
 	hold = DB.W[id]["hold"]
-	var path := "res://assets/models/weapons/%s.scn" % id
+	var path := DB.model(id)
 	if not ResourceLoader.exists(path):
 		return
 	weapon = (load(path) as PackedScene).instantiate()

@@ -1061,7 +1061,7 @@ func _preview(wid: String, skin: String) -> void:
 	inv_sel = wid + ":" + skin
 	for c in inv_pivot.get_children():
 		c.queue_free()
-	var path := "res://assets/models/weapons/%s.scn" % wid
+	var path := DB.model(wid)
 	if not ResourceLoader.exists(path):
 		return
 	var w := (load(path) as PackedScene).instantiate() as Node3D

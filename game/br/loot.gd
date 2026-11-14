@@ -15,7 +15,9 @@ const INFO := {
 	"vest2": {"name": "سترة ثقيلة", "n": 1, "col": Color(0.75, 0.45, 1.0)},
 	"helmet": {"name": "خوذة", "n": 1, "col": Color(0.55, 0.65, 0.95)},
 }
-const WEAPON_RANK := {"ak": 9, "m4": 9, "awp": 7, "mp9": 6, "mac10": 6, "shotgun": 5, "deagle": 4, "usp": 3, "glock": 3}
+const WEAPON_RANK := {"ak": 9, "m4": 9, "awp": 7, "mp9": 6, "mac10": 6, "shotgun": 5, "deagle": 4, "usp": 3, "glock": 3,
+	"akm": 9, "m416": 10, "scar": 9, "m16": 9, "aug": 10, "groza": 11, "sks": 9, "mini14": 8, "slr": 10, "mk14": 11, "vss": 7,
+	"awm": 12, "m24": 10, "k98": 9, "win94": 6}
 
 var id := ""
 var count := 1
@@ -23,8 +25,10 @@ var kind := ""            # weapon, ammo, med, armor, nade
 var taken := false
 
 static func ammo_for(wid: String) -> String:
-	var cls: String = DB.W.get(wid, {}).get("cls", "")
-	return AMMO_OF.get(cls, "")
+	var d: Dictionary = DB.W.get(wid, {})
+	if d.has("ammo"):
+		return String(d["ammo"])
+	return AMMO_OF.get(String(d.get("cls", "")), "")
 
 static func title(item_id: String) -> String:
 	if DB.W.has(item_id):
@@ -54,7 +58,7 @@ func _ready() -> void:
 	var col := Color(0.9, 0.85, 0.7)
 	match kind:
 		"weapon":
-			var path := "res://assets/models/weapons/%s.scn" % id
+			var path := DB.model(id)
 			if ResourceLoader.exists(path):
 				var w := (load(path) as PackedScene).instantiate() as Node3D
 				add_child(w)

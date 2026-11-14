@@ -24,6 +24,40 @@ const W := {
 		"speed": 5.7, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "m4", "rec": [0.85, 0.6, 7.0], "spread": [0.16, 3.2, 9.0], "wall": 1.4, "sight": "acog"},
 	"awp": {"name": "الشاهين", "slot": 1, "cls": "sniper", "price": 4750, "dmg": 115, "pen": 0.975, "rpm": 41, "mag": 5, "res": 30, "reload": 3.7,
 		"speed": 5.08, "rmod": 0.99, "reward": 100, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [6.0, 0.6, 3.0], "spread": [2.2, 6.0, 12.0], "scope": true, "wall": 2.2, "sight": "sniper"},
+	# ---- imported weapons (assets/arsenal, baked by tools/arsenal/bake.gd); "pack" marks where the model lives
+	# assault rifles
+	"akm": {"name": "إيه كيه إم", "slot": 1, "cls": "rifle", "price": 2700, "dmg": 38, "pen": 0.775, "rpm": 600, "mag": 30, "res": 90, "reload": 2.6,
+		"speed": 5.46, "rmod": 0.98, "reward": 300, "auto": true, "hold": "rifle", "snd": "ak", "rec": [1.15, 0.8, 6.5], "spread": [0.2, 3.8, 9.0], "wall": 1.6, "sight": "holo", "pack": true},
+	"m416": {"name": "إم 416", "slot": 1, "cls": "rifle", "price": 3100, "dmg": 34, "pen": 0.7, "rpm": 700, "mag": 30, "res": 90, "reload": 2.3,
+		"speed": 5.7, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "m4", "rec": [0.8, 0.55, 7.0], "spread": [0.15, 3.1, 9.0], "wall": 1.4, "sight": "acog", "pack": true},
+	"scar": {"name": "سكار", "slot": 1, "cls": "rifle", "price": 3000, "dmg": 35, "pen": 0.72, "rpm": 625, "mag": 30, "res": 90, "reload": 2.4,
+		"speed": 5.65, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "m4", "rec": [0.85, 0.6, 7.0], "spread": [0.16, 3.2, 9.0], "wall": 1.4, "sight": "holo", "pack": true},
+	"m16": {"name": "إم 16", "slot": 1, "cls": "rifle", "price": 3000, "dmg": 37, "pen": 0.72, "rpm": 800, "mag": 30, "res": 90, "reload": 2.5,
+		"speed": 5.6, "rmod": 0.98, "reward": 300, "auto": false, "hold": "rifle", "snd": "m4", "rec": [0.9, 0.5, 7.5], "spread": [0.12, 3.0, 9.0], "wall": 1.5, "sight": "acog", "pack": true},
+	"aug": {"name": "أوغ", "slot": 1, "cls": "rifle", "price": 3300, "dmg": 34, "pen": 0.7, "rpm": 720, "mag": 30, "res": 90, "reload": 2.9,
+		"speed": 5.6, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "m4", "rec": [0.75, 0.5, 7.0], "spread": [0.14, 3.0, 9.0], "wall": 1.4, "sight": "acog", "pack": true},
+	"groza": {"name": "غروزا", "slot": 1, "cls": "rifle", "price": 3500, "dmg": 39, "pen": 0.78, "rpm": 750, "mag": 30, "res": 90, "reload": 2.7,
+		"speed": 5.6, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "ak", "rec": [1.0, 0.7, 6.5], "spread": [0.18, 3.4, 9.0], "wall": 1.6, "sight": "holo", "pack": true},
+	# marksman rifles (semi-automatic, 6x)
+	"sks": {"name": "إس كيه إس", "slot": 1, "cls": "rifle", "price": 3600, "dmg": 54, "pen": 0.85, "rpm": 300, "mag": 10, "res": 40, "reload": 2.9,
+		"speed": 5.3, "rmod": 0.99, "reward": 300, "auto": false, "hold": "rifle", "snd": "ak", "rec": [2.2, 0.8, 5.0], "spread": [0.08, 4.0, 10.0], "wall": 1.9, "sight": "x6", "pack": true},
+	"mini14": {"name": "ميني 14", "slot": 1, "cls": "rifle", "price": 3400, "dmg": 47, "pen": 0.8, "rpm": 360, "mag": 20, "res": 60, "reload": 2.6,
+		"speed": 5.45, "rmod": 0.99, "reward": 300, "auto": false, "hold": "rifle", "snd": "m4", "rec": [1.6, 0.6, 5.5], "spread": [0.07, 3.6, 10.0], "wall": 1.7, "sight": "x6", "pack": true},
+	"slr": {"name": "إس إل آر", "slot": 1, "cls": "rifle", "price": 3900, "dmg": 58, "pen": 0.88, "rpm": 300, "mag": 10, "res": 40, "reload": 3.0,
+		"speed": 5.25, "rmod": 0.99, "reward": 300, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [2.6, 0.9, 4.8], "spread": [0.08, 4.2, 10.0], "wall": 2.0, "sight": "x6", "pack": true},
+	"mk14": {"name": "إم كيه 14", "slot": 1, "cls": "rifle", "price": 4400, "dmg": 61, "pen": 0.9, "rpm": 400, "mag": 10, "res": 40, "reload": 3.2,
+		"speed": 5.2, "rmod": 0.99, "reward": 300, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [2.8, 1.0, 4.5], "spread": [0.07, 4.4, 10.0], "wall": 2.0, "sight": "x6", "pack": true},
+	"vss": {"name": "في إس إس", "slot": 1, "cls": "rifle", "price": 3200, "dmg": 42, "pen": 0.7, "rpm": 600, "mag": 10, "res": 40, "reload": 2.6,
+		"speed": 5.5, "rmod": 0.97, "reward": 300, "auto": true, "hold": "rifle", "snd": "usp", "rec": [0.9, 0.5, 6.5], "spread": [0.12, 3.0, 8.0], "wall": 1.2, "sight": "acog", "ammo": "ammo_light", "pack": true},
+	# bolt and lever actions
+	"awm": {"name": "إيه دبليو إم", "slot": 1, "cls": "sniper", "price": 5500, "dmg": 135, "pen": 1.0, "rpm": 40, "mag": 5, "res": 20, "reload": 4.0,
+		"speed": 5.0, "rmod": 0.995, "reward": 100, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [6.5, 0.6, 3.0], "spread": [2.2, 6.0, 12.0], "scope": true, "wall": 2.6, "sight": "sniper", "pack": true},
+	"m24": {"name": "إم 24", "slot": 1, "cls": "sniper", "price": 4700, "dmg": 105, "pen": 0.97, "rpm": 45, "mag": 5, "res": 30, "reload": 3.6,
+		"speed": 5.1, "rmod": 0.99, "reward": 100, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [5.6, 0.6, 3.0], "spread": [2.2, 6.0, 12.0], "scope": true, "wall": 2.2, "sight": "sniper", "pack": true},
+	"k98": {"name": "كار 98", "slot": 1, "cls": "sniper", "price": 4200, "dmg": 98, "pen": 0.95, "rpm": 40, "mag": 5, "res": 30, "reload": 3.8,
+		"speed": 5.1, "rmod": 0.99, "reward": 100, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [5.4, 0.6, 3.0], "spread": [2.2, 6.0, 12.0], "scope": true, "wall": 2.1, "sight": "sniper", "pack": true},
+	"win94": {"name": "وينشستر", "slot": 1, "cls": "sniper", "price": 2500, "dmg": 72, "pen": 0.85, "rpm": 60, "mag": 8, "res": 32, "reload": 3.4,
+		"speed": 5.4, "rmod": 0.98, "reward": 300, "auto": false, "hold": "rifle", "snd": "sniper", "rec": [4.0, 0.8, 4.0], "spread": [0.6, 4.0, 10.0], "scope": true, "wall": 1.6, "sight": "acog", "pack": true},
 	"he": {"name": "متفجّرة", "slot": 4, "cls": "nade", "price": 300, "speed": 6.2, "hold": "nade"},
 	"flash": {"name": "وميضية", "slot": 4, "cls": "nade", "price": 200, "speed": 6.2, "hold": "nade"},
 	"smoke": {"name": "دخانية", "slot": 4, "cls": "nade", "price": 300, "speed": 6.2, "hold": "nade"},
@@ -41,7 +75,14 @@ const SIGHTS := {
 	"holo": {"name": "هولوغرافي", "zoom": 1.0, "fov_k": 0.84, "sens": 0.8, "move": 0.75, "relief": 0.20, "spread_k": 0.65, "ads_t": 0.2},
 	"acog": {"name": "منظار ×3", "zoom": 3.0, "fov_k": 0.80, "sens": 0.42, "move": 0.65, "relief": 0.065, "spread_k": 0.5, "ads_t": 0.26},
 	"sniper": {"name": "منظار قنّاص ×8", "zoom": 8.0, "fov_k": 0.76, "sens": 0.2, "move": 0.48, "relief": 0.058, "spread_k": 0.0, "ads_t": 0.32},
+	"x6": {"name": "منظار ×6", "zoom": 6.0, "fov_k": 0.78, "sens": 0.27, "move": 0.55, "relief": 0.058, "spread_k": 0.15, "ads_t": 0.3},
 }
+
+## where a weapon's model lives: the imported arsenal or the original game's models
+static func model(wid: String) -> String:
+	if W.has(wid) and W[wid].get("pack", false):
+		return "res://assets/arsenal/%s.scn" % wid
+	return "res://assets/models/weapons/%s.scn" % wid
 const GEAR := {
 	"kevlar": {"name": "سترة واقية", "price": 650},
 	"helmet": {"name": "سترة وخوذة", "price": 1000},
@@ -50,7 +91,8 @@ const GEAR := {
 const BUY := [
 	["مسدسات", ["glock", "usp", "deagle"]],
 	["رشاشات وخرطوش", ["mac10", "mp9", "shotgun"]],
-	["بنادق", ["ak", "m4", "awp"]],
+	["بنادق", ["ak", "m4", "akm", "m416", "scar"]],
+	["قنّاصات", ["awp", "awm", "m24", "sks", "mk14"]],
 	["قنابل", ["he", "flash", "smoke", "molotov", "decoy"]],
 	["معدّات", ["kevlar", "helmet", "kit"]],
 ]

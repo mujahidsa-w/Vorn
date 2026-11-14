@@ -106,6 +106,7 @@ const SPEC := {
 	"holo": {"h": 0.034, "lens_z": 0.0, "r": 0.015, "len": 0.096, "fwd": 0.075},
 	"acog": {"h": 0.040, "lens_z": 0.0752, "r": 0.0148, "len": 0.15, "fwd": 0.10},
 	"sniper": {"h": 0.048, "lens_z": 0.1805, "r": 0.0178, "len": 0.36, "fwd": 0.11},
+	"x6": {"h": 0.048, "lens_z": 0.1805, "r": 0.0178, "len": 0.36, "fwd": 0.11},
 }
 const SHOTGUN_FWD := 0.12
 
@@ -205,14 +206,14 @@ static func precompute() -> void:
 	var changed := false
 	for wid in DB.W:
 		var d: Dictionary = DB.W[wid]
-		if not d.has("sight") or (_mounts.has(wid) and (d["sight"] != "sniper" or _builtins.has(wid))):
+		if not d.has("sight") or (_mounts.has(wid) and (d["sight"] != "sniper" or d.get("pack", false) or _builtins.has(wid))):
 			continue
-		var path := "res://assets/models/weapons/%s.scn" % wid
+		var path := DB.model(wid)
 		if not ResourceLoader.exists(path):
 			continue
 		var w := (load(path) as PackedScene).instantiate() as Node3D
 		_mount(w, wid, String(d["sight"]))
-		if d["sight"] == "sniper":
+		if d["sight"] == "sniper" and not d.get("pack", false):
 			_builtin_scope(w, wid)
 		w.free()
 		changed = true
@@ -348,7 +349,7 @@ static func attach(weapon: Node3D, wid: String, fp: bool) -> Sight:
 	s.zoom = float(sd["zoom"])
 	s.relief = float(sd["relief"])
 	s.name = "Sight"
-	if s.kind == "sniper":
+	if s.kind == "sniper" and not d.get("pack", false):
 		var b := _builtin_scope(weapon, wid)
 		if not b.is_empty():
 			s.builtin = true
@@ -490,7 +491,7 @@ func _build() -> void:
 			fiber.material_override = fmat
 			_mesh(disc_mesh(0.018), Vector3(0, h, -0.0945), _coat, Vector3(0, PI, 0))
 			_scope_lens()
-		"sniper":
+		"sniper", "x6":
 			for z in [-0.075, 0.075]:
 				_box(Vector3(0.022, 0.030, 0.022), Vector3(0, 0.015, z))
 				_ring(0.0150, 0.0195, z, h)

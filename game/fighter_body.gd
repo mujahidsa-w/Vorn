@@ -101,9 +101,9 @@ func set_weapon(wid: String) -> void:
 		weapon = null
 	_muzzle = null
 	_flash = null
-	if wid == "" or not ResourceLoader.exists("res://assets/models/weapons/%s.scn" % wid):
+	if wid == "" or not ResourceLoader.exists(DB.model(wid)):
 		return
-	weapon = (load("res://assets/models/weapons/%s.scn" % wid) as PackedScene).instantiate()
+	weapon = (load(DB.model(wid)) as PackedScene).instantiate()
 	hand.add_child(weapon)
 	var hold: String = DB.W[wid]["hold"]
 	weapon.transform = _grip(hold, weapon)

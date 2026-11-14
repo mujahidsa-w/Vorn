@@ -20,8 +20,10 @@ const STORM := [  # wait before it moves, time to close, radius after, damage pe
 	[18.0, 28.0, 0.0, 14.0],
 ]
 const LOOT_TABLE := [
-	["glock", 6.0], ["usp", 5.0], ["deagle", 3.0], ["mac10", 5.0], ["mp9", 5.0], ["shotgun", 4.0], ["ak", 3.0], ["m4", 3.0], ["awp", 1.0],
-	["ammo_light", 12.0], ["ammo_rifle", 8.0], ["ammo_shell", 4.0], ["ammo_sniper", 2.0],
+	["glock", 6.0], ["usp", 5.0], ["deagle", 3.0], ["mac10", 5.0], ["mp9", 5.0], ["shotgun", 4.0], ["ak", 2.0], ["m4", 2.0], ["awp", 0.6],
+	["akm", 3.0], ["m416", 3.0], ["scar", 3.0], ["m16", 2.5], ["aug", 1.2], ["vss", 1.5],
+	["sks", 2.0], ["mini14", 2.0], ["slr", 1.2], ["m24", 1.0], ["k98", 1.5], ["win94", 2.0],
+	["ammo_light", 12.0], ["ammo_rifle", 12.0], ["ammo_shell", 4.0], ["ammo_sniper", 4.0],
 	["bandage", 12.0], ["medkit", 5.0], ["vest1", 7.0], ["vest2", 3.0], ["helmet", 5.0], ["he", 4.0], ["smoke", 3.0], ["flash", 3.0],
 ]
 const NICKS := ["صقر الصحراء", "الذيب", "أبو فهد", "الكاسر", "ريم", "الشبح", "نمر", "سيف", "الجوكر", "الإعصار", "ليث", "قناص الليل",

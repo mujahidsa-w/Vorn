@@ -16,3 +16,6 @@ node_modules/
 *.p12
 *.mobileprovision
 *.cer
+
+# Source FBX/TGA of the imported weapons (baked into assets/arsenal by tools/arsenal/bake.gd)
+/_src_pubg/
