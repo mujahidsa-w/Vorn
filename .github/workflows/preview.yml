@@ -62,9 +62,6 @@ jobs:
       - name: Import
         run: '"$GODOT" --headless --path . --import > /dev/null 2>&1 || true'
 
-      - name: Weapon geometry
-        run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'
-
       - name: Screenshots
         run: |
           set -uo pipefail
@@ -73,7 +70,8 @@ jobs:
           timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path . --rendering-driver opengl3 --resolution 1280x720 -- \
             --nosplash --windowed --mute --nosave --shots shots --quit_menu 2>&1 | grep -E "SHOT|ERROR|SCRIPT" | head -40 || true
           timeout 600 xvfb-run -a -s "-screen 0 1280x720x24" "$GODOT" --path . --rendering-driver opengl3 --resolution 1280x720 -- \
-            --match --vmtest "${VMLIST:-ak,m4,awp,shotgun,mp9,mac10,glock,usp,deagle}" --vmads --windowed --mute --nosave --shots shots 2>&1 | grep -E "SHOT|ERROR|SCRIPT|SIGHT" | head -80 || true
+            --match --vmtest "${VMLIST:-ak,m4,awp,shotgun,mp9,mac10,glock,usp,deagle}" --vmads --windowed --mute --nosave --shots shots > shots/vm.log 2>&1 || true
+          grep -E "SHOT|SCRIPT ERROR" shots/vm.log | sort | uniq -c | head -40
           ls shots
 
       - name: Contact sheets (small, printed for the dev session)
@@ -98,6 +96,12 @@ jobs:
           sheet ads1 320x180 1 vm_ak_ads vm_m4_ads vm_awp_ads vm_mp9_ads
           sheet ads2 320x180 1 vm_shotgun_ads vm_mac10_ads vm_glock_ads vm_deagle_ads
           sheet hip 320x180 0 vm_ak vm_awp vm_glock vm_mp9
+
+      - name: Weapon geometry and optic placement (last, so the log tail holds it)
+        run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'
+
+      - name: Optic summary
+        run: 'grep -h "SIGHT" shots/*.log 2>/dev/null || true'
 
       - uses: actions/upload-artifact@v4
         with:
