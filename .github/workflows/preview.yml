@@ -1,11 +1,8 @@
 name: Dev preview (models check and screenshots)
 
-# Development check for the optics and the lobby: it needs the unpacked character and weapon models,
-# which exist only on the build machine. Runs on the claude/* work branches.
+# Development check for the optics and the lobby with the real character and weapon models (they exist only
+# on the build machine). Run it by hand from the Actions tab; the screenshots are in the "preview-shots" artifact.
 on:
-  push:
-    branches: ["claude/**"]
-    paths: ["game/**", "tools/preview/**", ".github/workflows/preview.yml"]
   workflow_dispatch:
 
 permissions:
@@ -74,29 +71,6 @@ jobs:
             --match --vmtest "${VMLIST:-ak,m4,awp,shotgun,mp9,mac10,glock,usp,deagle}" --vmads --windowed --mute --nosave --shots shots > shots/vm.log 2>&1 || true
           grep -E "SHOT|SCRIPT ERROR" shots/vm.log | sort | uniq -c | head -40
           ls shots
-
-      - name: Contact sheets (small, printed for the dev session)
-        run: |
-          set -uo pipefail
-          cd shots
-          sheet() {
-            name="$1"; shift; geo="$1"; shift; crop="$1"; shift
-            files=""
-            for f in "$@"; do
-              [ -f "$f.png" ] || continue
-              if [ "$crop" = "1" ]; then convert "$f.png" -gravity center -crop 50%x50%+0+0 +repage "c_$f.png"; else cp "$f.png" "c_$f.png"; fi
-              files="$files c_$f.png"
-            done
-            [ -z "$files" ] && return
-            montage $files -tile 2x -geometry "$geo+1+1" -background black -quality 50 "$name.jpg"
-            echo "=====SHEET $name $(stat -c %s "$name.jpg")"
-            base64 -w 0 "$name.jpg"
-            echo
-          }
-          sheet lobby 320x180 0 lobby_main lobby_team_t
-          sheet ads1 320x180 1 vm_ak_ads vm_m4_ads vm_awp_ads vm_mp9_ads
-          sheet ads2 320x180 1 vm_shotgun_ads vm_mac10_ads vm_glock_ads vm_deagle_ads
-          sheet hip 320x180 0 vm_ak vm_awp vm_glock vm_mp9
 
       - name: Weapon geometry and optic placement (last, so the log tail holds it)
         run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'
