@@ -91,7 +91,7 @@ jobs:
           set -euo pipefail
           "$GODOT" --headless --path . --import
           mkdir -p build/android
-          "$GODOT" --headless --path . --export-release "Android" "build/android/${APP_NAME}.apk"
+          "$GODOT" --headless --path . --export-debug "Android" "build/android/${APP_NAME}.apk"
           test -s "build/android/${APP_NAME}.apk"
           ls -lh "build/android/${APP_NAME}.apk"
 
