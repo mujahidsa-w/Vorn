@@ -183,6 +183,7 @@ func _input_map() -> void:
 		"fwd": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "crouch": KEY_CTRL, "walk": KEY_SHIFT,
 		"reload": KEY_R, "use": KEY_E, "buy": KEY_B, "quick": KEY_Q, "inspect": KEY_F, "score": KEY_TAB, "pause": KEY_ESCAPE,
 		"slot1": KEY_1, "slot2": KEY_2, "slot3": KEY_3, "slot4": KEY_4, "slot5": KEY_5,
+		"prone": KEY_Z, "lean_l": KEY_C, "lean_r": KEY_V,
 	}
 	for n in keys:
 		if not InputMap.has_action(n):

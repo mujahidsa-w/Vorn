@@ -12,6 +12,9 @@ const EYE_STAND := 1.62
 const EYE_CROUCH := 1.12
 const H_STAND := 1.8
 const H_CROUCH := 1.3
+const EYE_PRONE := 0.42
+const H_PRONE := 0.74          # the capsule cannot be shorter than its two caps (2 x RADIUS)
+const LEAN_SIDE := 0.32        # how far the head moves out when leaning
 const RADIUS := 0.36
 const GRAVITY := 20.3
 const JUMP_V := 7.67
@@ -41,6 +44,10 @@ var view_yaw := 0.0
 var view_pitch := 0.0
 var punch := Vector2.ZERO       # (тангаж, рыскание) в градусах — увод прицела от отдачи
 var crouch_t := 0.0
+var prone := false              # lying down (toggled by the player, chosen by bots)
+var prone_t := 0.0              # 0 standing / crouching .. 1 lying flat
+var lean_want := 0.0            # -1 left .. 1 right
+var lean := 0.0                 # smoothed lean
 var walking := false
 var fire_cd := 0.0
 var reload_t := 0.0
@@ -160,6 +167,10 @@ func spawn_at(pos: Vector3, yaw: float, keep: bool) -> void:
 	view_pitch = 0.0
 	punch = Vector2.ZERO
 	crouch_t = 0.0
+	prone = false
+	prone_t = 0.0
+	lean = 0.0
+	lean_want = 0.0
 	fire_cd = 0.0
 	reload_t = 0.0
 	switch_t = 0.0
@@ -312,7 +323,10 @@ func cycle(dir: int) -> void:
 
 # ------------------------------------------------------------------ движение
 func eye() -> Vector3:
-	return global_position + Vector3(0, lerpf(EYE_STAND, EYE_CROUCH, crouch_t), 0)
+	var h := lerpf(lerpf(EYE_STAND, EYE_CROUCH, crouch_t), EYE_PRONE, prone_t)
+	var yb := Basis(Vector3.UP, view_yaw)
+	# lying down the head is in front of the body; leaning puts it out to the side
+	return global_position + Vector3(0, h - absf(lean) * 0.06, 0) - yb.z * 0.22 * prone_t + yb.x * LEAN_SIDE * lean
 
 func aim_basis(with_punch := true) -> Basis:
 	var p := view_pitch + (deg_to_rad(punch.x) if with_punch else 0.0)
@@ -326,7 +340,9 @@ func max_speed() -> float:
 	var s: float = wd().get("speed", 6.0)
 	if scoped and wd().has("sight"):
 		s *= float(DB.SIGHTS[wd()["sight"]]["move"])
-	if crouch_t > 0.5:
+	if prone_t > 0.5:
+		s *= 0.2
+	elif crouch_t > 0.5:
 		s *= 0.34
 	elif walking:
 		s *= 0.52
@@ -335,25 +351,48 @@ func max_speed() -> float:
 	return s
 
 func _apply_crouch() -> void:
-	var h := lerpf(H_STAND, H_CROUCH, crouch_t)
+	var h := lerpf(lerpf(H_STAND, H_CROUCH, crouch_t), H_PRONE, prone_t)
 	_cap.height = h
 	_col.position.y = h / 2.0
 	var k := crouch_t
-	(_hit_nodes["head"] as Node3D).position = Vector3(0, lerpf(1.62, 1.14, k), -0.1 * k)
-	(_hit_nodes["chest"] as Node3D).position = Vector3(0, lerpf(1.20, 0.84, k), -0.04 * k)
-	(_hit_nodes["stomach"] as Node3D).position = Vector3(0, lerpf(0.92, 0.6, k), 0)
-	(_hit_nodes["legs"] as Node3D).position = Vector3(0, lerpf(0.41, 0.3, k), 0)
-	(_hit_nodes["legs"].get_child(0).shape as BoxShape3D).size.y = lerpf(0.82, 0.6, k)
+	var yb := Basis(Vector3.UP, view_yaw)
+	var f := -yb.z
+	var r := yb.x
+	# standing / crouching boxes, then laid flat along the facing when prone; head and chest follow the lean
+	var stand := {"head": Vector3(0, lerpf(1.62, 1.14, k), 0) + f * 0.1 * k, "chest": Vector3(0, lerpf(1.20, 0.84, k), 0) + f * 0.04 * k,
+		"stomach": Vector3(0, lerpf(0.92, 0.6, k), 0), "legs": Vector3(0, lerpf(0.41, 0.3, k), 0)}
+	var flat := {"head": Vector3(0, 0.36, 0) + f * 0.62, "chest": Vector3(0, 0.26, 0) + f * 0.25, "stomach": Vector3(0, 0.2, 0) - f * 0.12,
+		"legs": Vector3(0, 0.14, 0) - f * 0.62}
+	var side := {"head": 1.0, "chest": 0.6, "stomach": 0.2, "legs": 0.0}
 	for z in _hit_nodes:
-		(_hit_nodes[z] as Node3D).rotation.y = view_yaw
+		var n := _hit_nodes[z] as Node3D
+		n.position = (stand[z] as Vector3).lerp(flat[z], prone_t) + r * LEAN_SIDE * lean * float(side[z])
+		n.rotation = Vector3(-PI / 2.0 * prone_t if z != "head" else 0.0, view_yaw, -lean * 0.3 * float(side[z]))
+	(_hit_nodes["legs"].get_child(0).shape as BoxShape3D).size.y = lerpf(lerpf(0.82, 0.6, k), 0.9, prone_t)
 
 func move_step(wish: Vector2, want_jump: bool, want_crouch: bool, want_walk: bool, dt: float) -> void:
 	walking = want_walk
+	# jumping or crouching gets up from lying down (if there is room to)
+	if prone and (want_jump or want_crouch) and prone_t > 0.9:
+		prone = false
+		want_jump = false
+	if prone:
+		want_jump = false
+		want_crouch = false
 	var target := 1.0 if want_crouch else 0.0
 	if target < crouch_t and not _headroom():
 		target = 1.0
 	if not is_equal_approx(crouch_t, target):
 		crouch_t = move_toward(crouch_t, target, dt * 7.5)
+	var pt := 1.0 if prone else 0.0
+	if pt < prone_t and not _headroom_low():
+		pt = prone_t
+	if not is_equal_approx(prone_t, pt):
+		prone_t = move_toward(prone_t, pt, dt * 1.9)
+	var lw := 0.0 if prone_t > 0.3 else clampf(lean_want, -1.0, 1.0)
+	if lw != 0.0 and not _lean_room(signf(lw)):
+		lw = 0.0
+	lean = move_toward(lean, lw, dt * 4.5)
 	_apply_crouch()
 	var yb := Basis(Vector3.UP, view_yaw)
 	var wd3 := yb.x * wish.x - yb.z * wish.y
@@ -412,6 +451,18 @@ func move_step(wish: Vector2, want_jump: bool, want_crouch: bool, want_walk: boo
 		if step_ph > 1000.0:
 			step_ph -= 200.0 * PI
 
+func _headroom_low() -> bool:
+	## room to get up from lying down at least to a crouch
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 0.3, 0), global_position + Vector3(0, H_CROUCH + 0.05, 0), 1)
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
+func _lean_room(side: float) -> bool:
+	## the head must not go through a wall when leaning out
+	var from := global_position + Vector3(0, lerpf(EYE_STAND, EYE_CROUCH, crouch_t), 0)
+	var to := from + Basis(Vector3.UP, view_yaw).x * side * (LEAN_SIDE + 0.12)
+	var q := PhysicsRayQueryParameters3D.create(from, to, 1)
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
+
 func _headroom() -> bool:
 	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, H_CROUCH - 0.1, 0), global_position + Vector3(0, H_STAND + 0.05, 0), 1)
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
@@ -455,7 +506,9 @@ func spread_deg() -> float:
 	s += float(sp[1]) * k * (0.85 if scoped else 1.0)
 	if not is_on_floor():
 		s += float(sp[2])
-	if crouch_t > 0.5:
+	if prone_t > 0.5:
+		s *= 0.55
+	elif crouch_t > 0.5:
 		s *= 0.8
 	s += minf(shots, 12) * 0.035
 	return s
@@ -521,7 +574,10 @@ func try_fire(alt := false) -> bool:
 		side = float(rec[1]) * (-1.0 if ph == 0 else 1.0) * (0.6 + 0.4 * randf())
 	else:
 		side = float(rec[1]) * randf_range(-0.25, 0.25)
-	if crouch_t > 0.5:
+	if prone_t > 0.5:
+		up *= 0.6
+		side *= 0.6
+	elif crouch_t > 0.5:
 		up *= 0.8
 		side *= 0.8
 	punch.x += up

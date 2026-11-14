@@ -67,6 +67,7 @@ func think(dt: float) -> void:
 		crouch = r[1]
 	else:
 		target = null
+		a.prone = false
 		quiet_t += dt
 		if a.hp < 75 and quiet_t > 3.0 and not game.heal.has(a):
 			game.use_heal(a)
@@ -128,9 +129,11 @@ func _scan() -> void:
 func _fight(dt: float) -> Array:
 	see_t += dt
 	var cls: String = a.wd()["cls"]
-	var tp := target.global_position + Vector3(0, 1.25 if target.crouch_t < 0.5 else 0.9, 0)
+	var tf := -Basis(Vector3.UP, target.view_yaw).z
+	var th := lerpf(1.25 if target.crouch_t < 0.5 else 0.9, 0.24, target.prone_t)
+	var tp := target.global_position + Vector3(0, th, 0) + tf * 0.3 * target.prone_t
 	if skill > 0.7 and see_t > 1.0:
-		tp.y += 0.3          # the good ones go for the head
+		tp += Vector3(0, 0.3, 0) * (1.0 - target.prone_t) + tf * 0.3 * target.prone_t     # the good ones go for the head
 	var eye := a.eye()
 	var to := tp - eye
 	var d := to.length()
@@ -180,6 +183,14 @@ func _fight(dt: float) -> Array:
 	elif d < want - 6.0:
 		fwd = -0.5
 	var crouch: bool = target_seen and cls in ["rifle", "sniper"] and d > 25.0 and skill > 0.5 and burst > 0
+	# long shots with a scoped rifle are taken lying down; up again when the fight comes close or the target is gone
+	var long_gun: bool = cls == "sniper" or String(a.wd().get("sight", "")) in ["x6", "sniper"]
+	if target_seen and long_gun and d > 70.0 and skill > 0.55 and not a.prone and rng.randf() < dt * 0.6:
+		a.prone = true
+	elif a.prone and (not target_seen or d < 40.0):
+		a.prone = false
+	if a.prone:
+		return [Vector2.ZERO, false]
 	if cls == "knife":
 		if d > 9.0 or see_t > 6.0:
 			if see_t > 6.0:

@@ -90,7 +90,34 @@ func setup(a: Actor, model_name: String) -> void:
 	gun_mod = GunMod.new()
 	gun_mod.body = self
 	skel.add_child(gun_mod)
+	_prone_setup()
 	_play("rifle_idle_aiming")
+
+# ------------------------------------------------------------------ lying down
+## Without prone clips (they can be dropped into assets/anims_extra as prone_idle / prone_forward) the body is laid
+## face down about the hips and the spine bends up (AimMod) so that the rifle in the aiming pose stays level.
+const PRONE_BEND := 1.25
+var _hips_m := Vector3(0, 0.95, 0)      # hips in model space at rest, metres
+var _prone_clips := false
+
+func _prone_setup() -> void:
+	var hi := skel.find_bone("mixamorig_Hips")
+	if hi >= 0:
+		_hips_m = Gear._xf(model, skel) * skel.get_bone_global_rest(hi).origin
+	_prone_clips = alib != null and alib.has_animation("prone_idle")
+
+func prone_bend() -> float:
+	return 0.0 if _prone_clips else actor.prone_t * PRONE_BEND
+
+func _prone_pose() -> void:
+	var t0 := Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO)
+	var k := 0.0 if _prone_clips else actor.prone_t
+	if k <= 0.001:
+		model.transform = t0
+		return
+	var r := Basis(Vector3.RIGHT, -PI / 2.0) * Basis(Vector3.UP, PI)
+	var t1 := Transform3D(r, Vector3(0, 0.17, 0.18) - r * _hips_m)
+	model.transform = t0.interpolate_with(t1, k)
 
 # ------------------------------------------------------------------ helmet worn on the head (assets/gear/helmet.glb)
 const HELMET_FIT := 1.04
@@ -261,6 +288,13 @@ func die(headshot: bool, from: Vector3) -> void:
 	up.stop()
 	if weapon:
 		weapon.visible = false
+	if actor.prone_t > 0.5 and not _prone_clips:
+		# shot while lying down: the body stays down, the head drops and the arms go slack
+		ap.play("rifle_idle_aiming", 0.3, 0.0)
+		var tw := create_tween()
+		tw.tween_property(model, "position:y", model.position.y - 0.08, 0.5)
+		return
+	model.transform = Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO)
 	var fwd := -Basis(Vector3.UP, actor.view_yaw).z
 	var to := (from - actor.global_position)
 	to.y = 0
@@ -335,6 +369,13 @@ func _process(_dt: float) -> void:
 	var v := actor.velocity
 	var sp := Vector2(v.x, v.z).length()
 	var crouch := actor.crouch_t > 0.5
+	_prone_pose()
+	if actor.prone_t > 0.5:
+		if _prone_clips:
+			_play("prone_forward" if sp > 0.3 and alib.has_animation("prone_forward") else "prone_idle", clampf(sp / 1.0, 0.6, 1.4))
+		else:
+			_play("rifle_idle_aiming" if rifle else "pistol_idle")
+		return
 	if not actor.is_on_floor() and absf(v.y) > 1.0:
 		_play("rifle_jump_loop" if rifle else "pistol_jump")
 		return
@@ -374,12 +415,14 @@ class AimMod extends SkeletonModifier3D:
 		if body == null or body.dead or body.actor == null:
 			return
 		var sk := get_skeleton()
-		var pitch := body.actor.view_pitch
-		if absf(pitch) < 0.01:
+		var pitch := body.actor.view_pitch + body.prone_bend()
+		var roll := body.actor.lean * 0.38
+		if absf(pitch) < 0.01 and absf(roll) < 0.01:
 			return
 		var per := pitch / 3.0
-		# модель смотрит в +Z, вправо от неё -X; наклон вверх — вращение вокруг оси X скелета
-		var q := Quaternion(Vector3(1, 0, 0), -per)
+		# модель смотрит в +Z, вправо от неё -X; наклон вверх — вращение вокруг оси X скелета,
+		# наклон вбок (выглядывание из-за угла) — вокруг оси Z: положительный угол клонит вправо
+		var q := Quaternion(Vector3(0, 0, 1), roll / 3.0) * Quaternion(Vector3(1, 0, 0), -per)
 		for i in body.spine:
 			var gp := sk.get_bone_global_pose(i)
 			var o := gp.origin

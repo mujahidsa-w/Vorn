@@ -27,6 +27,7 @@ var joy_c := Vector2.ZERO
 var joy_raw := Vector2.ZERO
 var joy_on := false
 var crouch_on := false
+var lean_on := 0                 # -1 left, 1 right, 0 upright
 var score_on := false
 var mouse_idx := -1           # the finger currently acting as the mouse in menus
 var clock := 0.0
@@ -68,8 +69,11 @@ func _process(dt: float) -> void:
 		_release_game()
 		crouch_on = false
 		score_on = false
+		lean_on = 0
 		_set_action("crouch", false)
 		_set_action("score", false)
+		_set_action("lean_l", false)
+		_set_action("lean_r", false)
 		return
 	var p: Player = game.player
 	if panel_open() or not p.alive:
@@ -77,6 +81,10 @@ func _process(dt: float) -> void:
 	if not p.alive and crouch_on:
 		crouch_on = false
 		_set_action("crouch", false)
+	if not p.alive and lean_on != 0:
+		lean_on = 0
+		_set_action("lean_l", false)
+		_set_action("lean_r", false)
 	_feed_move()
 	pad.queue_redraw()
 
@@ -86,6 +94,9 @@ func _layout() -> void:
 		"fire": [Vector2(r - 300, H - 300), 104.0],
 		"jump": [Vector2(r - 112, H - 430), 66.0],
 		"crouch": [Vector2(r - 112, H - 240), 62.0],
+		"prone": [Vector2(r - 112, H - 92), 50.0],
+		"lean_l": [Vector2(sx + 92, H - 560), 46.0],
+		"lean_r": [Vector2(sx + 204, H - 560), 46.0],
 		"reload": [Vector2(r - 505, H - 170), 60.0],
 		"alt": [Vector2(r - 525, H - 345), 60.0],
 		"use": [Vector2(r - 290, H - 560), 76.0],
@@ -212,7 +223,7 @@ func _down(i: int, pos: Vector2) -> void:
 		p._next_spect()
 		held[i] = {"role": "look"}
 		return
-	for id in ["fire", "use", "jump", "crouch", "reload", "alt", "buy"]:
+	for id in ["fire", "use", "jump", "crouch", "prone", "lean_l", "lean_r", "reload", "alt", "buy"]:
 		if _vis(id) and _hit(id, pos):
 			_tap(id, i)
 			return
@@ -248,6 +259,16 @@ func _tap(id: String, i: int) -> void:
 		"crouch":
 			crouch_on = not crouch_on
 			_set_action("crouch", crouch_on)
+		"prone":
+			p.prone = not p.prone
+			if p.prone and crouch_on:
+				crouch_on = false
+				_set_action("crouch", false)
+		"lean_l", "lean_r":
+			var sd := -1 if id == "lean_l" else 1
+			lean_on = 0 if lean_on == sd else sd
+			_set_action("lean_l", lean_on == -1)
+			_set_action("lean_r", lean_on == 1)
 		"reload": p.start_reload()
 		"alt":
 			if p.wd()["cls"] != "c4":
@@ -377,6 +398,23 @@ func _icon(n: String, c: Vector2, s: float, col: Color) -> void:
 			for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
 				pad.draw_line(c + d * s * 0.30, c + d * s * 1.02, col, 5.0, true)
 			pad.draw_circle(c, 5.0, col)
+		"prone":
+			# a figure lying on its front, rifle forward
+			pad.draw_circle(c + Vector2(-s * 0.62, -s * 0.22), s * 0.2, col)
+			pad.draw_line(c + Vector2(-s * 0.42, -s * 0.06), c + Vector2(s * 0.78, s * 0.14), col, 7.0, true)
+			pad.draw_line(c + Vector2(-s * 0.5, -s * 0.12), c + Vector2(-s * 1.0, s * 0.22), col, 4.0, true)
+			pad.draw_line(c + Vector2(-s * 0.36, s * 0.36), c + Vector2(s * 0.9, s * 0.36), Color(col, col.a * 0.6), 3.0, true)
+		"lean_l", "lean_r":
+			# a figure tilted to the side with an arrow
+			var sg2: float = -1.0 if n == "lean_l" else 1.0
+			var top := c + Vector2(sg2 * s * 0.36, -s * 0.5)
+			pad.draw_circle(top + Vector2(sg2 * s * 0.06, -s * 0.16), s * 0.17, col)
+			pad.draw_line(top, c + Vector2(-sg2 * s * 0.05, s * 0.62), col, 6.0, true)
+			var a0 := c + Vector2(-sg2 * s * 0.5, -s * 0.05)
+			var a1 := c + Vector2(-sg2 * s * 0.05, -s * 0.45)
+			pad.draw_line(a0, a1, col, 3.5, true)
+			pad.draw_line(a1, a1 + Vector2(-sg2 * s * 0.22, -s * 0.0), col, 3.5, true)
+			pad.draw_line(a1, a1 + Vector2(-sg2 * s * 0.02, s * 0.22), col, 3.5, true)
 		"jump", "crouch":
 			var sg: float = 1.0 if n == "jump" else -1.0
 			for k in 2:
@@ -439,6 +477,9 @@ func _draw_all() -> void:
 	_cbtn("fire", "fire")
 	_cbtn("jump", "jump")
 	_cbtn("crouch", "crouch", "", crouch_on)
+	_cbtn("prone", "prone", "", p.prone)
+	_cbtn("lean_l", "lean_l", "", lean_on == -1)
+	_cbtn("lean_r", "lean_r", "", lean_on == 1)
 	if _vis("reload"):
 		_cbtn("reload", "reload", "", p.mag() == 0 and p.reload_t <= 0.0)
 		if p.reload_t > 0.0 and p.reload_total > 0.0:

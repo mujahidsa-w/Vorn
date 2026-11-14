@@ -150,6 +150,9 @@ func _physics_process(dt: float) -> void:
 		jump = Input.is_action_just_pressed("jump")
 		crouch = Input.is_action_pressed("crouch")
 		walk = Input.is_action_pressed("walk")
+		if Input.is_action_just_pressed("prone"):
+			prone = not prone
+		lean_want = Input.get_action_strength("lean_r") - Input.get_action_strength("lean_l")
 	if game.frozen():
 		wish = Vector2.ZERO
 		jump = false
@@ -225,7 +228,8 @@ func _process(dt: float) -> void:
 		head.global_position = eye() + Vector3(0, bob + land_dip, 0)
 		var p := view_pitch + deg_to_rad(punch.x) * 0.5
 		var y := view_yaw + deg_to_rad(punch.y) * 0.5
-		head.global_transform.basis = Basis(Vector3.UP, y) * Basis(Vector3.RIGHT, clampf(p, -1.55, 1.55)) * Basis.from_euler(sh)
+		# leaning tilts the view towards the side the head goes out to
+		head.global_transform.basis = Basis(Vector3.UP, y) * Basis(Vector3.RIGHT, clampf(p, -1.55, 1.55)) * Basis(Vector3.BACK, -lean * 0.2) * Basis.from_euler(sh)
 		vm.visible = cam_mode != "sky"
 		vm.fov_world = cam.fov
 		vm.fov_vm = vm_cam.fov
