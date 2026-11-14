@@ -196,18 +196,62 @@ static func _mount(weapon: Node3D, wid: String, kind: String) -> Dictionary:
 	_mounts[wid] = r
 	return r
 
+const CACHE := "user://sight_mounts.json"
+const CACHE_VER := 3
+
 static func precompute() -> void:
-	## mount points for every weapon with an optic, while the loading screen is up
+	## mount points for every weapon with an optic, while the loading screen is up; measured once per install
+	_load_cache()
+	var changed := false
 	for wid in DB.W:
 		var d: Dictionary = DB.W[wid]
-		if not d.has("sight") or _mounts.has(wid):
+		if not d.has("sight") or (_mounts.has(wid) and (d["sight"] != "sniper" or _builtins.has(wid))):
 			continue
 		var path := "res://assets/models/weapons/%s.scn" % wid
 		if not ResourceLoader.exists(path):
 			continue
 		var w := (load(path) as PackedScene).instantiate() as Node3D
 		_mount(w, wid, String(d["sight"]))
+		if d["sight"] == "sniper":
+			_builtin_scope(w, wid)
 		w.free()
+		changed = true
+	if changed:
+		_save_cache()
+
+static func _v3(a) -> Array:
+	return [a.x, a.y, a.z]
+
+static func _save_cache() -> void:
+	var out := {"ver": CACHE_VER, "mounts": {}, "builtins": {}}
+	for k in _mounts:
+		var m: Dictionary = _mounts[k]
+		out["mounts"][k] = {"pos": _v3(m["pos"]), "grip": _v3(m["grip"])}
+	for k in _builtins:
+		var b: Dictionary = _builtins[k]
+		out["builtins"][k] = {} if b.is_empty() else {"pos": _v3(b["pos"]), "r": b["r"]}
+	var f := FileAccess.open(CACHE, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(out))
+
+static func _load_cache() -> void:
+	if not FileAccess.file_exists(CACHE):
+		return
+	var d = JSON.parse_string(FileAccess.get_file_as_string(CACHE))
+	if not (d is Dictionary) or int(d.get("ver", 0)) != CACHE_VER:
+		return
+	for k in d.get("mounts", {}):
+		var m: Dictionary = d["mounts"][k]
+		var p: Array = m["pos"]
+		var g: Array = m["grip"]
+		_mounts[k] = {"pos": Vector3(p[0], p[1], p[2]), "grip": Vector3(g[0], g[1], g[2])}
+	for k in d.get("builtins", {}):
+		var b: Dictionary = d["builtins"][k]
+		if b.is_empty():
+			_builtins[k] = {}
+		else:
+			var bp: Array = b["pos"]
+			_builtins[k] = {"pos": Vector3(bp[0], bp[1], bp[2]), "r": float(b["r"])}
 
 static func _builtin_scope(weapon: Node3D, wid: String) -> Dictionary:
 	## A scope already modelled on the weapon (the AWP has one): a long raised run along the top, much higher than the
