@@ -6,10 +6,11 @@ ARG GODOT_VERSION=4.6.2
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl unzip libfontconfig1 \
  && rm -rf /var/lib/apt/lists/* \
+ && ARCH=$(uname -m | sed 's/aarch64/arm64/') \
  && curl -fL --retry 3 -o /tmp/godot.zip \
-    "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip" \
+    "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.${ARCH}.zip" \
  && unzip -q /tmp/godot.zip -d /tmp \
- && mv "/tmp/Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot \
+ && mv "/tmp/Godot_v${GODOT_VERSION}-stable_linux.${ARCH}" /usr/local/bin/godot \
  && rm /tmp/godot.zip
 WORKDIR /game
 COPY . /game

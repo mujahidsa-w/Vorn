@@ -55,6 +55,7 @@ var hello_ok := {}                    # peer -> true once the protocol matches
 var queue: Array = []                 # [{peer, outfit}]
 var count_t := -1.0
 var countdown := COUNTDOWN
+var max_battles := BATTLE_PORTS       # --max_battles: how many battles the machine can hold (~400 MB each)
 var battles := {}                     # port -> {pid, group, t, sent}
 var _dirty := false
 var _save_t := 0.0
@@ -338,6 +339,7 @@ func start_master() -> void:
 	_data_dir()
 	_load_accounts()
 	countdown = float(G.args.get("countdown", COUNTDOWN))
+	max_battles = clampi(int(G.args.get("max_battles", BATTLE_PORTS)), 1, BATTLE_PORTS)
 	var peer := ENetMultiplayerPeer.new()
 	var port := int(G.args.get("port", PORT))
 	var err := peer.create_server(port, 256)
@@ -651,6 +653,8 @@ func _launch() -> void:
 		return
 	var port := 0
 	for i in range(1, BATTLE_PORTS + 1):
+		if battles.size() >= max_battles:
+			break
 		if not battles.has(PORT + i):
 			port = PORT + i
 			break

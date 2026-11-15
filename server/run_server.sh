@@ -8,10 +8,11 @@ GODOT_VERSION=4.6.2
 GODOT="${GODOT:-$PWD/.server_bin/godot}"
 if [ ! -x "$GODOT" ]; then
   mkdir -p .server_bin
+  ARCH=$(uname -m | sed 's/aarch64/arm64/')
   curl -fL --retry 3 -o .server_bin/godot.zip \
-    "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+    "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.${ARCH}.zip"
   unzip -q -o .server_bin/godot.zip -d .server_bin
-  mv ".server_bin/Godot_v${GODOT_VERSION}-stable_linux.x86_64" "$GODOT"
+  mv ".server_bin/Godot_v${GODOT_VERSION}-stable_linux.${ARCH}" "$GODOT"
   rm .server_bin/godot.zip
 fi
 "$GODOT" --headless --path . --import >/dev/null 2>&1 || true
