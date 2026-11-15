@@ -8,7 +8,7 @@ const VERSION := "2.1.0"
 var settings := {
 	"sens": 1.0, "fov": 90.0, "vol_master": 0.8, "vol_music": 0.45, "vol_sfx": 0.9,
 	"quality": 2, "fullscreen": true, "vsync": true, "crosshair": 0, "cross_color": 0,
-	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "outfit": 0, "mode": "br", "br_map": "island", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
+	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "outfit": 0, "mode": "br", "br_map": "island", "view": "tpp", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
 }
 var profile := {"credits": 1500, "inv": [], "equip": {}, "cases": 0, "matches": 0, "wins": 0, "kills": 0}
 var args := {}
@@ -183,7 +183,7 @@ func _input_map() -> void:
 		"fwd": KEY_W, "back": KEY_S, "left": KEY_A, "right": KEY_D, "jump": KEY_SPACE, "crouch": KEY_CTRL, "walk": KEY_SHIFT,
 		"reload": KEY_R, "use": KEY_E, "buy": KEY_B, "quick": KEY_Q, "inspect": KEY_F, "score": KEY_TAB, "pause": KEY_ESCAPE,
 		"slot1": KEY_1, "slot2": KEY_2, "slot3": KEY_3, "slot4": KEY_4, "slot5": KEY_5,
-		"prone": KEY_Z, "lean_l": KEY_C, "lean_r": KEY_V,
+		"prone": KEY_Z, "lean_l": KEY_C, "lean_r": KEY_V, "view": KEY_T,
 	}
 	for n in keys:
 		if not InputMap.has_action(n):

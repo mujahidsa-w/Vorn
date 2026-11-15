@@ -103,6 +103,7 @@ func _layout() -> void:
 		"buy": [Vector2(r - 112, H - 640), 60.0],
 		"pause": [Vector2(r - 62, 66), 44.0],
 		"score": [Vector2(r - 168, 66), 44.0],
+		"view": [Vector2(sx + 316, H - 560), 46.0],
 	}
 	if not joy_on:
 		joy_c = Vector2(sx + 250, H - 270)
@@ -215,7 +216,7 @@ func _down(i: int, pos: Vector2) -> void:
 		_set_action("score", false)
 		held[i] = {"role": "tap", "id": "score"}
 		return
-	for id in ["pause", "score"]:
+	for id in ["pause", "score", "view"]:
 		if _hit(id, pos):
 			_tap(id, i)
 			return
@@ -278,6 +279,8 @@ func _tap(id: String, i: int) -> void:
 		"score":
 			score_on = not score_on
 			_set_action("score", score_on)
+		"view":
+			p.toggle_view()
 
 func _drag(i: int, pos: Vector2, rel: Vector2) -> void:
 	var role: String = held[i]["role"]
@@ -459,6 +462,7 @@ func _draw_all() -> void:
 	pad.draw_set_transform(Vector2.ZERO, 0.0, Vector2(u, u))
 	_cbtn("pause", "pause")
 	_cbtn("score", "score", "", score_on)
+	_cbtn("view", "", "3P" if String(G.settings.get("view", "tpp")) == "tpp" else "1P")
 	if not p.alive or score_on:
 		return
 	_draw_status(p)

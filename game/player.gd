@@ -18,6 +18,8 @@ var fov_cur := 90.0
 var bob_ph := 0.0
 var land_dip := 0.0
 var cam_mode := ""                # "" — normal; "free" — the game places the camera (plane); "sky" — no weapon in hands (fall, parachute)
+var tpp_k := 0.0                  # 0 first person .. 1 third person (eased)
+var tpp_target := Vector3.INF     # third person: the point under the crosshair, where the shots go
 
 func init_player() -> void:
 	head = Node3D.new()
@@ -92,6 +94,7 @@ func init_player() -> void:
 	# a weapon given before the view existed (battle royale starts with the knife already in hand)
 	if cur != "":
 		vm.set_weapon(cur)
+	ensure_body.call_deferred()
 	shot.connect(func(w):
 		vm.on_shot()
 		# короткая встряска камеры по силе отдачи
@@ -115,6 +118,64 @@ func look(rel: Vector2, k: float) -> void:
 		look_acc += rel * k
 	elif not alive:
 		orbit -= rel.x * k
+
+# ------------------------------------------------------------------ third person
+## Third person (the default): the camera over the right shoulder, the fighter's own body in view; aiming through
+## an optic goes to first person. Shots leave the eye towards the point under the crosshair.
+func third_person() -> bool:
+	if not alive or not (cam_mode == "" or cam_mode == "sky"):
+		return false
+	if String(G.settings.get("view", "tpp")) != "tpp" or body == null:
+		return false
+	return not (scoped and wd().has("sight"))
+
+func toggle_view() -> void:
+	G.settings["view"] = "fpp" if String(G.settings.get("view", "tpp")) == "tpp" else "tpp"
+	G.save_settings()
+
+func ensure_body() -> void:
+	## the fighter's own body: seen in third person, in vehicles and by the camera after death
+	if body != null or not FighterBody.available(model_name):
+		return
+	var fb := FighterBody.new()
+	fb.name = "Body"
+	add_child(fb)
+	fb.setup(self, model_name)
+	body = fb
+	shot.connect(fb.on_shot.unbind(1))
+	reload_started.connect(func(_w, t): fb.on_reload(t))
+
+func _place_camera() -> void:
+	if tpp_k <= 0.001:
+		cam.position = Vector3.ZERO
+		tpp_target = Vector3.INF
+		return
+	var off := Vector3(0.0, 0.9, 4.6) if cam_mode == "sky" else Vector3(0.55, 0.32 + 0.25 * prone_t, 2.7 + 0.4 * prone_t)
+	var from := head.global_position
+	var to := head.global_transform * (off * tpp_k)
+	var space := get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(from, to, 1)
+	var hit := space.intersect_ray(q)
+	if not hit.is_empty():
+		to = (hit["position"] as Vector3) + (from - to).normalized() * 0.25
+	cam.global_position = to
+	# what the crosshair is on
+	var fwd := -cam.global_basis.z
+	var q2 := PhysicsRayQueryParameters3D.create(to + fwd * 0.3, to + fwd * 650.0, 5)
+	q2.exclude = hit_rids
+	var hit2 := space.intersect_ray(q2)
+	tpp_target = hit2["position"] if not hit2.is_empty() else to + fwd * 650.0
+
+func aim_basis(with_punch := true) -> Basis:
+	if tpp_k < 0.5 or tpp_target == Vector3.INF:
+		return super.aim_basis(with_punch)
+	var d := tpp_target - eye()
+	if d.length() < 1.5:
+		return super.aim_basis(with_punch)
+	d = d.normalized()
+	var yy := atan2(-d.x, -d.z) + (deg_to_rad(punch.y) if with_punch else 0.0)
+	var pp := asin(clampf(d.y, -1.0, 1.0)) + (deg_to_rad(punch.x) if with_punch else 0.0)
+	return Basis(Vector3.UP, yy) * Basis(Vector3.RIGHT, pp)
 
 func aim_on_enemy() -> bool:
 	## True while the crosshair rests on a visible enemy (the touch controls slow the camera a little then).
@@ -165,6 +226,8 @@ func _physics_process(dt: float) -> void:
 		jump = Input.is_action_just_pressed("jump")
 		crouch = Input.is_action_pressed("crouch")
 		walk = Input.is_action_pressed("walk")
+		if Input.is_action_just_pressed("view"):
+			toggle_view()
 		if Input.is_action_just_pressed("prone"):
 			prone = not prone
 		lean_want = Input.get_action_strength("lean_r") - Input.get_action_strength("lean_l")
@@ -245,7 +308,9 @@ func _process(dt: float) -> void:
 		var y := view_yaw + deg_to_rad(punch.y) * 0.5
 		# leaning tilts the view towards the side the head goes out to
 		head.global_transform.basis = Basis(Vector3.UP, y) * Basis(Vector3.RIGHT, clampf(p, -1.55, 1.55)) * Basis(Vector3.BACK, -lean * 0.2) * Basis.from_euler(sh)
-		vm.visible = cam_mode != "sky"
+		tpp_k = move_toward(tpp_k, 1.0 if third_person() else 0.0, dt * 6.0)
+		_place_camera()
+		vm.visible = cam_mode != "sky" and tpp_k < 0.5
 		vm.fov_world = cam.fov
 		vm.fov_vm = vm_cam.fov
 		vm.tick(dt, look_acc)

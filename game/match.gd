@@ -843,7 +843,7 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 	var space := get_world_3d().direct_space_state
 	var remaining := bullet_range
 	var start_vis := from
-	if shooter == player and player.vm:
+	if shooter == player and player.vm and player.tpp_k < 0.5:
 		start_vis = player.vm.muzzle_world()
 	elif shooter.body:
 		start_vis = shooter.body.muzzle_pos()

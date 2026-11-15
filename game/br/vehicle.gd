@@ -236,13 +236,8 @@ func enter(a: Actor) -> void:
 	a.view_pitch = -0.12
 	if a == game.player:
 		game.player.cam_mode = "drive"
-	if a.body == null and a == game.player and FighterBody.available(a.model_name):
-		var fb := FighterBody.new()
-		fb.name = "Body"
-		a.add_child(fb)
-		fb.setup(a, a.model_name)
-		a.body = fb
-		a.set_meta("drive_body", true)
+	if a == game.player:
+		(a as Player).ensure_body()
 	if a.body:
 		a.body.visible = true
 	game.sound_at("draw", global_position, -4.0, a)
@@ -270,8 +265,7 @@ func leave(a: Actor, forced := false) -> void:
 			a.take_damage((linear_velocity.length() - 9.0) * 6.0, null, "fall", "legs", a.global_position)
 	if a == game.player:
 		game.player.cam_mode = ""
-	if a.has_meta("drive_body") and a.body:
-		a.body.visible = false
+	pass
 
 # ------------------------------------------------------------------ damage
 func damage(n: float, by: Actor) -> void:
