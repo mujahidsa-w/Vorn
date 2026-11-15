@@ -99,7 +99,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots
           git commit -m "Lobby screenshots with the real character models (attackers and defenders)" || exit 0
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          for i in 1 2 3 4; do
+            git pull --rebase --autostash -q origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break
+            sleep $((i * 5))
+          done
 
       - name: Battle royale screenshots (committed to the branch)
         if: ${{ inputs.br_shots }}
@@ -112,10 +115,13 @@ jobs:
           for f in br/*.png; do convert "$f" -quality 85 "docs/screenshots/$(basename "${f%.png}").jpg"; done
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase -q origin "${GITHUB_REF_NAME}" || true
           git add docs/screenshots
           git commit -m "Battle royale screenshots with the real models" || exit 0
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          # the branch may have moved while the shots were taken: rebase over it (the import leaves files changed) and retry
+          for i in 1 2 3 4; do
+            git pull --rebase --autostash -q origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break
+            sleep $((i * 5))
+          done
 
       - name: Weapon geometry and optic placement (last, so the log tail holds it)
         run: '"$GODOT" --headless --path . --script res://tools/preview/dump.gd 2>&1 | grep -vE "^(Godot Engine|$)" | head -400 || true'

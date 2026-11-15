@@ -38,11 +38,17 @@ var _step_cd := 0.0
 
 static func available(n: String) -> bool:
 	## character models come from the original game archive at build time; local checkouts may not have them
-	return ResourceLoader.exists("res://assets/models/chars/%s.scn" % n) and ResourceLoader.exists(AnimLib.SRC)
+	return ResourceLoader.exists(char_path(n)) and ResourceLoader.exists(AnimLib.SRC)
+
+## the original game's characters, or the soldiers baked from Last Circle (lc_a .. lc_d, Mixamo bone names)
+static func char_path(n: String) -> String:
+	if n.begins_with("lc_"):
+		return "res://assets/lc_chars/%s.scn" % n
+	return "res://assets/models/chars/%s.scn" % n
 
 static func scene(n: String) -> PackedScene:
 	if not _scenes.has(n):
-		_scenes[n] = load("res://assets/models/chars/%s.scn" % n)
+		_scenes[n] = load(char_path(n))
 	return _scenes[n]
 
 func setup(a: Actor, model_name: String) -> void:
@@ -91,6 +97,10 @@ func setup(a: Actor, model_name: String) -> void:
 	gun_mod.body = self
 	skel.add_child(gun_mod)
 	_prone_setup()
+	gear_helmet = model.find_child("GearHelmet", true, false) as Node3D
+	gear_vest = model.find_child("GearVest", true, false) as Node3D
+	if gear_helmet:
+		gear_helmet.visible = false
 	_play("rifle_idle_aiming")
 
 # ------------------------------------------------------------------ lying down
@@ -123,9 +133,15 @@ func _prone_pose() -> void:
 const HELMET_FIT := 1.04
 var helmet_node: Node3D
 var helmet_on := false
+var gear_helmet: Node3D           # soldiers that model their own helmet and vest
+var gear_vest: Node3D
+var vest_on := true
 
 func _wear_helmet(on: bool) -> void:
 	helmet_on = on
+	if gear_helmet:
+		gear_helmet.visible = on
+		return
 	if on and helmet_node == null:
 		helmet_node = _make_helmet()
 	if helmet_node:
@@ -370,6 +386,9 @@ func _process(_dt: float) -> void:
 		set_weapon(actor.cur)
 	if actor.helmet != helmet_on:
 		_wear_helmet(actor.helmet)
+	if gear_vest and (actor.armor > 0) != vest_on:
+		vest_on = actor.armor > 0
+		gear_vest.visible = vest_on
 	var hold: String = actor.wd()["hold"]
 	var rifle := hold in ["rifle", "smg"]
 	var v := actor.velocity

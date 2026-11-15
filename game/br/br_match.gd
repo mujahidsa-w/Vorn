@@ -187,7 +187,7 @@ func _spawn_people(humans: Array = [], roster: Array = []) -> void:
 				a = pp
 			a.name = "Fighter_%d" % int(e[0])
 			add_child(a)
-			a.setup(self, "t" if model.begins_with("t") else "ct", String(e[2]), false, model)
+			a.setup(self, "ct" if model.begins_with("ct") else "t", String(e[2]), false, model)
 			a.full_reset()
 			_strip(a)
 			if a == player:
@@ -199,6 +199,10 @@ func _spawn_people(humans: Array = [], roster: Array = []) -> void:
 			actors.append(a)
 		return
 	var models := ["t_1", "t_2", "ct_1", "ct_2"]
+	# the four soldiers of Last Circle join the original fighters
+	for k in ["lc_a", "lc_b", "lc_c", "lc_d"]:
+		if FighterBody.available(k):
+			models.append(k)
 	var names := NICKS.duplicate()
 	names.shuffle()
 	var pteam := String(G.settings.get("team", "ct"))
@@ -207,7 +211,7 @@ func _spawn_people(humans: Array = [], roster: Array = []) -> void:
 		var is_p := i == 0
 		var remote := i > 0 and i < humans.size()        # another player in the room
 		var model: String = pmodel if is_p else models[rng.randi() % models.size()]
-		var team := "t" if model.begins_with("t") else "ct"
+		var team := "ct" if model.begins_with("ct") else "t"
 		var a: Actor
 		if is_p:
 			player = Player.new()
