@@ -642,6 +642,8 @@ func _release_nade() -> void:
 func take_damage(dmg: float, attacker: Actor, wid: String, zone: String, from_pos: Vector3) -> void:
 	if not alive or game.round_over_no_damage():
 		return
+	if self == game.player and game.get("gallery") == true:
+		return          # screenshot gallery
 	var real := dmg
 	var absorbed := false
 	if armor > 0 and zone != "legs" and (zone != "head" or helmet) and wid not in ["fall", "fire", "zone", "runover", "vehicle"]:

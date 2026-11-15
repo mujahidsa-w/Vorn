@@ -50,6 +50,7 @@ var net: BRNet = null                 # online: the network module
 var net_role := ""                    # "", "host" or "client"
 var world_seed := 0
 var world_map := "desert"             # desert (Golden Valley) or island (Borovaya)
+var gallery := false                  # screenshot gallery: the world holds still and the player cannot be hurt
 var loot_rng := RandomNumberGenerator.new()
 var veh_rng := RandomNumberGenerator.new()
 var items_by_nid := {}
@@ -447,7 +448,7 @@ func _land(a: Actor, ground: float) -> void:
 	var p := a.global_position
 	a.global_position = Vector3(p.x, ground + 0.05, p.z)
 	a.velocity = Vector3(f["vel"].x, 0, f["vel"].z) * 0.3
-	a.set_physics_process(true)
+	a.set_physics_process(not gallery or a == player)
 	a._set_hit_enabled(true)
 	if a == player:
 		player.cam_mode = ""
@@ -1160,6 +1161,7 @@ func _give(a: Actor, wid: String) -> void:
 
 func _gallery() -> void:
 	## extra screenshots for checking the new content with the real models: imported weapons, vehicles, poses, helmet, drop
+	gallery = true
 	for a in actors:
 		if a != player:
 			a.set_physics_process(false)
