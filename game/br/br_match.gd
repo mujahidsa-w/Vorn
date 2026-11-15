@@ -95,7 +95,7 @@ func _ready() -> void:
 	_start_plane()
 	overlay.queue_free()
 	hud.announce("وادي الذهب", 4.0, "اقفز من الطائرة عندما تكون فوق المكان الذي تريد الهبوط فيه", UI.GOLD)
-	if G.shots_dir != "":
+	if G.shots_dir != "" and not G.args.has("dev"):
 		_auto_shots()
 
 func _loading_overlay() -> void:

@@ -17,6 +17,7 @@ var hamlets: Array = []             # {c, r, h}
 var roads: Array = []               # [Vector2, Vector2, h_a, h_b]
 var loot_points: Array = []         # {pos: Vector3, door: Vector3 (or pos), inside: bool, path: [waypoints to walk first]}
 var footprints: Array = []          # {c: Vector2, half: Vector2, rot: float}  (houses, for the map)
+var houses2: Array = []             # transforms of the two-storey houses
 var map_tex: ImageTexture
 var rng := RandomNumberGenerator.new()
 var _nb := FastNoiseLite.new()
@@ -401,8 +402,9 @@ func _town(t: Dictionary, big: bool) -> void:
 		var ang := rng.randf() * TAU
 		var dist := rng.randf_range(r * 0.36, r - 7.0) if big else rng.randf_range(0.0, r - 6.0)
 		var p := c + Vector2(cos(ang), sin(ang)) * dist
-		var w := rng.randf_range(6.5, 10.5)
-		var d := rng.randf_range(6.0, 9.0)
+		var two := big and rng.randf() < 0.45
+		var w := rng.randf_range(8.5, 11.0) if two else rng.randf_range(6.5, 10.5)
+		var d := rng.randf_range(8.2, 10.0) if two else rng.randf_range(6.0, 9.0)
 		var rad := Vector2(w, d).length() * 0.5 + 2.6
 		var ok := true
 		for q in placed:
@@ -415,7 +417,10 @@ func _town(t: Dictionary, big: bool) -> void:
 		var face := c - p
 		# doors (local -z) look towards the square
 		var rot: float = axis + round((atan2(-face.x, -face.y) - axis) / (PI / 2.0)) * (PI / 2.0)
-		_house(sts, Transform3D(Basis(Vector3.UP, rot), Vector3(p.x, base, p.y)), w, d, rng.randf() < 0.55, rng.randf() < 0.5)
+		if two:
+			_house2(sts, Transform3D(Basis(Vector3.UP, rot), Vector3(p.x, base, p.y)), w, d, rng.randf() < 0.5)
+		else:
+			_house(sts, Transform3D(Basis(Vector3.UP, rot), Vector3(p.x, base, p.y)), w, d, rng.randf() < 0.55, rng.randf() < 0.5)
 	if big:
 		# watchtower in the square, stalls around it, broken town wall
 		_tower(sts, Transform3D(Basis(Vector3.UP, axis), Vector3(c.x, base, c.y) + Basis(Vector3.UP, axis) * Vector3(r * 0.12, 0, -r * 0.1)))
@@ -502,6 +507,93 @@ func _house(sts: Dictionary, xf: Transform3D, w: float, d: float, stairs: bool, 
 		_loot(xf * Vector3(rng.randf_range(-hw + 0.9, hw - 0.9), 0.35, rng.randf_range(-hd + 0.9, hd - 0.9)), door, true, [door, in_door])
 	var c := xf.origin
 	footprints.append({"c": Vector2(c.x, c.z), "half": Vector2(hw, hd), "rot": xf.basis.get_euler().y})
+
+func _house2(sts: Dictionary, xf: Transform3D, w: float, d: float, alt: bool) -> void:
+	## two storeys: an inside staircase along the east wall up through a stairwell, big windows and a front balcony
+	## upstairs, a flat roof behind a parapet. Local frame: front door towards -z.
+	var h1 := 3.2
+	var slab := 0.25
+	var h2 := 3.0
+	var th := 0.3
+	var wk := "wall2" if alt else "wall"
+	var hw := w * 0.5
+	var hd := d * 0.5
+	var up := h1 + slab                   # upper floor level
+	# ground floor
+	_solid(sts, "floor", xf, Vector3(0, 0.1, 0), Vector3(w, 0.2, d), 2.0)
+	var door_x := rng.randf_range(-hw + 1.4, hw - 3.0)
+	_wall_with_hole(sts, wk, xf, Vector3(0, 0, -hd + th * 0.5), Vector3.RIGHT, w, h1, th, door_x, 1.4, 0.0, 2.4)
+	_wall_with_hole(sts, wk, xf, Vector3(0, 0, hd - th * 0.5), Vector3.RIGHT, w, h1, th, rng.randf_range(-hw + 1.4, hw - 2.6), 1.1, 1.1, 2.1)
+	_wall_with_hole(sts, wk, xf, Vector3(-hw + th * 0.5, 0, 0), Vector3.BACK, d - th * 2.0, h1, th, rng.randf_range(-hd + 1.6, hd - 1.6), 1.1, 1.1, 2.1)
+	_solid(sts, wk, xf, Vector3(hw - th * 0.5, h1 * 0.5, 0), Vector3(th, h1, d - th * 2.0))
+	# staircase inside the east wall: from near the front up to the back
+	var sx := hw - th - 0.6                # centre line of the stairs
+	var run := 4.6
+	var n := 15
+	var z0 := -hd + th + 0.9               # foot of the stairs
+	var z1 := z0 + run                     # top
+	for i in n:
+		var top := up * (i + 1) / n
+		var zc := z0 + run * (i + 0.5) / n
+		add_box(sts[wk], xf, Vector3(sx, top * 0.5, zc), Vector3(1.15, top, run / n + 0.01))
+		var ct := maxf(0.05, up * i / n - 0.12)
+		_collide(xf, Vector3(sx, ct * 0.5, zc), Vector3(1.15, ct, run / n + 0.01))
+	var ang := -atan2(up, run)
+	var ln := sqrt(run * run + up * up)
+	var ramp := Transform3D(Basis(Vector3.RIGHT, ang), Vector3(sx, up * 0.5 - 0.06, z0 + run * 0.5))
+	var rcs := CollisionShape3D.new()
+	var rbs := BoxShape3D.new()
+	rbs.size = Vector3(1.15, 0.12, ln)
+	rcs.shape = rbs
+	rcs.transform = xf * ramp
+	world_body.add_child(rcs)
+	# upper floor slab with the stairwell left open over the stairs
+	var hx0 := sx - 0.6                    # inner edge of the stairwell
+	var hz0 := z0 + 0.7
+	var hz1 := z1 + 0.05
+	_solid(sts, "roof", xf, Vector3((-hw + hx0) * 0.5, h1 + slab * 0.5, 0), Vector3(hx0 + hw, slab, d), 3.0)
+	_solid(sts, "roof", xf, Vector3((hx0 + hw) * 0.5, h1 + slab * 0.5, (-hd + hz0) * 0.5), Vector3(hw - hx0, slab, hz0 + hd), 3.0)
+	_solid(sts, "roof", xf, Vector3((hx0 + hw) * 0.5, h1 + slab * 0.5, (hz1 + hd) * 0.5), Vector3(hw - hx0, slab, hd - hz1), 3.0)
+	# guard rail round the stairwell upstairs (open at the top of the stairs)
+	_solid(sts, "wood", xf, Vector3(hx0 - 0.04, up + 0.5, (hz0 + hz1) * 0.5 - 0.5), Vector3(0.08, 1.0, hz1 - hz0 - 1.0), 1.2)
+	_solid(sts, "wood", xf, Vector3((hx0 + hw - th) * 0.5, up + 0.5, hz0 - 0.04), Vector3(hw - th - hx0, 1.0, 0.08), 1.2)
+	# upper storey: balcony door at the front, big windows elsewhere
+	var bx := rng.randf_range(-hw + 2.0, hw - 3.2)
+	_wall_with_hole(sts, wk, xf, Vector3(0, up, -hd + th * 0.5), Vector3.RIGHT, w, h2, th, bx, 1.3, 0.0, 2.3)
+	_wall_with_hole(sts, wk, xf, Vector3(0, up, hd - th * 0.5), Vector3.RIGHT, w, h2, th, rng.randf_range(-hw + 1.6, hw - 1.6), 1.6, 0.9, 2.2)
+	_wall_with_hole(sts, wk, xf, Vector3(-hw + th * 0.5, up, 0), Vector3.BACK, d - th * 2.0, h2, th, rng.randf_range(-hd + 1.8, hd - 1.8), 1.6, 0.9, 2.2)
+	_wall_with_hole(sts, wk, xf, Vector3(hw - th * 0.5, up, 0), Vector3.BACK, d - th * 2.0, h2, th, rng.randf_range(-hd + 1.8, hd - 1.8), 1.6, 0.9, 2.2)
+	# balcony on the front with a low wall and wooden beams under it
+	_solid(sts, "roof", xf, Vector3(bx, h1 + slab * 0.5, -hd - 0.75), Vector3(3.2, slab, 1.5), 3.0)
+	_solid(sts, wk, xf, Vector3(bx, up + 0.5, -hd - 1.45), Vector3(3.2, 1.0, 0.12))
+	_solid(sts, wk, xf, Vector3(bx - 1.55, up + 0.5, -hd - 0.75), Vector3(0.12, 1.0, 1.5))
+	_solid(sts, wk, xf, Vector3(bx + 1.55, up + 0.5, -hd - 0.75), Vector3(0.12, 1.0, 1.5))
+	for k in 4:
+		add_box(sts["wood"], xf, Vector3(bx - 1.3 + k * 0.866, h1 - 0.1, -hd - 0.7), Vector3(0.14, 0.2, 1.4), 1.2)
+	# roof, parapet, a band at the floor level and wooden shutters by the upstairs windows
+	var top_y := up + h2
+	_solid(sts, "roof", xf, Vector3(0, top_y + 0.13, 0), Vector3(w + 0.3, 0.26, d + 0.3), 3.0)
+	var py := top_y + 0.26 + 0.35
+	_solid(sts, wk, xf, Vector3(0, py, -hd - 0.05), Vector3(w + 0.3, 0.7, 0.25))
+	_solid(sts, wk, xf, Vector3(0, py, hd + 0.05), Vector3(w + 0.3, 0.7, 0.25))
+	_solid(sts, wk, xf, Vector3(-hw - 0.05, py, 0), Vector3(0.25, 0.7, d + 0.3))
+	_solid(sts, wk, xf, Vector3(hw + 0.05, py, 0), Vector3(0.25, 0.7, d + 0.3))
+	add_box(sts["roof"], xf, Vector3(0, h1 + slab * 0.5, 0), Vector3(w + 0.16, slab + 0.08, d + 0.16), 3.0)
+	add_box(sts["wood"], xf, Vector3(door_x, 2.5, -hd - 0.02), Vector3(1.9, 0.18, th + 0.1), 1.2)
+	# loot: downstairs (clear of the stairs) and upstairs, reached through the door and up the stairs
+	var door := xf * Vector3(door_x, 0.3, -hd - 1.6)
+	var in_door := xf * Vector3(door_x, 0.3, -hd + 1.0)
+	for i in rng.randi_range(1, 2):
+		_loot(xf * Vector3(rng.randf_range(-hw + 0.9, hx0 - 0.6), 0.35, rng.randf_range(-hd + 0.9, hd - 0.9)), door, true, [door, in_door])
+	var foot := xf * Vector3(sx, 0.3, z0 - 0.5)
+	var head := xf * Vector3(sx, up + 0.3, z1 + 0.6)
+	var landing := xf * Vector3(hx0 - 0.9, up + 0.3, z1 + 0.6)
+	for i in rng.randi_range(2, 3):
+		_loot(xf * Vector3(rng.randf_range(-hw + 0.9, hx0 - 0.7), up + 0.35, rng.randf_range(-hd + 0.9, hd - 0.9)), door, true,
+			[door, in_door, xf * Vector3(sx - 0.2, 0.3, -hd + th + 0.6), foot, head, landing])
+	var c := xf.origin
+	footprints.append({"c": Vector2(c.x, c.z), "half": Vector2(hw, hd), "rot": xf.basis.get_euler().y})
+	houses2.append([xf, w, d])
 
 func _wall_with_hole(sts: Dictionary, wk: String, xf: Transform3D, center: Vector3, along: Vector3, length: float, hgt: float, th: float,
 		hx: float, hw: float, y0: float, y1: float) -> void:
