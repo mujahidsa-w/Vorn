@@ -1162,6 +1162,10 @@ func _give(a: Actor, wid: String) -> void:
 func _gallery() -> void:
 	## extra screenshots for checking the new content with the real models: imported weapons, vehicles, poses, helmet, drop
 	gallery = true
+	# the plane's camera would take over the free camera while it is still in the air
+	if is_instance_valid(plane):
+		plane.queue_free()
+	phase = "live"
 	for a in actors:
 		if a != player:
 			a.set_physics_process(false)
