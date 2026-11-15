@@ -45,6 +45,7 @@ var storm_wall: MeshInstance3D
 var storm_tick := 0.0
 var air: AirSound
 var drops: AirDrops
+var vehicles: Array = []
 var match_t := 0.0
 var player_place := 0
 var result := {}
@@ -86,6 +87,7 @@ func _ready() -> void:
 	state = S.LIVE
 	_storm_wall()
 	_scatter_loot()
+	_spawn_vehicles()
 	drops = AirDrops.new()
 	drops.name = "AirDrops"
 	add_child(drops)
@@ -504,6 +506,65 @@ func in_safe(p: Vector3) -> bool:
 	return Vector2(p.x, p.z).distance_to(storm["c"]) <= float(storm["r"])
 
 # ------------------------------------------------------------------ loot
+# ------------------------------------------------------------------ vehicles
+func _spawn_vehicles() -> void:
+	## buggies and dirt bikes parked by the roads, at the edge of the towns and by some hamlets
+	var spots := []
+	for rd in land.roads:
+		var a: Vector2 = rd[0]
+		var b: Vector2 = rd[1]
+		var dir := (b - a).normalized()
+		for i in 2:
+			var p := a.lerp(b, rng.randf_range(0.25, 0.75))
+			var side := Vector2(-dir.y, dir.x) * rng.randf_range(4.5, 7.0) * (1.0 if rng.randf() < 0.5 else -1.0)
+			spots.append([p + side, atan2(dir.x, dir.y) + (PI if rng.randf() < 0.5 else 0.0)])
+	for t in land.towns:
+		var ang := rng.randf() * TAU
+		spots.append([(t["c"] as Vector2) + Vector2.from_angle(ang) * (float(t["r"]) + 9.0), ang + PI / 2.0])
+	for h in land.hamlets:
+		if rng.randf() < 0.6:
+			var ang2 := rng.randf() * TAU
+			spots.append([(h["c"] as Vector2) + Vector2.from_angle(ang2) * (float(h["r"]) + 6.0), rng.randf() * TAU])
+	var n := 0
+	for sp in spots:
+		var p2: Vector2 = sp[0]
+		if absf(p2.x) > BRLand.HALF - 40.0 or absf(p2.y) > BRLand.HALF - 40.0:
+			continue
+		# level ground, clear of houses
+		var h0 := land.height_at(p2.x, p2.y)
+		var steep := false
+		for o in [Vector2(2.5, 0), Vector2(-2.5, 0), Vector2(0, 2.5), Vector2(0, -2.5)]:
+			if absf(land.height_at(p2.x + o.x, p2.y + o.y) - h0) > 0.9:
+				steep = true
+		var blocked := false
+		for fp in land.footprints:
+			if p2.distance_to(fp["c"]) < (fp["half"] as Vector2).length() + 2.5:
+				blocked = true
+				break
+		if steep or blocked:
+			continue
+		var v := Vehicle.new()
+		var kind := "buggy" if rng.randf() < 0.58 else "bike"
+		v.setup(self, kind, Vehicle.PAINT[rng.randi() % Vehicle.PAINT.size()])
+		v.name = "Vehicle_%d" % n
+		add_child(v)
+		v.global_transform = Transform3D(Basis(Vector3.UP, float(sp[1])), Vector3(p2.x, h0 + 0.45, p2.y))
+		vehicles.append(v)
+		n += 1
+		if n >= 20:
+			break
+
+func nearest_vehicle(a: Actor) -> Vehicle:
+	var best: Vehicle = null
+	var bd := 3.4
+	for v in vehicles:
+		var vh := v as Vehicle
+		var d := vh.global_position.distance_to(a.global_position)
+		if d < bd and vh.can_enter(a):
+			bd = d
+			best = vh
+	return best
+
 func _pick_table() -> String:
 	var tot := 0.0
 	for e in LOOT_TABLE:
@@ -705,16 +766,20 @@ func _physics_process(dt: float) -> void:
 	_areas_tick(dt)
 	# pickups: automatic for useful things, the use key for swapping weapons
 	for a in actors:
-		if not a.alive or fly[a]["st"] != "ground":
+		if not a.alive or fly[a]["st"] != "ground" or a.vehicle != null:
 			continue
 		var l := nearest_item(a, 1.4 if a == player else 2.4)
 		if l and wants(a, l):
 			take(a, l)
 	if player.alive and fly[player]["st"] == "ground" and not auto:
-		if Input.is_action_just_pressed("use"):
+		if Input.is_action_just_pressed("use") and player.vehicle == null and Time.get_ticks_msec() > player.vehicle_cd:
 			var w := nearest_item(player, 1.9, true)
 			if w:
 				take(player, w, true)
+			else:
+				var vh := nearest_vehicle(player)
+				if vh:
+					vh.enter(player)
 		if Input.is_action_just_pressed("buy"):
 			use_heal(player)
 	var inside: bool = in_safe(player.global_position) or not player.alive or fly[player]["st"] != "ground"
@@ -768,9 +833,13 @@ func touch_use_label() -> String:
 	if st == "fall":
 		return "المظلة"
 	if st == "ground":
+		if player.vehicle:
+			return "انزل"
 		var w := nearest_item(player, 1.9, true)
 		if w:
 			return "التقط"
+		if nearest_vehicle(player):
+			return "اركب"
 	return ""
 
 func alive_count() -> int:
@@ -866,6 +935,112 @@ func _process(_dt: float) -> void:
 		player.cam.fov = 70.0
 
 # ------------------------------------------------------------------ dev screenshots
+func _give(a: Actor, wid: String) -> void:
+	a.inv[int(DB.W[wid]["slot"])] = wid
+	a._fill(wid)
+	a.cur = ""
+	a.switch_to(wid, true)
+
+func _gallery() -> void:
+	## extra screenshots for checking the new content with the real models: imported weapons, vehicles, poses, helmet, drop
+	for a in actors:
+		if a != player:
+			a.set_physics_process(false)
+	_give(player, "m416")
+	await get_tree().create_timer(1.0).timeout
+	await G.shot("br_10_m416")
+	player.scoped = true
+	await get_tree().create_timer(0.9).timeout
+	await G.shot("br_11_m416_ads")
+	player.scoped = false
+	_give(player, "awm")
+	await get_tree().create_timer(0.9).timeout
+	await G.shot("br_12_awm")
+	# driving: the nearest buggy, then the nearest bike
+	for kind in ["buggy", "bike"]:
+		var best: Vehicle = null
+		var bd := INF
+		for v in vehicles:
+			var vh := v as Vehicle
+			var d := vh.global_position.distance_to(player.global_position)
+			if vh.kind == kind and d < bd:
+				bd = d
+				best = vh
+		if best == null:
+			continue
+		player.global_position = best.global_position + best.global_basis.x * 2.0 + Vector3(0, 0.5, 0)
+		await get_tree().create_timer(0.3).timeout
+		best.enter(player)
+		test_wish = Vector2(0, 1)
+		await get_tree().create_timer(2.6).timeout
+		test_wish = Vector2(0.5, 1)
+		await get_tree().create_timer(0.6).timeout
+		await G.shot("br_13_%s" % kind)
+		test_wish = Vector2.ZERO
+		best.leave(player)
+		await get_tree().create_timer(0.4).timeout
+	# three fighters posed in front of the camera: helmet, lying with the AWM, leaning out with the M416
+	var p0 := player.global_position
+	var yaw := player.view_yaw
+	var f := -Basis(Vector3.UP, yaw).z
+	var r := Basis(Vector3.UP, yaw).x
+	var others: Array = []
+	for a in actors:
+		if a != player and a.alive and a.body:
+			others.append(a)
+		if others.size() == 3:
+			break
+	var setups := [["akm", -2.4, false, 0.0], ["awm", 0.0, true, 0.0], ["m416", 2.4, false, 1.0]]
+	for i in others.size():
+		var o: Actor = others[i]
+		var sp: Array = setups[i]
+		var at: Vector3 = p0 + f * 7.0 + r * float(sp[1])
+		o.global_position = Vector3(at.x, land.ground_at(at.x, at.z, at.y + 3.0), at.z)
+		o.view_yaw = yaw + PI
+		o.view_pitch = 0.0
+		o.velocity = Vector3.ZERO
+		o.helmet = true
+		_give(o, String(sp[0]))
+		o.prone = bool(sp[2])
+		o.prone_t = 1.0 if o.prone else 0.0
+		o.lean = float(sp[3])
+		o.lean_want = o.lean
+		o._apply_crouch()
+	player.cam_mode = "free"
+	var eye := p0 + Vector3(0, 1.6, 0)
+	player.head.global_transform = Transform3D(Basis.IDENTITY, eye).looking_at(p0 + f * 7.0 + Vector3(0, 0.7, 0), Vector3.UP)
+	await get_tree().create_timer(1.2).timeout
+	await G.shot("br_14_poses")
+	if others.size() > 0:
+		var o2: Actor = others[0]
+		var hd := o2.global_position + Vector3(0, 1.7, 0)
+		var of := -Basis(Vector3.UP, o2.view_yaw).z
+		player.head.global_transform = Transform3D(Basis.IDENTITY, hd + of * 1.1 + Basis(Vector3.UP, o2.view_yaw).x * 0.5 + Vector3(0, 0.15, 0)).looking_at(hd, Vector3.UP)
+		await get_tree().create_timer(0.6).timeout
+		await G.shot("br_15_helmet")
+	# a supply crate dropped close by
+	var drop_at := p0 + f * 22.0 + Vector3(0, 32.0, 0)
+	drops._drop(drop_at)
+	player.head.global_transform = Transform3D(Basis.IDENTITY, eye + Vector3(0, 1.0, 0)).looking_at(drop_at - Vector3(0, 14.0, 0), Vector3.UP)
+	await get_tree().create_timer(1.5).timeout
+	await G.shot("br_16_drop_air")
+	await get_tree().create_timer(5.0).timeout
+	player.head.global_transform = Transform3D(Basis.IDENTITY, eye).looking_at(p0 + f * 22.0 + Vector3(0, 2.0, 0), Vector3.UP)
+	await get_tree().create_timer(2.5).timeout
+	await G.shot("br_17_drop_landed")
+	# lying down and leaning, first person
+	player.cam_mode = ""
+	_give(player, "m416")
+	player.prone = true
+	await get_tree().create_timer(1.4).timeout
+	await G.shot("br_18_prone")
+	player.prone = false
+	await get_tree().create_timer(1.2).timeout
+	player.lean_want = 1.0
+	await get_tree().create_timer(0.8).timeout
+	await G.shot("br_19_lean")
+	player.lean_want = 0.0
+
 func _auto_shots() -> void:
 	await get_tree().create_timer(2.0).timeout
 	await G.shot("br_1_plane")
@@ -909,6 +1084,7 @@ func _auto_shots() -> void:
 	await get_tree().create_timer(0.5).timeout
 	await G.shot("br_8_map")
 	Input.action_release("score")
+	await _gallery()
 	player_place = 4
 	_results(false)
 	await get_tree().create_timer(0.6).timeout

@@ -172,21 +172,21 @@ func _landed(c: Dictionary) -> void:
 func _flare(pos: Vector3) -> void:
 	## a red smoke flare burning for a minute, its column visible across the valley
 	var p := CPUParticles3D.new()
-	p.amount = 90
-	p.lifetime = 9.0
-	p.preprocess = 2.0
+	p.amount = 150
+	p.lifetime = 11.0
+	p.preprocess = 3.0
 	p.direction = Vector3(0, 1, 0)
-	p.spread = 12.0
-	p.initial_velocity_min = 2.5
-	p.initial_velocity_max = 4.0
-	p.gravity = Vector3(0.7, 0.9, 0.3)
+	p.spread = 14.0
+	p.initial_velocity_min = 1.6
+	p.initial_velocity_max = 2.8
+	p.gravity = Vector3(0.6, 0.7, 0.25)
 	p.damping_min = 0.2
 	p.damping_max = 0.4
-	p.scale_amount_min = 1.2
-	p.scale_amount_max = 2.2
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 1.8
 	var curve := Curve.new()
-	curve.add_point(Vector2(0, 0.35))
-	curve.add_point(Vector2(1, 2.6))
+	curve.add_point(Vector2(0, 0.6))
+	curve.add_point(Vector2(1, 4.0))
 	p.scale_amount_curve = curve
 	var qm := QuadMesh.new()
 	var m := StandardMaterial3D.new()
@@ -196,11 +196,11 @@ func _flare(pos: Vector3) -> void:
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	m.vertex_color_use_as_albedo = true
 	qm.material = m
-	qm.size = Vector2(2.0, 2.0)
+	qm.size = Vector2(3.2, 3.2)
 	p.mesh = qm
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
-	g.colors = PackedColorArray([Color(1.0, 0.16, 0.10, 0.85), Color(0.95, 0.30, 0.25, 0.6), Color(0.9, 0.55, 0.5, 0.0)])
+	g.colors = PackedColorArray([Color(0.95, 0.12, 0.08, 0.6), Color(0.9, 0.28, 0.22, 0.38), Color(0.88, 0.55, 0.5, 0.0)])
 	p.color_ramp = g
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	p.visibility_aabb = AABB(Vector3(-40, -2, -40), Vector3(80, 90, 80))

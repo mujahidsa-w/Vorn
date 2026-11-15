@@ -354,6 +354,12 @@ func _steps(dt: float) -> void:
 func _process(_dt: float) -> void:
 	if actor == null or dead:
 		return
+	if actor.vehicle:
+		# seated: the body faces the way the vehicle goes, in a low crouched pose
+		global_basis = (actor.vehicle as Node3D).global_basis * Basis(Vector3.UP, PI)
+		model.transform = Transform3D(Basis(Vector3.UP, PI), Vector3(0, -0.35, 0))
+		_play("rifle_idle_crouching_aiming" if actor.wd()["hold"] in ["rifle", "smg"] else "pistol_kneeling_idle")
+		return
 	_steps(_dt)
 	rotation.y = actor.view_yaw
 	# боец вплотную к камере игрока не рисуется (иначе видно модель изнутри)

@@ -141,6 +141,17 @@ func _physics_process(dt: float) -> void:
 		tick_weapon(dt)
 		return
 	var block: bool = ui_block or game.state == game.S.OVER
+	if vehicle:
+		# driving: the stick steers and drives, jump is the handbrake, use gets out
+		if not block:
+			var dv := Input.get_vector("left", "right", "back", "fwd")
+			if game.test_wish != Vector2.ZERO:
+				dv = game.test_wish
+			vehicle.controls = Vector3(dv.x, dv.y, 1.0 if Input.is_action_pressed("jump") else 0.0)
+			if Input.is_action_just_pressed("use") and Time.get_ticks_msec() > vehicle_cd:
+				vehicle.leave(self)
+		tick_weapon(dt)
+		return
 	var wish := Vector2.ZERO
 	var jump := false
 	var crouch := false
@@ -208,7 +219,7 @@ func _next_spect() -> void:
 	spect = mates[(i + 1) % mates.size()]
 
 func _process(dt: float) -> void:
-	if cam_mode == "free":
+	if cam_mode == "free" or cam_mode == "drive":
 		vm.visible = false
 		vm_cam.global_transform = cam.global_transform
 		return

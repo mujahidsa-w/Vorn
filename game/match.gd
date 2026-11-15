@@ -869,6 +869,13 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 				if shooter == player:
 					hud.hit_marker(zone == "head", not v.alive)
 			break
+		# машина: пуля застревает в корпусе и изнашивает его
+		if col.has_meta("vehicle"):
+			var vh = col.get_meta("vehicle")
+			vh.damage(dmg * 0.8, shooter)
+			fx.impact(hp, hit["normal"], "stone")
+			Sfx.at("impact", hp, -8.0, randf_range(1.15, 1.35), 3.0, 30.0)
+			break
 		# стена или предмет
 		var n: Vector3 = hit["normal"]
 		fx.impact(hp, n, "stone")

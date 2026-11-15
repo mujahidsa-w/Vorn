@@ -156,6 +156,21 @@ func _draw_mini(c: Control, full: bool) -> void:
 	c.draw_rect(Rect2(Vector2.ZERO, box), Color(1, 1, 1, 0.25), false, 2.0)
 
 # ------------------------------------------------------------------ main draw
+func _draw_vehicle(sz: Vector2, v: Vehicle) -> void:
+	## speed and condition of the vehicle being driven, above the health bars
+	var w := 300.0
+	var r := Rect2(sz.x * 0.5 - w * 0.5, 66.0, w, 64)
+	_panel(r, UI.PANEL, 10)
+	var kmh := int(round(absf(v.linear_velocity.dot(v.global_basis.z)) * 3.6))
+	var f := UI.bold()
+	root.draw_string(f, r.position + Vector2(18, 44), str(kmh), HORIZONTAL_ALIGNMENT_LEFT, -1, 34, UI.TEXT)
+	root.draw_string(UI.font(), r.position + Vector2(18 + f.get_string_size(str(kmh), HORIZONTAL_ALIGNMENT_LEFT, -1, 34).x + 8, 44), "كم/س", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI.DIM)
+	var k := clampf(v.hp / float(v.spec["hp"]), 0.0, 1.0)
+	var bar := Rect2(r.position + Vector2(150, 18), Vector2(130, 10))
+	root.draw_rect(bar, Color(1, 1, 1, 0.15))
+	root.draw_rect(Rect2(bar.position, Vector2(bar.size.x * k, bar.size.y)), UI.GREEN if k > 0.5 else (UI.GOLD if k > 0.25 else UI.RED))
+	root.draw_string(UI.font(), r.position + Vector2(150, 50), String(v.spec["name"]), HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI.DIM)
+
 func _draw_hud() -> void:
 	var p: Player = game.player
 	var sz := root.size
@@ -173,8 +188,10 @@ func _draw_hud() -> void:
 	var caught: bool = p.alive and st == "ground" and not game.in_safe(p.global_position)
 	if caught:
 		root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.75, 0.38, 0.10, 0.22 + 0.06 * sin(Time.get_ticks_msec() * 0.004)))
+	if p.alive and p.vehicle and res.is_empty():
+		_draw_vehicle(sz, p.vehicle)
 	# crosshair and hit markers
-	if p.alive and st == "ground" and not pause.visible and res.is_empty():
+	if p.alive and st == "ground" and p.vehicle == null and not pause.visible and res.is_empty():
 		if not (p.scoped and p.wd().has("sight")) and p.wd()["cls"] != "sniper":
 			var spread := p.spread_deg()
 			var gap := 5.0 + spread * 5.5
@@ -226,7 +243,7 @@ func _draw_hud() -> void:
 	for f in feed:
 		var e: Dictionary = f[0]
 		var a2 := clampf(f[1] / 0.6, 0.0, 1.0)
-		var wname: String = DB.W.get(e["w"], {}).get("name", {"he": "قنبلة", "fire": "نار", "zone": "العاصفة", "fall": "سقوط"}.get(e["w"], "")) as String
+		var wname: String = DB.W.get(e["w"], {}).get("name", {"he": "قنبلة", "fire": "نار", "zone": "العاصفة", "fall": "سقوط", "runover": "دهس", "vehicle": "انفجار مركبة"}.get(e["w"], "")) as String
 		var line: String = ("%s  [%s]  %s" % [e["k"], wname, e["v"]]) if e["k"] != "" else ("%s  [%s]" % [e["v"], wname])
 		var w1 := UI.bold().get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 24.0
 		_panel(Rect2(tx - w1, fy, w1, 28), Color(0.5, 0.08, 0.06, 0.78 * a2) if e["me"] else Color(0.05, 0.06, 0.08, 0.7 * a2), 7)

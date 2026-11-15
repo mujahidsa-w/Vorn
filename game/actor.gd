@@ -48,6 +48,8 @@ var prone := false              # lying down (toggled by the player, chosen by b
 var prone_t := 0.0              # 0 standing / crouching .. 1 lying flat
 var lean_want := 0.0            # -1 left .. 1 right
 var lean := 0.0                 # smoothed lean
+var vehicle: Node = null        # the vehicle this fighter drives (battle royale)
+var vehicle_cd := 0             # ms tick before which getting in / out again is ignored
 var walking := false
 var fire_cd := 0.0
 var reload_t := 0.0
@@ -640,7 +642,7 @@ func take_damage(dmg: float, attacker: Actor, wid: String, zone: String, from_po
 		return
 	var real := dmg
 	var absorbed := false
-	if armor > 0 and zone != "legs" and (zone != "head" or helmet) and wid not in ["fall", "fire", "zone"]:
+	if armor > 0 and zone != "legs" and (zone != "head" or helmet) and wid not in ["fall", "fire", "zone", "runover", "vehicle"]:
 		var pen: float = DB.W.get(wid, {}).get("pen", 0.5)
 		real = dmg * pen
 		var loss := (dmg - real) * 0.5
