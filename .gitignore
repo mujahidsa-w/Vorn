@@ -19,3 +19,7 @@ node_modules/
 
 # Source FBX/TGA of the imported weapons (baked into assets/arsenal by tools/arsenal/bake.gd)
 /_src_pubg/
+
+# online server (server/run_server.sh)
+/server_data/
+/.server_bin/

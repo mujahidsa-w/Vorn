@@ -74,10 +74,14 @@ jobs:
           du -sh assets/models assets/sounds assets/music
 
       - name: Export the Xcode project from Godot
+        env:
+          GAME_SERVER: ${{ vars.GAME_SERVER }}
         run: |
           set -euo pipefail
           # Godot wants a 10-character team ID even for an unsigned build.
           sed -i '' "s/__TEAM_ID__/0000000000/g" export_presets.cfg
+          # the online server the app connects to (repository variable GAME_SERVER)
+          if [ -n "${GAME_SERVER:-}" ]; then printf '{"host": "%s"}\n' "$GAME_SERVER" > server.json; fi
           "$GODOT" --headless --path . --import || true
           "$GODOT" --headless --path . --import || true
           mkdir -p build/ios

@@ -40,6 +40,15 @@ var inv_view: SubViewport
 var inv_pivot: Node3D
 var inv_sel := ""
 var stats_box: VBoxContainer
+var net_l: Label
+var acc_box: VBoxContainer
+var acc_msg: Label
+var q_title: Label
+var q_count: Label
+var q_time: Label
+var q_note: Label
+var _room_at := 0
+var toast_l: Label
 var rng := RandomNumberGenerator.new()
 const CARD := 168.0
 # the stand at the east end of the long lane: the camera looks west down the street into the low sun
@@ -69,14 +78,22 @@ func _ready() -> void:
 	cam.current = true
 	_stage()
 	_build_ui()
+	Online.changed.connect(_on_online)
+	Online.message.connect(_toast)
+	Online.resume()
+	if not Online.has_token() and not G.has_meta("asked_login") and G.shots_dir == "" and not G.args.has("loop"):
+		G.set_meta("asked_login", true)          # the first visit: offer the account (it can be skipped)
+		_show.call_deferred("account")
 	Sfx.stop_all()
 	Sfx.music("menu_theme", 1.5, -6.0)
 	Sfx.ambient("amb_desert", -26.0)
 	if G.args.has("panel"):
 		_show(String(G.args["panel"]))
+	if G.args.has("online_test"):
+		_online_test()
 	if G.args.has("loop"):
 		_loop_test()
-	elif G.shots_dir != "":
+	elif G.shots_dir != "" and not G.args.has("online_test"):
 		_auto_shots()
 
 # ------------------------------------------------------------------ 3D stand and hero
@@ -241,6 +258,8 @@ func _process(dt: float) -> void:
 	if start_btn:
 		start_btn.get_child(0).modulate.a = 0.55 + 0.45 * (0.5 + 0.5 * sin(t * 2.6))
 	_idle_poses(dt)
+	if cur_panel == "queue":
+		_queue_text()
 
 var _pose_t := 8.0
 
@@ -329,6 +348,8 @@ func _build_ui() -> void:
 	panels["cases"] = _panel_cases()
 	panels["inv"] = _panel_inv()
 	panels["stats"] = _panel_stats()
+	panels["account"] = _panel_account()
+	panels["queue"] = _panel_queue()
 	var st := SettingsPanel.new()
 	st.closed.connect(_show.bind(""))
 	panels["settings"] = st
@@ -411,6 +432,10 @@ func _build_hud() -> void:
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", _box(Color(0.03, 0.035, 0.045, 0.80), 8, 1, Color(UI.GOLD.r, UI.GOLD.g, UI.GOLD.b, 0.35)))
 	card.position = Vector2(m, 12)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(func(e: InputEvent):
+		if (e is InputEventMouseButton and e.pressed) or (e is InputEventScreenTouch and e.pressed):
+			_show("account"))
 	hud.add_child(card)
 	var ch := HBoxContainer.new()
 	ch.add_theme_constant_override("separation", 12)
@@ -534,7 +559,7 @@ func _build_hud() -> void:
 	var ml := UI.label("باتل رويال — " + _map_name(), 20, UI.TEXT, true)
 	ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ml)
-	var ms := UI.label("30 مقاتلاً · العاصفة · %s" % ("الشخص الثالث" if String(G.settings.get("view", "tpp")) == "tpp" else "الشخص الأول"), 15, UI.GOLD)
+	var ms := UI.label("%s · 30 مقاتلاً · %s" % ["أونلاين" if Online.logged_in else "ضد البوتات", "الشخص الثالث" if String(G.settings.get("view", "tpp")) == "tpp" else "الشخص الأول"], 15, UI.GOLD)
 	ms.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ms)
 	mode.add_child(mv)
@@ -580,9 +605,9 @@ func _build_hud() -> void:
 	bl.add_child(start_btn)
 	var net := HBoxContainer.new()
 	net.add_theme_constant_override("separation", 6)
-	net.add_child(Glyph.make("wifi", 18, UI.GREEN))
-	var nl := UI.label("متصل بالشبكة" if Network.online else "أوفلاين ضد البوتات", 14, UI.DIM)
-	net.add_child(nl)
+	net.add_child(Glyph.make("wifi", 18, UI.GREEN if Online.logged_in else (UI.AMBER if Online.cstate == Online.C.CONNECTING else UI.DIM)))
+	net_l = UI.label(Online.status_text(), 14, UI.GREEN if Online.logged_in else UI.DIM)
+	net.add_child(net_l)
 	bl.add_child(net)
 	bl.reset_size()
 	bl.position = Vector2(m, vs.y - mb - bl.size.y)
@@ -697,8 +722,14 @@ func _toggle_map() -> void:
 
 func _start() -> void:
 	Sfx.ui("ui_click", -4.0)
-	Network.close_session()
 	G.save_settings()
+	if Online.logged_in:
+		# online: into the waiting room; the battle starts when its countdown ends (bots fill the empty seats)
+		Online.join_queue()
+		_show("queue")
+		return
+	if Network.online:
+		Network.close_session()
 	G.start_match()
 
 func _refresh() -> void:
@@ -712,7 +743,12 @@ func _refresh() -> void:
 func _show(n: String) -> void:
 	if roll_active:
 		return
+	var was := cur_panel
 	cur_panel = "" if n == cur_panel else n
+	if was == "queue" and cur_panel != "queue" and Online.queued:
+		Online.leave_queue()          # closing the waiting room leaves it
+	if cur_panel == "account":
+		_fill_account()
 	for k in panels:
 		panels[k].visible = k == cur_panel
 	overlay.visible = cur_panel != ""
@@ -780,13 +816,162 @@ func _panel_play() -> Control:
 	vb.add_child(go)
 	return p
 
+# ------------------------------------------------------------------ online: account and waiting room
+func _on_online() -> void:
+	if net_l:
+		net_l.text = Online.status_text()
+		net_l.add_theme_color_override("font_color", UI.GREEN if Online.logged_in else UI.DIM)
+	_room_at = Time.get_ticks_msec()
+	if cur_panel == "account":
+		_fill_account()
+	if cur_panel == "queue" and not Online.queued and not Online.playing:
+		_show("")
+	built_for = Vector3(-1, -1, -1)          # name, status and the mode card
+
+func _toast(text: String) -> void:
+	if acc_msg and cur_panel == "account":
+		acc_msg.text = text
+	if toast_l == null:
+		toast_l = UI.label("", 20, UI.TEXT, true)
+		toast_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		toast_l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+		toast_l.add_theme_constant_override("shadow_offset_y", 2)
+		toast_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		toast_l.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		toast_l.offset_left = -480
+		toast_l.offset_right = 480
+		toast_l.offset_top = 96
+		ui.add_child(toast_l)
+	toast_l.text = text
+	toast_l.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(3.2)
+	tw.tween_property(toast_l, "modulate:a", 0.0, 0.6)
+
+func _panel_account() -> Control:
+	var p := _panel_box()
+	p.custom_minimum_size = Vector2(520, 0)
+	acc_box = VBoxContainer.new()
+	acc_box.add_theme_constant_override("separation", 10)
+	p.add_child(acc_box)
+	return p
+
+func _field(hint: String, secret := false) -> LineEdit:
+	var e := LineEdit.new()
+	e.placeholder_text = hint
+	e.secret = secret
+	e.custom_minimum_size = Vector2(470, 54)
+	e.add_theme_font_size_override("font_size", 21)
+	e.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	e.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_PASSWORD if secret else LineEdit.KEYBOARD_TYPE_DEFAULT
+	return e
+
+func _fill_account() -> void:
+	for c in acc_box.get_children():
+		c.free()
+	acc_msg = null
+	if Online.logged_in:
+		acc_box.add_child(UI.label("حسابك", 28, UI.TEXT, true))
+		acc_box.add_child(UI.label("مرحباً %s" % Online.account, 24, UI.GOLD_HI, true))
+		acc_box.add_child(UI.label("متصل بخادم AURUM MOBILE — رصيدك ومخزونك وإحصائياتك محفوظة في حسابك.", 15, UI.DIM))
+		var info := UI.label("اللاعبون المتصلون الآن: %d   ·   المعارك الجارية: %d" % [int(Online.room.get("online", 0)), int(Online.room.get("battles", 0))], 16, UI.TEXT)
+		acc_box.add_child(info)
+		var out := UI.button("تسجيل الخروج", 20, UI.RED, Vector2(260, 52))
+		out.pressed.connect(func():
+			Online.logout()
+			_fill_account())
+		acc_box.add_child(out)
+		return
+	acc_box.add_child(UI.label("تسجيل الدخول", 28, UI.TEXT, true))
+	var about := UI.label("سجّل الدخول لتلعب أونلاين مع لاعبين حقيقيين، ويُحفظ رصيدك ومخزونك في حسابك.", 15, UI.DIM)
+	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	about.custom_minimum_size = Vector2(470, 0)
+	acc_box.add_child(about)
+	var nm := _field("اسم المستخدم")
+	nm.text = String(G.settings.get("account", ""))
+	nm.max_length = 16
+	acc_box.add_child(nm)
+	var pw := _field("كلمة المرور", true)
+	acc_box.add_child(pw)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 12)
+	acc_box.add_child(hb)
+	var srv := _field("عنوان الخادم")
+	srv.text = Online.host_addr()
+	srv.custom_minimum_size = Vector2(470, 44)
+	srv.add_theme_font_size_override("font_size", 16)
+	var go := func(create: bool):
+		Online.set_server(srv.text)
+		if acc_msg:
+			acc_msg.text = "جارٍ الاتصال..."
+		Online.login(nm.text, pw.text, create)
+	var lb := UI.button("دخول", 22, UI.GOLD, Vector2(229, 56))
+	lb.pressed.connect(go.bind(false))
+	hb.add_child(lb)
+	var rb := UI.button("حساب جديد", 22, UI.TEAL, Vector2(229, 56))
+	rb.pressed.connect(go.bind(true))
+	hb.add_child(rb)
+	acc_msg = UI.label("", 16, UI.AMBER)
+	acc_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	acc_msg.custom_minimum_size = Vector2(470, 0)
+	acc_box.add_child(acc_msg)
+	acc_box.add_child(UI.label("الخادم", 14, UI.DIM))
+	acc_box.add_child(srv)
+	var skip := UI.button("اللعب بدون إنترنت", 18, UI.DIM, Vector2(470, 46))
+	skip.pressed.connect(_show.bind(""))
+	acc_box.add_child(skip)
+
+func _panel_queue() -> Control:
+	var p := _panel_box()
+	p.custom_minimum_size = Vector2(560, 0)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 12)
+	p.add_child(vb)
+	q_title = UI.label("البحث عن مقاتلين", 30, UI.TEXT, true)
+	q_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(q_title)
+	q_count = UI.label("", 26, UI.GOLD_HI, true)
+	q_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(q_count)
+	q_time = UI.label("", 44, UI.TEXT, true)
+	q_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	q_time.add_theme_font_override("font", UI.latin())
+	vb.add_child(q_time)
+	q_note = UI.label("", 16, UI.DIM)
+	q_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	q_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	q_note.custom_minimum_size = Vector2(520, 0)
+	vb.add_child(q_note)
+	var cancel := UI.button("إلغاء", 22, UI.RED, Vector2(520, 56))
+	cancel.pressed.connect(_show.bind(""))
+	vb.add_child(cancel)
+	return p
+
+func _queue_text() -> void:
+	var r: Dictionary = Online.room
+	var st := String(r.get("state", "wait"))
+	var n := int(r.get("n", 1))
+	var mx := int(r.get("max", 29))
+	if Online.playing or st == "launch":
+		q_title.text = "تم العثور على معركة"
+		q_count.text = "%d لاعب حقيقي  ·  %d بوت" % [n, maxi(0, 30 - n)]
+		q_time.text = "..."
+		q_note.text = "جارٍ تجهيز الجزيرة والدخول إلى الطائرة"
+		return
+	q_title.text = "البحث عن مقاتلين"
+	q_count.text = "اللاعبون الحقيقيون: %d / %d" % [n, mx]
+	var left := float(r.get("t", -1.0)) - (Time.get_ticks_msec() - _room_at) / 1000.0
+	var sec := int(ceil(maxf(0.0, left)))
+	q_time.text = "%d:%02d" % [sec / 60, sec % 60] if left >= 0.0 else "--"
+	q_note.text = "تبدأ المعركة عند انتهاء العد. إن لم يكتمل العدد تُكمل البوتات بقية المقاعد حتى 30 مقاتلاً."
+
 func _panel_online() -> Control:
 	var p := _panel_box()
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 12)
 	p.add_child(vb)
-	vb.add_child(UI.label("اللعب مع الأصدقاء", 28, UI.TEXT, true))
-	vb.add_child(UI.label("تجربة أولية عبر الشبكة المحلية: أحدكم ينشئ غرفة والباقون ينضمون بعنوانه.", 15, UI.DIM))
+	vb.add_child(UI.label("غرفة خاصة مع الأصدقاء", 28, UI.TEXT, true))
+	vb.add_child(UI.label("عبر الشبكة المحلية (نفس الواي فاي): أحدكم ينشئ غرفة والباقون ينضمون بعنوانه. للعب مع الجميع عبر الإنترنت سجّل الدخول واضغط «ابدأ».", 15, UI.DIM))
 	var address := LineEdit.new()
 	address.placeholder_text = "عنوان IP للمضيف"
 	address.text = "127.0.0.1"
@@ -1103,6 +1288,29 @@ func _preview(wid: String, skin: String) -> void:
 		fb.set_weapon(wid)
 
 # ------------------------------------------------------------------ checks
+func _online_test() -> void:
+	## check: sign up (or log in), then into the waiting room
+	if G.has_meta("online_done"):
+		return            # back from the battle
+	G.set_meta("online_done", true)
+	var nm := String(G.args["online_test"])
+	if G.args.has("server_addr"):
+		G.settings["server"] = String(G.args["server_addr"])
+	for attempt in 2:
+		Online.login(nm, "secret123", attempt == 0)
+		for i in 60:
+			await get_tree().create_timer(0.25).timeout
+			if Online.logged_in:
+				break
+		if Online.logged_in:
+			break
+	G.log_line("online test: logged in %s as %s" % [Online.logged_in, Online.account])
+	if Online.logged_in:
+		_start()
+		if G.shots_dir != "":
+			await get_tree().create_timer(2.5).timeout
+			await G.shot("lobby_queue")
+
 func _loop_test() -> void:
 	## full cycle check: lobby -> START -> match to the end -> lobby again
 	await get_tree().create_timer(2.0).timeout
@@ -1123,7 +1331,7 @@ func _loop_test() -> void:
 func _auto_shots() -> void:
 	await get_tree().create_timer(1.5).timeout
 	await G.shot("lobby_main")
-	for p in ["play", "online", "stats", "settings"]:
+	for p in ["play", "account", "online", "stats", "settings"]:
 		_show(p)
 		await get_tree().create_timer(0.4).timeout
 		await G.shot("lobby_" + p)

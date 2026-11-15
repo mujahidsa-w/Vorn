@@ -87,8 +87,12 @@ jobs:
           test -f assets/models/chars/ct_1.scn
 
       - name: Import and export Android APK
+        env:
+          GAME_SERVER: ${{ vars.GAME_SERVER }}
         run: |
           set -euo pipefail
+          # the online server the app connects to (repository variable GAME_SERVER, e.g. play.example.com)
+          if [ -n "${GAME_SERVER:-}" ]; then printf '{"host": "%s"}\n' "$GAME_SERVER" > server.json; fi
           "$GODOT" --headless --path . --import
           mkdir -p build/android
           "$GODOT" --headless --path . --export-debug "Android" "build/android/${APP_NAME}.apk"

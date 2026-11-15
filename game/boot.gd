@@ -14,7 +14,11 @@ func _ready() -> void:
 		for i in 4:
 			await get_tree().process_frame
 		G.fit_screen()
-	if G.args.has("nethost") or G.args.has("netjoin"):
+	if G.args.has("server"):
+		Online.start_master()          # the online server: accounts and the waiting room (no picture)
+	elif G.args.has("battle"):
+		Online.start_battle_server()   # one battle, started by the master
+	elif G.args.has("nethost") or G.args.has("netjoin"):
 		G.net_test_start()
 	elif G.args.has("match"):
 		G.start_match()

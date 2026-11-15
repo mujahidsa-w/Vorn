@@ -66,25 +66,32 @@ func _ready() -> void:
 	rng.randomize()
 	if G.args.has("seed"):
 		rng.seed = int(G.args["seed"])
-	auto = G.args.has("auto")
+	auto = G.args.has("auto") or Online.role == "battle"          # a battle server's own seat is a bot
 	bullet_range = 650.0
 	if G.args.has("timescale"):
 		Engine.time_scale = float(G.args["timescale"])
 	_loading_overlay()
 	await get_tree().process_frame
 	await get_tree().process_frame
-	if Network.online:
+	if Online.role == "battle" or Online.playing or Network.online:
+		# online: a battle server of the network (host) or its player (client); LAN: a private room
+		net_role = "host" if (Online.role == "battle" or (not Online.playing and Network.is_host)) else "client"
 		net = BRNet.new()
 		net.name = "Net"
 		net.game = self
 		add_child(net)
 		Network.match_ref = self
-		net_role = "host" if Network.is_host else "client"
 		net.lobby_ui(overlay)
 	if net_role == "client":
 		net.hello()           # the host answers with the world seed (BRNet.h_world -> build_world)
+		if G.args.has("online_leave"):
+			# check: back to the lobby in the middle of the battle
+			get_tree().create_timer(float(G.args["online_leave"])).timeout.connect(_finish)
 		return
 	await build_world(rng.randi())
+	if Online.role == "battle":
+		Online.battle_world_ready()        # the master sends the room over; BRNet starts when they are in
+		return
 	if net_role == "host":
 		return                # the room fills up; the start button calls start_battle
 	start_battle()
@@ -213,6 +220,8 @@ func _spawn_people(humans: Array = [], roster: Array = []) -> void:
 		var is_p := i == 0
 		var remote := i > 0 and i < humans.size()        # another player in the room
 		var model: String = pmodel if is_p else models[rng.randi() % models.size()]
+		if remote and humans[i].size() > 2 and String(humans[i][2]) != "":
+			model = String(humans[i][2])          # the outfit the player chose in the lobby
 		var team := "ct" if model.begins_with("ct") else "t"
 		var a: Actor
 		if is_p:

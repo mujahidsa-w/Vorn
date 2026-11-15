@@ -3,7 +3,7 @@ extends Node
 
 const CFG := "user://settings.json"
 const SAVE := "user://profile.json"
-const VERSION := "2.1.0"
+const VERSION := "2.2.0"
 
 var settings := {
 	"sens": 1.0, "fov": 90.0, "vol_master": 0.8, "vol_music": 0.45, "vol_sfx": 0.9,
@@ -160,6 +160,7 @@ func save_profile() -> void:
 	var f := FileAccess.open(SAVE, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(profile, "\t"))
+	Online.profile_saved()
 
 func apply_settings() -> void:
 	if DisplayServer.get_name() != "headless" and not mobile:

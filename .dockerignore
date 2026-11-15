@@ -1,0 +1,8 @@
+.git
+.godot
+build
+_orig
+docs
+tools/unpack/node_modules
+*.ipa
+*.apk

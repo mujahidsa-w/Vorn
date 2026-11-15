@@ -1,6 +1,7 @@
 class_name BRNet
 extends Node
-## Online battle royale over the ENet session of Network (LAN / direct IP), host-authoritative:
+## Online battle royale, host-authoritative. The host is a battle server of the AURUM MOBILE network (Online, --battle)
+## or a player's phone hosting a private room (Network, LAN / direct IP):
 ##   - the host runs everything: bots, loot, storm, supply drops, vehicles, bullets and damage;
 ##   - every peer builds the same desert from the host's seed (the loot scattered at the start and the parked vehicles
 ##     come out identical, so they share their ids);
@@ -23,25 +24,48 @@ var lobby_label: Label
 var start_btn: Button
 var started := false
 
+var dedicated := false                # a battle server of the online network (no player of its own)
+
 func _ready() -> void:
-	host = Network.is_host
+	host = game.net_role == "host"
+	dedicated = Online.role == "battle"
 	if host:
 		multiplayer.peer_disconnected.connect(_on_peer_left)
 
+## to every player of this battle (not to anyone else on the connection)
+func _all(m: StringName, args: Array = []) -> void:
+	for id in peers:
+		if peers[id]["ready"]:
+			callv("rpc_id", [id, m] + args)
+
+func ready_count() -> int:
+	var n := 0
+	for id in peers:
+		if peers[id]["ready"]:
+			n += 1
+	return n
+
 # ================================================================== lobby
 func hello() -> void:
-	## client: the scene is up — ask the host for the world
-	rpc_id(1, "c_hello", String(G.settings.get("name", "لاعب")))
+	## client: the scene is up — ask the host for the world (online: with the room's ticket)
+	rpc_id(1, "c_hello", String(G.settings.get("name", "لاعب")), String(Online.battle.get("ticket", "")), int(G.settings.get("outfit", 0)))
 
 @rpc("any_peer", "call_remote", "reliable")
-func c_hello(nick: String) -> void:
+func c_hello(nick: String, ticket: String, outfit: int) -> void:
 	if not host:
 		return
 	var id := multiplayer.get_remote_sender_id()
 	if started:
 		rpc_id(id, "h_refused", "المعركة بدأت بالفعل — انتظر الجولة القادمة")
 		return
-	peers[id] = {"name": nick.substr(0, 18), "ready": false}
+	if dedicated:
+		var t := Online.use_ticket(ticket)
+		if t.is_empty():
+			rpc_id(id, "h_refused", "هذه المعركة ليست لك — ارجع إلى اللوبي")
+			return
+		nick = String(t["name"])
+		outfit = int(t["outfit"])
+	peers[id] = {"name": nick.substr(0, 18), "ready": false, "model": DB.OUTFITS[clampi(outfit, 0, DB.OUTFITS.size() - 1)]}
 	rpc_id(id, "h_world", int(game.world_seed), game.world_map)
 	_lobby_text()
 
@@ -49,6 +73,10 @@ func c_hello(nick: String) -> void:
 func h_refused(why: String) -> void:
 	if lobby_label:
 		lobby_label.text = why
+	if Online.playing and not started:
+		await get_tree().create_timer(3.0).timeout
+		Online.leave_battle()
+		G.to_menu()
 
 @rpc("authority", "call_remote", "reliable")
 func h_world(seed_v: int, map_name: String) -> void:
@@ -63,6 +91,8 @@ func c_ready() -> void:
 	if host and peers.has(id):
 		peers[id]["ready"] = true
 		_lobby_text()
+		if dedicated and not started and Online.all_in() and ready_count() == peers.size():
+			host_start()          # the whole room is in: no need to wait for the timer
 
 func _on_peer_left(id: int) -> void:
 	if not peers.has(id):
@@ -74,6 +104,24 @@ func _on_peer_left(id: int) -> void:
 		a.take_damage(999.0, null, "fall", "chest", a.global_position)
 	_lobby_text()
 
+func bye() -> void:
+	## client: leaving for the lobby
+	if not host and multiplayer.multiplayer_peer and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		rpc_id(1, "c_bye")
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_bye() -> void:
+	if host:
+		_on_peer_left(multiplayer.get_remote_sender_id())
+
+func humans_alive() -> int:
+	var n := 0
+	for id in peers:
+		var a = peers[id].get("actor", null)
+		if a and is_instance_valid(a) and a.alive:
+			n += 1
+	return n
+
 func lobby_ui(overlay: CanvasLayer) -> void:
 	## text (and the host's start button) over the loading picture while the room fills up
 	lobby_label = UI.label("", 26, UI.TEXT, true)
@@ -84,7 +132,7 @@ func lobby_ui(overlay: CanvasLayer) -> void:
 	lobby_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lobby_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	overlay.add_child(lobby_label)
-	if host:
+	if host and not dedicated:
 		start_btn = UI.button("ابدأ المعركة", 26, UI.GOLD, Vector2(300, 70))
 		start_btn.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 		start_btn.offset_left = -150
@@ -98,8 +146,8 @@ func lobby_ui(overlay: CanvasLayer) -> void:
 		if G.args.has("netstart"):
 			# checks: start on our own after a few seconds
 			get_tree().create_timer(float(G.args["netstart"])).timeout.connect(host_start)
-	else:
-		lobby_label.text = "متصل — جارٍ استلام خريطة المضيف..."
+	elif not host:
+		lobby_label.text = "متصل بالمعركة — جارٍ تجهيز الجزيرة..." if Online.playing else "متصل — جارٍ استلام خريطة المضيف..."
 
 func _lobby_text() -> void:
 	if lobby_label == null or not host:
@@ -116,10 +164,13 @@ func host_start() -> void:
 	started = true
 	if start_btn:
 		start_btn.disabled = true
-	var humans := [[1, String(G.settings.get("name", "المضيف"))]]
+	# a battle server's own seat is one more bot
+	var humans := [[1, String(game.NICKS[randi() % game.NICKS.size()]) if dedicated else String(G.settings.get("name", "المضيف"))]]
 	for id in peers:
 		if peers[id]["ready"]:
-			humans.append([id, peers[id]["name"]])
+			humans.append([id, peers[id]["name"], peers[id].get("model", "")])
+		else:
+			rpc_id(id, "h_refused", "تأخّر التحميل — بدأت المعركة بدونك")
 	game.start_battle(humans)
 	# tell everyone who is who and where the plane flies
 	var roster := []
@@ -162,7 +213,9 @@ func tick(dt: float) -> void:
 		if _storm_acc >= 1.0:
 			_storm_acc = 0.0
 			var st: Dictionary = game.storm
-			rpc("h_storm", [st["c"], st["r"], st["c0"], st["r0"], st["c1"], st["r1"], st["k"], st["t"], st["closing"], st["dmg"]], game.match_t)
+			_all("h_storm", [[st["c"], st["r"], st["c0"], st["r0"], st["c1"], st["r1"], st["k"], st["t"], st["closing"], st["dmg"]], game.match_t])
+			if dedicated and humans_alive() == 0:
+				Online.battle_done(4.0)          # no real player left alive: nobody to play for
 	else:
 		_state_acc += dt
 		if _state_acc >= 1.0 / STATE_HZ:
@@ -233,7 +286,7 @@ func _send_snapshot() -> void:
 		b.put_8(clampi(int(vel.x * 2.0), -127, 127))
 		b.put_8(clampi(int(vel.y * 2.0), -127, 127))
 		b.put_8(clampi(int(vel.z * 2.0), -127, 127))
-	rpc("h_snap", b.data_array)
+	_all("h_snap", [b.data_array])
 
 @rpc("authority", "call_remote", "unreliable_ordered")
 func h_snap(raw: PackedByteArray) -> void:
@@ -341,7 +394,7 @@ func h_storm(st: Array, t: float) -> void:
 # ------------------------------------------------------------------ my fighter (client)
 func _send_state() -> void:
 	var p: Player = game.player
-	if p == null:
+	if p == null or not p.alive:
 		return
 	var st: String = game.fly[p]["st"] if game.fly.has(p) else "ground"
 	var mg := [0, 0]
@@ -445,7 +498,7 @@ func h_inv(inv: Dictionary, ammo: Dictionary, nades: Array, armor: int, helmet: 
 		p.switch_to(inv[1])
 
 func item_spawned(l: Loot) -> void:
-	rpc("h_item", int(l.get_meta("nid", -1)), l.id, l.count, l.global_position, l.has_meta("drop"))
+	_all("h_item", [int(l.get_meta("nid", -1)), l.id, l.count, l.global_position, l.has_meta("drop")])
 
 @rpc("authority", "call_remote", "reliable")
 func h_item(nid: int, id: String, count: int, pos: Vector3, drop: bool) -> void:
@@ -459,7 +512,7 @@ func h_item(nid: int, id: String, count: int, pos: Vector3, drop: bool) -> void:
 	game.items_by_nid[nid] = l
 
 func item_gone(l: Loot) -> void:
-	rpc("h_item_gone", int(l.get_meta("nid", -1)))
+	_all("h_item_gone", [int(l.get_meta("nid", -1))])
 
 @rpc("authority", "call_remote", "reliable")
 func h_item_gone(nid: int) -> void:
@@ -508,7 +561,7 @@ func h_hurt(n: int, from_pos: Vector3) -> void:
 	game.player.hurt.emit(n, from_pos)
 
 func feed(v: Actor, killer: Actor, wid: String, headshot: bool) -> void:
-	rpc("h_feed", game.actors.find(v), game.actors.find(killer) if killer else -1, wid, headshot)
+	_all("h_feed", [game.actors.find(v), game.actors.find(killer) if killer else -1, wid, headshot])
 
 @rpc("authority", "call_remote", "reliable")
 func h_feed(vi: int, ki: int, wid: String, headshot: bool) -> void:
@@ -528,7 +581,7 @@ func h_feed(vi: int, ki: int, wid: String, headshot: bool) -> void:
 		game.hud.announce("قضيت على %s" % v.nick, 1.6, "%d متبقٍ" % game.alive_count(), UI.GOLD)
 
 func drop(at: Vector3) -> void:
-	rpc("h_drop", at)
+	_all("h_drop", [at])
 
 @rpc("authority", "call_remote", "reliable")
 func h_drop(at: Vector3) -> void:
@@ -536,7 +589,9 @@ func h_drop(at: Vector3) -> void:
 	game.drops._drop(at)
 
 func over(winner: Actor) -> void:
-	rpc("h_over", game.actors.find(winner) if winner else -1)
+	_all("h_over", [game.actors.find(winner) if winner else -1])
+	if dedicated:
+		Online.battle_done(15.0)
 
 @rpc("authority", "call_remote", "reliable")
 func h_over(wi: int) -> void:

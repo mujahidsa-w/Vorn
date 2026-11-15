@@ -7,7 +7,7 @@ config_version=5
 
 config/name="AURUM MOBILE"
 config/description="أوروم موبايل — باتل رويال على الجزيرة من استوديوهات صقر"
-config/version="2.1.0"
+config/version="2.2.0"
 run/main_scene="res://game/boot.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.png"
@@ -20,6 +20,7 @@ G="*res://game/main.gd"
 Sfx="*res://game/sfx.gd"
 Touch="*res://game/touch.gd"
 Network="*res://game/network.gd"
+Online="*res://game/online.gd"
 
 [display]
 

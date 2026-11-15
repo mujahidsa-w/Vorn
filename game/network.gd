@@ -18,6 +18,7 @@ var _send_acc := 0.0
 var match_ref: Node = null
 
 func host(port: int = DEFAULT_PORT) -> Error:
+	Online.release()
 	close_session()
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(port, MAX_CLIENTS - 1)
@@ -36,6 +37,7 @@ func host(port: int = DEFAULT_PORT) -> Error:
 	return OK
 
 func join(address: String, port: int = DEFAULT_PORT) -> Error:
+	Online.release()
 	close_session()
 	server_address = address.strip_edges()
 	var peer := ENetMultiplayerPeer.new()
@@ -60,14 +62,20 @@ func close_session() -> void:
 	_send_acc = 0.0
 
 func _on_connected() -> void:
+	if not online:
+		return              # the online network's connection (Online), not a private room
 	local_peer_id = multiplayer.get_unique_id()
 	session_ready.emit()
 
 func _on_failed() -> void:
+	if not online:
+		return
 	connection_failed.emit("فشل الاتصال بالخادم. تحقق من العنوان والمنفذ.")
 	close_session()
 
 func _on_disconnected() -> void:
+	if not online:
+		return
 	connection_failed.emit("انقطع الاتصال بالخادم.")
 	close_session()
 

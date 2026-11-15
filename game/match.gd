@@ -740,6 +740,12 @@ func leave() -> void:
 		_finish()
 
 func _finish() -> void:
+	if Online.role == "battle":
+		return                # a battle server closes on its own (Online.battle_done)
+	if get("net") != null and get("net").has_method("bye"):
+		get("net").bye()
+	if Online.playing:
+		Online.leave_battle()
 	set_physics_process(false)
 	if G.args.has("quit_after"):
 		G.log_line("quit after match")
