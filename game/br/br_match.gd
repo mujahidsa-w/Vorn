@@ -564,7 +564,7 @@ func _storm_next() -> void:
 	storm["closing"] = false
 	storm["dmg"] = cfg[3]
 	if k > 0:
-		hud.announce("العاصفة الرملية تتحرك", 3.5, "المنطقة الآمنة الجديدة على الخريطة", Color(1.0, 0.7, 0.3))
+		hud.announce("العاصفة تتحرك" if world_map == "island" else "العاصفة الرملية تتحرك", 3.5, "المنطقة الآمنة الجديدة على الخريطة", Color(1.0, 0.7, 0.3))
 
 func _storm_tick(dt: float) -> void:
 	var k: int = storm["k"]
