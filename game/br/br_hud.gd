@@ -187,7 +187,8 @@ func _draw_hud() -> void:
 		root.draw_rect(Rect2(sz.x - 70, 0, 70, sz.y), hc)
 	var caught: bool = p.alive and st == "ground" and not game.in_safe(p.global_position)
 	if caught:
-		root.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.75, 0.38, 0.10, 0.22 + 0.06 * sin(Time.get_ticks_msec() * 0.004)))
+		var tint: Color = game.land.storm_tint
+		root.draw_rect(Rect2(Vector2.ZERO, sz), Color(tint.r, tint.g, tint.b, 0.22 + 0.06 * sin(Time.get_ticks_msec() * 0.004)))
 	if p.alive and p.vehicle and res.is_empty():
 		_draw_vehicle(sz, p.vehicle)
 	# crosshair and hit markers

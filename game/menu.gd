@@ -511,10 +511,11 @@ func _build_hud() -> void:
 	mv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var diff_name: String = ["مبتدئون", "مقاتلون", "محترفون"][int(G.settings["difficulty"])]
 	var br_mode := String(G.settings.get("mode", "br")) == "br"
-	var ml := UI.label("باتل رويال — وادي الذهب" if br_mode else "كلاسيكي — القصبة", 20, UI.TEXT, true)
+	var br_title := "باتل رويال — جزيرة بوروفايا" if String(G.settings.get("br_map", "island")) == "island" else "باتل رويال — وادي الذهب"
+	var ml := UI.label(br_title if br_mode else "كلاسيكي — القصبة", 20, UI.TEXT, true)
 	ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ml)
-	var ms := UI.label(("30 مقاتلاً · العاصفة الرملية · كل واحد لنفسه") if br_mode else ("زرع القنبلة · 5 ضد 5 · بوتات %s" % diff_name), 15, UI.GOLD)
+	var ms := UI.label(("30 مقاتلاً · العاصفة · كل واحد لنفسه") if br_mode else ("زرع القنبلة · 5 ضد 5 · بوتات %s" % diff_name), 15, UI.GOLD)
 	ms.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ms)
 	mode.add_child(mv)
@@ -747,7 +748,8 @@ func _panel_play() -> Control:
 	vb.add_theme_constant_override("separation", 10)
 	p.add_child(vb)
 	vb.add_child(UI.label("اختر الطور", 28, UI.TEXT, true))
-	_choice(vb, "الطور", "mode", [["باتل رويال · وادي الذهب", "br"], ["كلاسيكي 5 ضد 5 · القصبة", "classic"]])
+	_choice(vb, "الطور", "mode", [["باتل رويال", "br"], ["كلاسيكي 5 ضد 5 · القصبة", "classic"]])
+	_choice(vb, "خريطة الباتل رويال", "br_map", [["جزيرة بوروفايا", "island"], ["وادي الذهب", "desert"]])
 	vb.add_child(UI.label("باتل رويال: اقفز من الطائرة، اجمع السلاح والعتاد، ابقَ داخل المنطقة الآمنة من العاصفة الرملية، وكن آخر من يبقى.", 15, UI.DIM))
 	vb.add_child(UI.label("كلاسيكي: الهجوم يزرع القنبلة في «أ» أو «ب»، والدفاع يمنعه أو يفكّكها.", 15, UI.DIM))
 	_choice(vb, "فريقك في الشوط الأول", "team", [["الدفاع", "ct"], ["الهجوم", "t"]])

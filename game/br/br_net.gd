@@ -42,7 +42,7 @@ func c_hello(nick: String) -> void:
 		rpc_id(id, "h_refused", "المعركة بدأت بالفعل — انتظر الجولة القادمة")
 		return
 	peers[id] = {"name": nick.substr(0, 18), "ready": false}
-	rpc_id(id, "h_world", int(game.world_seed))
+	rpc_id(id, "h_world", int(game.world_seed), game.world_map)
 	_lobby_text()
 
 @rpc("authority", "call_remote", "reliable")
@@ -51,8 +51,8 @@ func h_refused(why: String) -> void:
 		lobby_label.text = why
 
 @rpc("authority", "call_remote", "reliable")
-func h_world(seed_v: int) -> void:
-	await game.build_world(seed_v)
+func h_world(seed_v: int, map_name: String) -> void:
+	await game.build_world(seed_v, map_name)
 	if lobby_label:
 		lobby_label.text = "جاهز — بانتظار أن يبدأ المضيف المعركة"
 	rpc_id(1, "c_ready")

@@ -18,6 +18,12 @@ var roads: Array = []               # [Vector2, Vector2, h_a, h_b]
 var loot_points: Array = []         # {pos: Vector3, door: Vector3 (or pos), inside: bool, path: [waypoints to walk first]}
 var footprints: Array = []          # {c: Vector2, half: Vector2, rot: float}  (houses, for the map)
 var houses2: Array = []             # transforms of the two-storey houses
+# air and storm colours of the map (the island sets its own)
+var fog_base := Color(0.86, 0.76, 0.62)
+var fog_dens := 0.0011
+var storm_tint := Color(0.85, 0.48, 0.18)
+var wall_dark := Color(0.72, 0.42, 0.16)
+var wall_light := Color(0.98, 0.72, 0.38)
 var map_tex: ImageTexture
 var rng := RandomNumberGenerator.new()
 var _nb := FastNoiseLite.new()

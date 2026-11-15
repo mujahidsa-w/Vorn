@@ -49,6 +49,7 @@ var vehicles: Array = []
 var net: BRNet = null                 # online: the network module
 var net_role := ""                    # "", "host" or "client"
 var world_seed := 0
+var world_map := "desert"             # desert (Golden Valley) or island (Borovaya)
 var loot_rng := RandomNumberGenerator.new()
 var veh_rng := RandomNumberGenerator.new()
 var items_by_nid := {}
@@ -87,10 +88,13 @@ func _ready() -> void:
 		return                # the room fills up; the start button calls start_battle
 	start_battle()
 
-## the desert, its loot and vehicles: identical on every peer for the same seed
-func build_world(seed_v: int) -> void:
+## the map, its loot and vehicles: identical on every peer for the same seed and map
+func build_world(seed_v: int, map_name := "") -> void:
 	world_seed = seed_v
-	land = BRLand.new()
+	if map_name == "":
+		map_name = String(G.args.get("map", G.settings.get("br_map", "island")))
+	world_map = "island" if map_name == "island" and BRIsland.available() else "desert"
+	land = BRIsland.new() if world_map == "island" else BRLand.new()
 	land.name = "World"
 	world = land
 	add_child(land)
@@ -126,7 +130,7 @@ func start_battle(humans: Array = [], roster: Array = []) -> void:
 	state = S.LIVE
 	_start_plane()
 	overlay.queue_free()
-	hud.announce("وادي الذهب", 4.0, "اقفز من الطائرة عندما تكون فوق المكان الذي تريد الهبوط فيه", UI.GOLD)
+	hud.announce("جزيرة بوروفايا" if world_map == "island" else "وادي الذهب", 4.0, "اقفز من الطائرة عندما تكون فوق المكان الذي تريد الهبوط فيه", UI.GOLD)
 	if G.shots_dir != "" and not G.args.has("dev"):
 		_auto_shots()
 
@@ -508,6 +512,8 @@ func _storm_wall() -> void:
 	sh.code = "shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
 uniform float t = 0.0;
+uniform vec3 dark = vec3(0.72, 0.42, 0.16);
+uniform vec3 light = vec3(0.98, 0.72, 0.38);
 varying float wy;
 void vertex() { wy = (MODEL_MATRIX * vec4(VERTEX, 1.0)).y; }
 float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -519,11 +525,13 @@ void fragment() {
 	vec2 uv = vec2(UV.x * 90.0, UV.y * 9.0);
 	float a = n2(uv + vec2(t * 1.7, t * 0.3)) * 0.55 + n2(uv * 2.3 - vec2(t * 2.9, 0.0)) * 0.3 + n2(uv * 5.1 + vec2(t * 4.0, t)) * 0.15;
 	float fade = smoothstep(360.0, 90.0, wy);
-	ALBEDO = mix(vec3(0.72, 0.42, 0.16), vec3(0.98, 0.72, 0.38), a);
+	ALBEDO = mix(dark, light, a);
 	ALPHA = clamp((0.30 + a * 0.45) * fade, 0.0, 0.85);
 }"
 	var m := ShaderMaterial.new()
 	m.shader = sh
+	m.set_shader_parameter("dark", Vector3(land.wall_dark.r, land.wall_dark.g, land.wall_dark.b))
+	m.set_shader_parameter("light", Vector3(land.wall_light.r, land.wall_light.g, land.wall_light.b))
 	storm_wall.material_override = m
 	storm_wall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(storm_wall)
@@ -925,8 +933,8 @@ var _fog_k := 0.0
 func _fog(dt: float, inside: bool) -> void:
 	## caught in the storm: the air turns orange and thick
 	_fog_k = move_toward(_fog_k, 0.0 if inside else 1.0, dt * 0.8)
-	land.env.fog_density = lerpf(0.0011, 0.03, _fog_k)
-	land.env.fog_light_color = Color(0.86, 0.76, 0.62).lerp(Color(0.85, 0.48, 0.18), _fog_k)
+	land.env.fog_density = lerpf(land.fog_dens, 0.03, _fog_k)
+	land.env.fog_light_color = land.fog_base.lerp(land.storm_tint, _fog_k)
 
 func _client_physics(dt: float) -> void:
 	## an online client: my own fighter flies, walks and asks; the rest comes from the host
