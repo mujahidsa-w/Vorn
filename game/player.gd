@@ -149,7 +149,11 @@ func _physics_process(dt: float) -> void:
 				dv = game.test_wish
 			vehicle.controls = Vector3(dv.x, dv.y, 1.0 if Input.is_action_pressed("jump") else 0.0)
 			if Input.is_action_just_pressed("use") and Time.get_ticks_msec() > vehicle_cd:
-				vehicle.leave(self)
+				vehicle_cd = Time.get_ticks_msec() + 700
+				if game.get("net_role") == "client":
+					game.net.req_leave()
+				else:
+					vehicle.leave(self)
 		tick_weapon(dt)
 		return
 	var wish := Vector2.ZERO

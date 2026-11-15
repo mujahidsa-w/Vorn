@@ -43,7 +43,7 @@ func planes() -> Array:
 func _physics_process(dt: float) -> void:
 	if game == null or game.phase == "over":
 		return
-	if next < TIMES.size() and game.match_t >= TIMES[next] and game.phase == "live":
+	if next < TIMES.size() and game.match_t >= TIMES[next] and game.phase == "live" and game.net_role != "client":
 		next += 1
 		_launch()
 	for f in flights.duplicate():
@@ -92,7 +92,10 @@ func _fly(f: Dictionary, dt: float) -> void:
 	plane.look_at(p + (f["dir"] as Vector3), Vector3.UP)
 	if not f["dropped"] and float(f["t"]) * SPEED >= float(f["len"]) * 0.5:
 		f["dropped"] = true
-		_drop(p - Vector3(0, 6.0, 0) - (f["dir"] as Vector3) * 14.0)
+		var at := p - Vector3(0, 6.0, 0) - (f["dir"] as Vector3) * 14.0
+		_drop(at)
+		if game.net_role == "host":
+			game.net.drop(at)
 	if float(f["t"]) * SPEED > float(f["len"]):
 		plane.queue_free()
 		flights.erase(f)
@@ -157,6 +160,8 @@ func _landed(c: Dictionary) -> void:
 		G.log_line("DROP t=%d landed at %s" % [int(game.match_t), node.global_position.snapped(Vector3.ONE)])
 	_flare(node.global_position + node.global_basis * Vector3(sz.x * 0.5 + 0.4, 0, 0))
 	game.sound_at("land", node.global_position, 0.0, null)
+	if game.net_role == "client":
+		return              # the host sends the loot
 	# loot on and around the crate
 	var w: String = RARE[rng.randi() % RARE.size()]
 	var b := node.global_basis

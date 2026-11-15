@@ -13,7 +13,9 @@ func _ready() -> void:
 		for i in 4:
 			await get_tree().process_frame
 		G.fit_screen()
-	if G.args.has("match"):
+	if G.args.has("nethost") or G.args.has("netjoin"):
+		G.net_test_start()
+	elif G.args.has("match"):
 		G.start_match()
 	elif G.args.has("test"):
 		get_tree().change_scene_to_file("res://tools/test_%s.tscn" % G.args["test"])

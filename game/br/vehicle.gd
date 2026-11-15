@@ -37,6 +37,10 @@ var _smoke: CPUParticles3D
 var _look_quiet := 0.0
 var _hit_cd := {}                     # actor -> time of the last run-over hit
 var autopilot := false                # controls apply with nobody seated (physics checks)
+var remote := false                   # online client: the host drives the physics, snapshots place it
+var _net_pos := Vector3.ZERO
+var _net_rot := Quaternion.IDENTITY
+var net_vel := Vector3.ZERO
 
 func setup(g: Node, k: String, c: Color) -> void:
 	game = g
@@ -48,6 +52,12 @@ func setup(g: Node, k: String, c: Color) -> void:
 func _ready() -> void:
 	collision_layer = 1
 	collision_mask = 1
+	remote = game != null and game.get("net_role") == "client"
+	if remote:
+		freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+		freeze = true
+		_net_pos = global_position
+		_net_rot = global_basis.get_rotation_quaternion()
 	mass = float(spec["mass"])
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = Vector3(0, -0.15, 0)
@@ -95,7 +105,32 @@ func _ready() -> void:
 		(g as GeometryInstance3D).visibility_range_end = 260.0
 
 # ------------------------------------------------------------------ driving
+func net_pose(pos: Vector3, rot: Quaternion, vel: Vector3, steer: float) -> void:
+	_net_pos = pos
+	_net_rot = rot
+	net_vel = vel
+	_steer = steer
+
+func net_wreck() -> void:
+	if wrecked:
+		return
+	hp = 0.0
+	_explode(null)
+
+func speed() -> float:
+	return (net_vel if remote else linear_velocity).dot(global_basis.z)
+
 func _physics_process(dt: float) -> void:
+	if remote:
+		var k := 1.0 - exp(-14.0 * dt)
+		if global_position.distance_to(_net_pos) > 20.0:
+			global_position = _net_pos
+		else:
+			global_position = global_position.lerp(_net_pos + net_vel * dt, k)
+		global_basis = Basis(global_basis.get_rotation_quaternion().slerp(_net_rot, k))
+		if driver:
+			driver.global_position = global_transform * (spec["seat"] as Vector3)
+		return
 	if wrecked:
 		return
 	if driver == null and not autopilot and linear_velocity.length() < 0.4 and angular_velocity.length() < 0.4:
@@ -240,7 +275,7 @@ func leave(a: Actor, forced := false) -> void:
 
 # ------------------------------------------------------------------ damage
 func damage(n: float, by: Actor) -> void:
-	if wrecked:
+	if wrecked or remote:
 		return
 	hp -= n
 	if hp < float(spec["hp"]) * 0.3 and _smoke == null:
@@ -305,7 +340,7 @@ func _make_smoke() -> CPUParticles3D:
 
 # ------------------------------------------------------------------ camera, sound, drawn parts
 func _process(dt: float) -> void:
-	var speed := linear_velocity.dot(global_basis.z)
+	var speed := speed()
 	if _engine:
 		_engine.rpm = clampf(absf(speed) / float(spec["top"]), 0.0, 1.0)
 		_engine.load_k = absf(controls.y) if driver else 0.0

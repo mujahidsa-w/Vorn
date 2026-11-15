@@ -565,6 +565,8 @@ func try_fire(alt := false) -> bool:
 		if Network.online and self == game.player and not Network.is_host:
 			if i == 0:
 				Network.request_shot(eye(), dir, cur)
+				if game.get("net") != null:
+					game.net.local_shot(self, dir)
 		else:
 			game.bullet(self, eye(), dir, cur, i == 0)
 	# отдача: вверх, потом змейкой влево-вправо

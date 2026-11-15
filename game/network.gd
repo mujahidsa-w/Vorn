@@ -163,7 +163,7 @@ func server_receive_shot(origin: Vector3, direction: Vector3, weapon: String) ->
 	var shooter = match_ref.get_node_or_null("Peer_%d" % sender)
 	if shooter == null or not shooter.alive or shooter.cur != weapon or not DB.W.has(weapon):
 		return
-	if match_ref.frozen() or shooter.fire_cd > 0.0 or shooter.reload_t > 0.0 or shooter.mag() <= 0:
+	if match_ref.frozen() or shooter.fire_cd > 0.06 or shooter.reload_t > 0.0 or shooter.mag() <= 0:
 		return
 	if origin.distance_to(shooter.eye()) > 3.0 or direction.length_squared() < 0.8 or direction.length_squared() > 1.2:
 		return

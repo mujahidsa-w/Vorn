@@ -908,6 +908,7 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 			break
 	if first:
 		fx.tracer(start_vis, end)
+		_bullet_done(shooter, wid, start_vis, end)
 		# свист пули рядом с головой игрока
 		if shooter != player and player and player.alive and hostile(shooter, player):
 			var pe := player.eye()
@@ -915,6 +916,9 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 			var tt := clampf((pe - from).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
 			if tt > 0.05 and (from + ab * tt).distance_to(pe) < 1.7:
 				Sfx.play("whiz", -7.0, randf_range(0.9, 1.1))
+
+func _bullet_done(_shooter: Actor, _wid: String, _from: Vector3, _to: Vector3) -> void:
+	pass          # the online battle royale sends the tracer to the other players
 
 func knife_hit(a: Actor, alt: bool) -> void:
 	var space := get_world_3d().direct_space_state

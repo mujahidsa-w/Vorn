@@ -161,7 +161,7 @@ func _draw_vehicle(sz: Vector2, v: Vehicle) -> void:
 	var w := 300.0
 	var r := Rect2(sz.x * 0.5 - w * 0.5, 66.0, w, 64)
 	_panel(r, UI.PANEL, 10)
-	var kmh := int(round(absf(v.linear_velocity.dot(v.global_basis.z)) * 3.6))
+	var kmh := int(round(absf(v.speed()) * 3.6))
 	var f := UI.bold()
 	root.draw_string(f, r.position + Vector2(18, 44), str(kmh), HORIZONTAL_ALIGNMENT_LEFT, -1, 34, UI.TEXT)
 	root.draw_string(UI.font(), r.position + Vector2(18 + f.get_string_size(str(kmh), HORIZONTAL_ALIGNMENT_LEFT, -1, 34).x + 8, 44), "كم/س", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UI.DIM)

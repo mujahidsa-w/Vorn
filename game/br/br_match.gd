@@ -46,6 +46,13 @@ var storm_tick := 0.0
 var air: AirSound
 var drops: AirDrops
 var vehicles: Array = []
+var net: BRNet = null                 # online: the network module
+var net_role := ""                    # "", "host" or "client"
+var world_seed := 0
+var loot_rng := RandomNumberGenerator.new()
+var veh_rng := RandomNumberGenerator.new()
+var items_by_nid := {}
+var _nid := 0
 var match_t := 0.0
 var player_place := 0
 var result := {}
@@ -64,34 +71,59 @@ func _ready() -> void:
 	_loading_overlay()
 	await get_tree().process_frame
 	await get_tree().process_frame
+	if Network.online:
+		net = BRNet.new()
+		net.name = "Net"
+		net.game = self
+		add_child(net)
+		Network.match_ref = self
+		net_role = "host" if Network.is_host else "client"
+		net.lobby_ui(overlay)
+	if net_role == "client":
+		net.hello()           # the host answers with the world seed (BRNet.h_world -> build_world)
+		return
+	await build_world(rng.randi())
+	if net_role == "host":
+		return                # the room fills up; the start button calls start_battle
+	start_battle()
+
+## the desert, its loot and vehicles: identical on every peer for the same seed
+func build_world(seed_v: int) -> void:
+	world_seed = seed_v
 	land = BRLand.new()
 	land.name = "World"
 	world = land
 	add_child(land)
-	land.build(rng.randi())
+	land.build(seed_v)
 	fx = Fx.new()
 	fx.name = "Fx"
 	add_child(fx)
-	_spawn_people()
-	hud = preload("res://game/br/br_hud.gd").new()
-	hud.name = "HUD"
-	hud.game = self
-	add_child(hud)
-	Touch.game = self
 	air = AirSound.new()
 	add_child(air)
-	Sfx.stop_all()
-	Sfx.music("")
-	Sfx.ambient("amb_desert", -16.0)
-	G.set_mouse(Input.MOUSE_MODE_CAPTURED)
-	state = S.LIVE
 	_storm_wall()
+	loot_rng.seed = seed_v + 17
+	veh_rng.seed = seed_v + 29
 	_scatter_loot()
 	_spawn_vehicles()
 	drops = AirDrops.new()
 	drops.name = "AirDrops"
 	add_child(drops)
-	drops.setup(self, rng.randi())
+	drops.setup(self, seed_v + 41)
+	await get_tree().process_frame
+
+## the fighters board the plane. humans: [[peer id, name]] (host); roster: the host's list (clients)
+func start_battle(humans: Array = [], roster: Array = []) -> void:
+	_spawn_people(humans, roster)
+	hud = preload("res://game/br/br_hud.gd").new()
+	hud.name = "HUD"
+	hud.game = self
+	add_child(hud)
+	Touch.game = self
+	Sfx.stop_all()
+	Sfx.music("")
+	Sfx.ambient("amb_desert", -16.0)
+	G.set_mouse(Input.MOUSE_MODE_CAPTURED)
+	state = S.LIVE
 	_start_plane()
 	overlay.queue_free()
 	hud.announce("وادي الذهب", 4.0, "اقفز من الطائرة عندما تكون فوق المكان الذي تريد الهبوط فيه", UI.GOLD)
@@ -121,7 +153,47 @@ func _loading_overlay() -> void:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	overlay.add_child(l)
 
-func _spawn_people() -> void:
+func _give_body(a: Actor, model: String) -> void:
+	if not FighterBody.available(model):
+		return
+	var fb := FighterBody.new()
+	fb.name = "Body"
+	a.add_child(fb)
+	fb.setup(a, model)
+	a.body = fb
+	a.shot.connect(fb.on_shot.unbind(1))
+	a.reload_started.connect(func(_w, t): fb.on_reload(t))
+	for mi in fb.find_children("*", "GeometryInstance3D", true, false):
+		(mi as GeometryInstance3D).visibility_range_end = 320.0
+
+func _spawn_people(humans: Array = [], roster: Array = []) -> void:
+	if net_role == "client":
+		# the host's list: me, everyone else as a puppet of the host's snapshots
+		for e in roster:
+			var pid: int = int(e[1])
+			var model: String = e[3]
+			var a: Actor
+			if pid == multiplayer.get_unique_id():
+				player = Player.new()
+				a = player
+			else:
+				var pp := NetPuppet.new()
+				pp.peer = pid
+				pp.net_idx = int(e[0])
+				a = pp
+			a.name = "Fighter_%d" % int(e[0])
+			add_child(a)
+			a.setup(self, "t" if model.begins_with("t") else "ct", String(e[2]), false, model)
+			a.full_reset()
+			_strip(a)
+			if a == player:
+				player.init_player()
+				player.cam.far = 1600.0
+			else:
+				_give_body(a, model)
+			meds[a] = {"bandage": 0, "medkit": 0}
+			actors.append(a)
+		return
 	var models := ["t_1", "t_2", "ct_1", "ct_2"]
 	var names := NICKS.duplicate()
 	names.shuffle()
@@ -129,17 +201,24 @@ func _spawn_people() -> void:
 	var pmodel: String = {"ct": ["ct_1", "ct_2"], "t": ["t_1", "t_2"]}[pteam][int(G.settings.get("outfit", 0)) % 2]
 	for i in BOTS + 1:
 		var is_p := i == 0
+		var remote := i > 0 and i < humans.size()        # another player in the room
 		var model: String = pmodel if is_p else models[rng.randi() % models.size()]
 		var team := "t" if model.begins_with("t") else "ct"
 		var a: Actor
 		if is_p:
 			player = Player.new()
 			a = player
+		elif remote:
+			var pp := NetPuppet.new()
+			pp.peer = int(humans[i][0])
+			pp.host_side = true
+			a = pp
 		else:
 			a = Bot.new()
-		a.name = "Fighter_%d" % i
+		a.name = ("Peer_%d" % int(humans[i][0])) if remote else ("Fighter_%d" % i)
 		add_child(a)
-		a.setup(self, team, String(G.settings["name"]) if is_p else String(names[i % names.size()]), not is_p, model)
+		var nick := String(G.settings["name"]) if is_p else (String(humans[i][1]) if remote else String(names[i % names.size()]))
+		a.setup(self, team, nick, not (is_p or remote), model)
 		a.full_reset()
 		_strip(a)
 		if is_p:
@@ -151,7 +230,9 @@ func _spawn_people() -> void:
 			a.add_child(pb)
 			pb.setup(a, self)
 			a.set_meta("brain", pb)
-		if not is_p:
+		if remote:
+			_give_body(a, model)
+		elif not is_p:
 			var br := BRBrain.new()
 			br.name = "Brain"
 			a.add_child(br)
@@ -184,16 +265,17 @@ func _strip(a: Actor) -> void:
 
 # ------------------------------------------------------------------ the plane and the jump
 func _start_plane() -> void:
-	var ang := rng.randf() * TAU
-	plane_dir = Vector3(cos(ang), 0, sin(ang))
-	var side := Vector3(-plane_dir.z, 0, plane_dir.x) * rng.randf_range(-150.0, 150.0)
-	plane_from = side - plane_dir * plane_len * 0.5 + Vector3(0, ALT, 0)
+	if net_role != "client":
+		var ang := rng.randf() * TAU
+		plane_dir = Vector3(cos(ang), 0, sin(ang))
+		var side := Vector3(-plane_dir.z, 0, plane_dir.x) * rng.randf_range(-150.0, 150.0)
+		plane_from = side - plane_dir * plane_len * 0.5 + Vector3(0, ALT, 0)
 	plane_t = 0.0
 	plane = _plane_model()
 	add_child(plane)
 	for a in actors:
 		var f := {"st": "plane", "vel": Vector3.ZERO, "jump_at": 99.0, "target": Vector3.ZERO, "chute": null}
-		if a != player or auto:
+		if (a != player or auto) and not (a is NetPuppet):
 			# each bot picks a landing spot under the route and leaves when the plane is closest to it
 			# a gun lying not too far from the route (the landing spot is its doorway)
 			var guns := items.filter(func(it): return it.kind == "weapon" and _dist_to_route(it.global_position) < 330.0)
@@ -473,6 +555,9 @@ func _storm_next() -> void:
 
 func _storm_tick(dt: float) -> void:
 	var k: int = storm["k"]
+	if net_role == "client":
+		_storm_visual()
+		return
 	if k < STORM.size():
 		storm["t"] = float(storm["t"]) - dt
 		if not storm["closing"] and float(storm["t"]) <= 0.0:
@@ -488,12 +573,7 @@ func _storm_tick(dt: float) -> void:
 				storm["c"] = storm["c1"]
 				storm["r"] = storm["r1"]
 				_storm_next()
-	var c: Vector2 = storm["c"]
-	var r: float = maxf(0.5, storm["r"])
-	storm_wall.visible = r < 600.0
-	storm_wall.position = Vector3(c.x, 150.0, c.y)
-	storm_wall.scale = Vector3(r, 420.0, r)
-	(storm_wall.material_override as ShaderMaterial).set_shader_parameter("t", match_t)
+	_storm_visual()
 	storm_tick -= dt
 	if storm_tick <= 0.0:
 		storm_tick = 1.0
@@ -501,6 +581,14 @@ func _storm_tick(dt: float) -> void:
 		for a in actors:
 			if a.alive and fly[a]["st"] == "ground" and not in_safe(a.global_position):
 				a.take_damage(dmg, null, "zone", "chest", a.global_position + Vector3(0, 1, 0))
+
+func _storm_visual() -> void:
+	var c: Vector2 = storm["c"]
+	var r: float = maxf(0.5, storm["r"])
+	storm_wall.visible = r < 600.0
+	storm_wall.position = Vector3(c.x, 150.0, c.y)
+	storm_wall.scale = Vector3(r, 420.0, r)
+	(storm_wall.material_override as ShaderMaterial).set_shader_parameter("t", match_t)
 
 func in_safe(p: Vector3) -> bool:
 	return Vector2(p.x, p.z).distance_to(storm["c"]) <= float(storm["r"])
@@ -515,16 +603,16 @@ func _spawn_vehicles() -> void:
 		var b: Vector2 = rd[1]
 		var dir := (b - a).normalized()
 		for i in 2:
-			var p := a.lerp(b, rng.randf_range(0.25, 0.75))
-			var side := Vector2(-dir.y, dir.x) * rng.randf_range(4.5, 7.0) * (1.0 if rng.randf() < 0.5 else -1.0)
-			spots.append([p + side, atan2(dir.x, dir.y) + (PI if rng.randf() < 0.5 else 0.0)])
+			var p := a.lerp(b, veh_rng.randf_range(0.25, 0.75))
+			var side := Vector2(-dir.y, dir.x) * veh_rng.randf_range(4.5, 7.0) * (1.0 if veh_rng.randf() < 0.5 else -1.0)
+			spots.append([p + side, atan2(dir.x, dir.y) + (PI if veh_rng.randf() < 0.5 else 0.0)])
 	for t in land.towns:
-		var ang := rng.randf() * TAU
+		var ang := veh_rng.randf() * TAU
 		spots.append([(t["c"] as Vector2) + Vector2.from_angle(ang) * (float(t["r"]) + 9.0), ang + PI / 2.0])
 	for h in land.hamlets:
-		if rng.randf() < 0.6:
-			var ang2 := rng.randf() * TAU
-			spots.append([(h["c"] as Vector2) + Vector2.from_angle(ang2) * (float(h["r"]) + 6.0), rng.randf() * TAU])
+		if veh_rng.randf() < 0.6:
+			var ang2 := veh_rng.randf() * TAU
+			spots.append([(h["c"] as Vector2) + Vector2.from_angle(ang2) * (float(h["r"]) + 6.0), veh_rng.randf() * TAU])
 	var n := 0
 	for sp in spots:
 		var p2: Vector2 = sp[0]
@@ -544,8 +632,8 @@ func _spawn_vehicles() -> void:
 		if steep or blocked:
 			continue
 		var v := Vehicle.new()
-		var kind := "buggy" if rng.randf() < 0.58 else "bike"
-		v.setup(self, kind, Vehicle.PAINT[rng.randi() % Vehicle.PAINT.size()])
+		var kind := "buggy" if veh_rng.randf() < 0.58 else "bike"
+		v.setup(self, kind, Vehicle.PAINT[veh_rng.randi() % Vehicle.PAINT.size()])
 		v.name = "Vehicle_%d" % n
 		add_child(v)
 		v.global_transform = Transform3D(Basis(Vector3.UP, float(sp[1])), Vector3(p2.x, h0 + 0.45, p2.y))
@@ -569,7 +657,7 @@ func _pick_table() -> String:
 	var tot := 0.0
 	for e in LOOT_TABLE:
 		tot += float(e[1])
-	var r := rng.randf() * tot
+	var r := loot_rng.randf() * tot
 	for e in LOOT_TABLE:
 		r -= float(e[1])
 		if r <= 0.0:
@@ -578,16 +666,16 @@ func _pick_table() -> String:
 
 func _scatter_loot() -> void:
 	for lp in land.loot_points:
-		if rng.randf() > (0.85 if lp["inside"] else 0.65):
+		if loot_rng.randf() > (0.85 if lp["inside"] else 0.65):
 			continue
-		var n := rng.randi_range(1, 3) if lp["inside"] else rng.randi_range(1, 2)
+		var n := loot_rng.randi_range(1, 3) if lp["inside"] else loot_rng.randi_range(1, 2)
 		for i in n:
 			var id := _pick_table()
-			var p: Vector3 = (lp["pos"] as Vector3) + Vector3(rng.randf_range(-0.6, 0.6), 0, rng.randf_range(-0.6, 0.6))
+			var p: Vector3 = (lp["pos"] as Vector3) + Vector3(loot_rng.randf_range(-0.6, 0.6), 0, loot_rng.randf_range(-0.6, 0.6))
 			var it := spawn_item(id, -1, p)
 			if it:
 				it.set_meta("path", lp["path"])
-			if DB.W.has(id) and Loot.kind_of(id) == "weapon" and rng.randf() < 0.75:
+			if DB.W.has(id) and Loot.kind_of(id) == "weapon" and loot_rng.randf() < 0.75:
 				spawn_item(Loot.ammo_for(id), -1, p + Vector3(0.5, 0, 0.3))
 
 func spawn_item(id: String, n: int, p: Vector3) -> Loot:
@@ -597,13 +685,21 @@ func spawn_item(id: String, n: int, p: Vector3) -> Loot:
 	add_child(l)
 	var y := land.ground_at(p.x, p.z, p.y + 1.2)
 	l.global_position = Vector3(p.x, y + 0.02, p.z)
-	l.rotation.y = rng.randf() * TAU
+	l.rotation.y = randf() * TAU
 	items.append(l)
+	l.set_meta("nid", _nid)
+	items_by_nid[_nid] = l
+	_nid += 1
+	if net_role == "host" and net.started:
+		net.item_spawned.call_deferred(l)
 	return l
 
 func _remove_item(l: Loot) -> void:
 	l.taken = true
 	items.erase(l)
+	items_by_nid.erase(l.get_meta("nid", -1))
+	if net_role == "host":
+		net.item_gone(l)
 	l.queue_free()
 
 func nearest_item(a: Actor, radius := 1.9, only_weapons := false) -> Loot:
@@ -683,6 +779,8 @@ func take(a: Actor, l: Loot, swap := false) -> bool:
 		Sfx.ui("buy" if Sfx.has("buy") else "ui_click", -6.0)
 		hud.pickup_note(Loot.title(l.id), l.count if l.kind in ["ammo", "med"] else 0)
 	_remove_item(l)
+	if net_role == "host":
+		net.send_inventory(a)
 	return true
 
 # ------------------------------------------------------------------ healing
@@ -722,6 +820,8 @@ func _heal_tick(dt: float) -> void:
 			meds[a][h["id"]] = int(meds[a][h["id"]]) - 1
 			a.hp = 100 if h["id"] == "medkit" else mini(75, maxi(a.hp, a.hp + 20))
 			heal.erase(a)
+			if net_role == "host":
+				net.send_inventory(a)
 			if a == player:
 				Sfx.ui("ui_click", -4.0, 1.3)
 
@@ -741,6 +841,11 @@ func hostile(a: Actor, b: Actor) -> bool:
 func _physics_process(dt: float) -> void:
 	if land == null or player == null:
 		return
+	if net:
+		net.tick(dt)
+	if net_role == "client":
+		_client_physics(dt)
+		return
 	match_t += dt
 	if phase == "plane":
 		plane_t += dt
@@ -754,7 +859,7 @@ func _physics_process(dt: float) -> void:
 			phase = "live"
 			plane.queue_free()
 	for a in actors:
-		if a.alive and fly[a]["st"] != "ground":
+		if a.alive and fly[a]["st"] != "ground" and not (a is NetPuppet):
 			_flight(a, dt)
 	if fly[player]["st"] == "plane" and not auto:
 		if Input.is_action_just_pressed("use") or Input.is_action_just_pressed("jump"):
@@ -823,6 +928,93 @@ func _fog(dt: float, inside: bool) -> void:
 	land.env.fog_density = lerpf(0.0011, 0.03, _fog_k)
 	land.env.fog_light_color = Color(0.86, 0.76, 0.62).lerp(Color(0.85, 0.48, 0.18), _fog_k)
 
+func _client_physics(dt: float) -> void:
+	## an online client: my own fighter flies, walks and asks; the rest comes from the host
+	match_t += dt
+	if phase == "plane":
+		plane_t += dt
+		if is_instance_valid(plane):
+			plane.global_position = _plane_pos()
+			plane.look_at(plane.global_position + plane_dir, Vector3.UP)
+			if plane_t * PLANE_SPEED > plane_len + 200.0:
+				phase = "live"
+				plane.queue_free()
+	var st: String = fly[player]["st"]
+	if player.alive and st != "ground":
+		_flight(player, dt)
+	if st == "plane" and (Input.is_action_just_pressed("use") or Input.is_action_just_pressed("jump")):
+		_jump(player)
+	elif st == "fall" and Input.is_action_just_pressed("use"):
+		_open_chute(player)
+	var now := Time.get_ticks_msec()
+	if player.alive and st == "ground":
+		if Input.is_action_just_pressed("use") and player.vehicle == null and now > player.vehicle_cd:
+			var w := nearest_item(player, 1.9, true)
+			if w:
+				net.req_take(w, true)
+			else:
+				var vh := nearest_vehicle(player)
+				if vh:
+					net.req_enter(vh)
+					player.vehicle_cd = now + 700
+		if Input.is_action_just_pressed("buy"):
+			net.req_heal()
+	_storm_tick(dt)
+	var inside: bool = in_safe(player.global_position) or not player.alive or st != "ground"
+	air.mode = air.mode if st != "ground" else ("" if inside else "storm")
+	_fog(dt, inside)
+
+## a fighter's flight state as the network reports it (puppets on clients, other players on the host)
+func net_flight(a: Actor, st: String) -> void:
+	var f: Dictionary = fly.get(a, {})
+	if f.is_empty() or String(f["st"]) == st or not a.alive:
+		return
+	f["st"] = st
+	if st != "plane" and a.body:
+		a.body.visible = true
+	if st == "chute" and f["chute"] == null:
+		var ch := _chute_model()
+		a.add_child(ch)
+		f["chute"] = ch
+	if st == "ground":
+		if f["chute"]:
+			(f["chute"] as Node3D).queue_free()
+			f["chute"] = null
+		a._set_hit_enabled(true)
+
+## client: the host says I am down
+func net_player_down(killer: Actor = null) -> void:
+	if not player.alive:
+		return
+	player.alive = false
+	player.hp = 0
+	player._set_hit_enabled(false)
+	player.died.emit()
+	player.on_player_death(killer)
+	if player.vehicle:
+		player.vehicle = null
+		player.cam_mode = ""
+	player_place = alive_count() + 1
+	_results(false)
+
+## client: the host says the battle is over
+func net_over(winner: Actor) -> void:
+	if phase == "over":
+		return
+	if player.alive and (winner == player or winner == null):
+		player_place = 1
+		_results(true)
+	else:
+		phase = "over"
+		state = S.OVER
+		over_t = 0.0
+		if winner:
+			hud.announce("الفائز: %s" % winner.nick, 6.0, "", UI.GOLD)
+
+func _bullet_done(shooter: Actor, wid: String, from: Vector3, to: Vector3) -> void:
+	if net_role == "host":
+		net.shot_fx(shooter, wid, from, to)
+
 func touch_use_label() -> String:
 	## text of the touch «use» button, or "" to hide it
 	if not player.alive:
@@ -851,6 +1043,8 @@ func alive_count() -> int:
 
 func on_hurt(v: Actor, attacker: Actor, n: int, zone: String, armored: bool, from_pos: Vector3) -> void:
 	super.on_hurt(v, attacker, n, zone, armored, from_pos)
+	if net_role == "host":
+		net.hurt(v, n, from_pos)
 	if attacker == player and v != player:
 		dmg_done += n
 	if heal.has(v):
@@ -861,6 +1055,8 @@ func on_death(v: Actor, killer: Actor, wid: String, headshot: bool) -> void:
 	if auto:
 		G.log_line("BR death #%d %s by %s (%s) at %s st=%s" % [place, v.nick, killer.nick if killer else "-", wid, v.global_position.snapped(Vector3.ONE), fly[v]["st"]])
 	super.on_death(v, killer, wid, headshot)
+	if net_role == "host":
+		net.feed(v, killer, wid, headshot)
 	# everything he carried falls around the body
 	var p := v.global_position + Vector3(0, 0.3, 0)
 	var drops: Array = []
@@ -893,6 +1089,12 @@ func _check_end() -> void:
 	var n := alive_count()
 	if n <= 1 and phase == "live":
 		phase = "over"
+		if net_role == "host":
+			var w: Actor = null
+			for a in actors:
+				if a.alive:
+					w = a
+			net.over(w)
 		if player.alive:
 			player_place = 1
 			_results(true)

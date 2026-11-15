@@ -209,12 +209,23 @@ func to_menu() -> void:
 	set_mouse(Input.MOUSE_MODE_VISIBLE)
 	get_tree().change_scene_to_file("res://game/menu.tscn")
 
+func net_test_start() -> void:
+	## --nethost: open a room and load the battle; --netjoin <address>: join one (for two-instance checks)
+	if args.has("nethost"):
+		settings["mode"] = String(args.get("mode", "br"))
+		if Network.host() == OK:
+			start_match()
+	elif args.has("netjoin"):
+		settings["mode"] = String(args.get("mode", "br"))
+		Network.session_ready.connect(start_match, CONNECT_ONE_SHOT)
+		Network.join(String(args["netjoin"]))
+
 func start_match() -> void:
 	prepare_weapons()
 	get_tree().paused = false
 	if args.has("mode"):
 		settings["mode"] = args["mode"]
-	if String(settings.get("mode", "br")) == "br" and not Network.online:
+	if String(settings.get("mode", "br")) == "br":
 		get_tree().change_scene_to_file("res://game/br/br.tscn")
 	else:
 		get_tree().change_scene_to_file("res://game/match.tscn")
