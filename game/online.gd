@@ -8,11 +8,15 @@ extends Node
 ##            every seat left empty is a bot, and the process ends with the battle;
 ##   client  (the game): logs in, keeps the profile on the master, joins the waiting room, plays the battle on its
 ##            port and comes back to the master afterwards.
-## The connections are ENet over UDP, encrypted with DTLS (the master makes its key on the first start). The password
-## never leaves the phone: the client sends a hash of it, and the master keeps a salted PBKDF2 of that hash.
+## Two ways to connect, chosen by the server address:
+##   - an IP or host name: ENet over UDP, encrypted with DTLS (the master makes its key on the first start);
+##     ports PORT .. PORT + BATTLE_PORTS must be open (VPS, home PC);
+##   - a web address (wss://..., https://..., or a *.hf.space name): WebSocket over HTTPS on one port. The master is at
+##     <address>/m and battle N at <address>/b/N; a web server in front (server/hf/nginx.conf) routes the paths. This is
+##     the free Hugging Face Spaces set-up (server/hf), where only one web port is open.
+## The password never leaves the phone: the client sends a hash of it, and the master keeps a salted PBKDF2 of that hash.
 ##
-## Running a server:  godot --headless --path <project> -- --server [--data <dir>]
-## (UDP ports PORT .. PORT + BATTLE_PORTS must be open)
+## Running a server:  godot --headless --path <project> -- --server [--data <dir>] [--ws --bind 127.0.0.1]
 
 signal changed                        # client: connection, login or waiting-room state changed
 signal message(text: String)          # client: a notice for the lobby
@@ -109,14 +113,40 @@ func resume() -> void:
 	if has_token() or not _pending.is_empty():
 		_open(host_addr(), PORT, "master")
 
+static func is_web(addr: String) -> bool:
+	addr = addr.strip_edges().to_lower()
+	return addr.begins_with("ws://") or addr.begins_with("wss://") or addr.begins_with("http://") or addr.begins_with("https://") \
+		or addr.trim_suffix("/").ends_with(".hf.space")
+
+static func web_base(addr: String) -> String:
+	## wss://host (https -> wss, http -> ws, a bare name -> wss), no trailing slash
+	addr = addr.strip_edges().trim_suffix("/")
+	if addr.begins_with("https://"):
+		addr = "wss://" + addr.substr(8)
+	elif addr.begins_with("http://"):
+		addr = "ws://" + addr.substr(7)
+	elif not (addr.begins_with("ws://") or addr.begins_with("wss://")):
+		addr = "wss://" + addr
+	return addr
+
 func _open(addr: String, port: int, to: String) -> void:
 	_close()
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(addr, port)
+	var peer: MultiplayerPeer
+	var err := OK
+	if is_web(addr):
+		var url := web_base(addr) + ("/m" if to == "master" else "/b/%d" % port)
+		var wp := WebSocketMultiplayerPeer.new()
+		err = wp.create_client(url, TLSOptions.client() if url.begins_with("wss://") else null)
+		peer = wp
+	else:
+		var ep := ENetMultiplayerPeer.new()
+		err = ep.create_client(addr, port)
+		if err == OK:
+			ep.host.dtls_client_setup(addr, TLSOptions.client_unsafe())
+		peer = ep
 	if err != OK:
 		message.emit("تعذّر الاتصال بالخادم (%s)" % error_string(err))
 		return
-	peer.host.dtls_client_setup(addr, TLSOptions.client_unsafe())
 	multiplayer.multiplayer_peer = peer
 	cstate = C.CONNECTING
 	link = to
@@ -340,17 +370,28 @@ func start_master() -> void:
 	_load_accounts()
 	countdown = float(G.args.get("countdown", COUNTDOWN))
 	max_battles = clampi(int(G.args.get("max_battles", BATTLE_PORTS)), 1, BATTLE_PORTS)
-	var peer := ENetMultiplayerPeer.new()
 	var port := int(G.args.get("port", PORT))
-	var err := peer.create_server(port, 256)
-	if err != OK:
-		printerr("[online] cannot open UDP port %d: %s" % [port, error_string(err)])
+	var peer := _server_peer(port, 256)
+	if peer == null:
+		printerr("[online] cannot open port %d" % port)
 		get_tree().quit(1)
 		return
-	peer.host.dtls_server_setup(TLSOptions.server(_key, _cert))
 	(multiplayer as SceneMultiplayer).server_relay = false      # players never talk to each other directly
 	multiplayer.multiplayer_peer = peer
-	print("[online] master on UDP %d, %d accounts, data %s" % [port, accounts.size(), data_dir])
+	print("[online] master on %s %d, %d accounts, data %s" % ["WebSocket" if G.args.has("ws") else "UDP", port, accounts.size(), data_dir])
+
+func _server_peer(port: int, max_peers: int) -> MultiplayerPeer:
+	## --ws: WebSocket behind the web server (one public port); otherwise ENet + DTLS on UDP
+	if G.args.has("ws"):
+		var wp := WebSocketMultiplayerPeer.new()
+		if wp.create_server(port, String(G.args.get("bind", "*"))) != OK:
+			return null
+		return wp
+	var ep := ENetMultiplayerPeer.new()
+	if ep.create_server(port, max_peers) != OK:
+		return null
+	ep.host.dtls_server_setup(TLSOptions.server(_key, _cert))
+	return ep
 
 func _data_dir() -> void:
 	data_dir = String(G.args.get("data", OS.get_user_data_dir() + "/server"))
@@ -677,6 +718,8 @@ func _launch() -> void:
 	if not OS.has_feature("template"):
 		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
 	args.append_array(["--headless", "--", "--battle", "--port", str(port), "--data", data_dir])
+	if G.args.has("ws"):
+		args.append_array(["--ws", "--bind", String(G.args.get("bind", "*"))])
 	var pid := OS.create_process(OS.get_executable_path(), args)
 	if pid <= 0:
 		for q in group:
@@ -701,16 +744,14 @@ func start_battle_server() -> void:
 	tickets = d["tickets"]
 	G.settings["br_map"] = String(d.get("map", "island"))
 	G.settings["outfit"] = randi() % 8
-	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(battle_port, ROOM_MAX + 2)
-	if err != OK:
-		printerr("[online] battle cannot open UDP %d" % battle_port)
+	var peer := _server_peer(battle_port, ROOM_MAX + 2)
+	if peer == null:
+		printerr("[online] battle cannot open port %d" % battle_port)
 		get_tree().quit(1)
 		return
-	peer.host.dtls_server_setup(TLSOptions.server(_key, _cert))
 	(multiplayer as SceneMultiplayer).server_relay = false
 	multiplayer.multiplayer_peer = peer
-	print("[online] battle on UDP %d for %d players" % [battle_port, tickets.size()])
+	print("[online] battle on port %d for %d players" % [battle_port, tickets.size()])
 	G.start_match()
 
 func battle_world_ready() -> void:
