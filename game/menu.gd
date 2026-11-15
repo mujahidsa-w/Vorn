@@ -43,8 +43,11 @@ var stats_box: VBoxContainer
 var rng := RandomNumberGenerator.new()
 const CARD := 168.0
 # the stand at the east end of the long lane: the camera looks west down the street into the low sun
-const HERO_AT := Vector2(65.0, 8.1)
-const CAM_AT := Vector3(69.7, 9.3, 1.05)
+## the lobby stands on the island: on the hill above Borovaya, with the village and the green hills behind the squad
+const SPOT := Vector3(-32.0, -60.0, 180.0)    # x, z, and the side the camera stands on (degrees)
+const CAM_BACK := Vector3(0.0, 1.2, 4.9)      # camera offset from the stand
+var hero_at := Vector3.ZERO
+var cam_at := Vector3.ZERO
 
 func _ready() -> void:
 	rng.randomize()
@@ -52,12 +55,10 @@ func _ready() -> void:
 	if not G.profile.has("uid"):
 		G.profile["uid"] = rng.randi_range(51000000, 59999999)
 		G.save_profile()
-	world = World.new()
-	add_child(world)
-	world.load_map("kasbah")
-	world.golden_hour(1.4)
+	_backdrop()
 	cam = Camera3D.new()
 	cam.fov = 36.0
+	cam.far = 900.0
 	var ca := CameraAttributesPractical.new()
 	ca.dof_blur_far_enabled = true
 	ca.dof_blur_far_distance = 6.5
@@ -70,7 +71,7 @@ func _ready() -> void:
 	_build_ui()
 	Sfx.stop_all()
 	Sfx.music("menu_theme", 1.5, -6.0)
-	Sfx.ambient("amb_desert", -22.0)
+	Sfx.ambient("amb_desert", -26.0)
 	if G.args.has("panel"):
 		_show(String(G.args["panel"]))
 	if G.args.has("loop"):
@@ -79,9 +80,28 @@ func _ready() -> void:
 		_auto_shots()
 
 # ------------------------------------------------------------------ 3D stand and hero
+func _backdrop() -> void:
+	## the battle royale island at golden hour; the generated desert if the island is missing from the build
+	var land: BRLand = BRIsland.new() if BRIsland.available() else BRLand.new()
+	world = land
+	add_child(land)
+	land.build(731)
+	var sp := SPOT
+	if G.args.has("lobby_spot"):          # development: try another place
+		var v := String(G.args["lobby_spot"]).split(",")
+		sp = Vector3(float(v[0]), float(v[1]), float(v[2]))
+	var gy := land.height_at(sp.x, sp.y)
+	for k in 8:          # the stand rests on the highest ground under its rim
+		var a := TAU * k / 8.0
+		gy = maxf(gy, land.height_at(sp.x + cos(a) * 0.95, sp.y + sin(a) * 0.95) - 0.02)
+	hero_at = Vector3(sp.x, gy, sp.y)
+	cam_at = hero_at + CAM_BACK.rotated(Vector3.UP, deg_to_rad(sp.z))
+	cam_at.y = maxf(cam_at.y, land.height_at(cam_at.x, cam_at.z) + 1.0)
+	land.evening()
+
 func _stage() -> void:
 	stage = Node3D.new()
-	stage.position = World.w(HERO_AT.x, HERO_AT.y, 0.0)
+	stage.position = hero_at
 	add_child(stage)
 	# round stand: dark metal disc with a glowing gold rim
 	var disc := MeshInstance3D.new()
@@ -124,17 +144,17 @@ func _stage() -> void:
 	key.spot_angle = 26.0
 	key.shadow_enabled = true
 	add_child(key)
-	key.look_at_from_position(World.w(CAM_AT.x + 0.6, CAM_AT.y - 0.4, 2.6), stage.position + Vector3(0, 1.0, 0), Vector3.UP)
+	key.look_at_from_position(cam_at + Vector3(0.6, 1.4, -0.4), stage.position + Vector3(0, 1.0, 0), Vector3.UP)
 	var back := OmniLight3D.new()
 	back.light_color = Color(0.55, 0.70, 1.0)
 	back.light_energy = 2.2
 	back.omni_range = 3.5
-	back.position = stage.position + (stage.position - World.w(CAM_AT.x, CAM_AT.y, 0)).normalized() * 1.3 + Vector3(0, 2.0, 0)
+	var away := stage.position - cam_at
+	away.y = 0.0
+	back.position = stage.position + away.normalized() * 1.3 + Vector3(0, 2.0, 0)
 	add_child(back)
 	_hero()
 
-const OUTFITS := {"ct": ["ct_1", "ct_2"], "t": ["t_1", "t_2"]}
-const OUTFIT_NAMES := {"ct": ["طقم المدافعين الأول", "طقم المدافعين الثاني"], "t": ["طقم المهاجمين الأول", "طقم المهاجمين الثاني"]}
 var mate: Node3D
 
 func _fighter(parent: Node3D, model: String, gun: String, idle: String) -> Node3D:
@@ -150,31 +170,31 @@ func _fighter(parent: Node3D, model: String, gun: String, idle: String) -> Node3
 	return m
 
 func _hero() -> void:
-	## the team's two outfits: the chosen one on the stand, the other one beside him as the squad mate
-	var team := String(G.settings["team"])
-	var oi := int(G.settings.get("outfit", 0)) % 2
-	var key := "%s:%d" % [team, oi]
+	## the chosen outfit on the stand, the next one beside him as the squad mate
+	var n := DB.OUTFITS.size()
+	var oi := posmod(int(G.settings.get("outfit", 0)), n)
+	var key := str(oi)
 	if hero_key == key:
 		return
 	hero_key = key
-	var gun := "m4" if team == "ct" else "ak"
-	var gun2 := "mp9" if team == "ct" else "mac10"
 	if hero:
 		hero.queue_free()
 	if mate:
 		mate.queue_free()
-	hero = _fighter(stage, OUTFITS[team][oi], gun, "rifle_idle")
-	var d := World.w(CAM_AT.x, CAM_AT.y, 0.0) - stage.position
+	hero = _fighter(stage, DB.OUTFITS[oi], "m416", "rifle_idle")
+	var d := cam_at - stage.position
 	hero.rotation.y = atan2(-d.x, -d.z)          # faces the camera
-	mate = _fighter(self, OUTFITS[team][1 - oi], gun2, "rifle_idle_aiming")
+	mate = _fighter(self, DB.OUTFITS[(oi + 1) % n], "akm", "rifle_idle_aiming")
 	var to_cam := Vector3(d.x, 0, d.z).normalized()
 	var right := Vector3.UP.cross(to_cam).normalized()          # camera right
-	mate.global_position = stage.global_position + right * 1.45 - to_cam * 0.9
-	var d2 := World.w(CAM_AT.x, CAM_AT.y, 0.0) - mate.global_position
+	var mp := stage.global_position + right * 1.45 - to_cam * 0.9
+	mp.y = (world as BRLand).height_at(mp.x, mp.z)
+	mate.global_position = mp
+	var d2 := cam_at - mate.global_position
 	mate.rotation.y = atan2(-d2.x, -d2.z) + 0.35
 
 func _switch_outfit(step: int) -> void:
-	G.settings["outfit"] = posmod(int(G.settings.get("outfit", 0)) + step, 2)
+	G.settings["outfit"] = posmod(int(G.settings.get("outfit", 0)) + step, DB.OUTFITS.size())
 	G.save_settings()
 	_hero()
 	built_for = Vector3(-1, -1, -1)
@@ -206,7 +226,7 @@ func _mannequin() -> Node3D:
 func _process(dt: float) -> void:
 	t += dt
 	var look := stage.position + Vector3(0, 0.98, 0)
-	cam.position = World.w(CAM_AT.x, CAM_AT.y, CAM_AT.z) + Vector3(sin(t * 0.21) * 0.06, sin(t * 0.17) * 0.03, cos(t * 0.19) * 0.05)
+	cam.position = cam_at + Vector3(sin(t * 0.21) * 0.06, sin(t * 0.17) * 0.03, cos(t * 0.19) * 0.05)
 	cam.look_at(look, Vector3.UP)
 	yaw = lerp_angle(yaw, yaw_to, minf(1.0, dt * 8.0))
 	stage.rotation.y = yaw
@@ -471,8 +491,7 @@ func _build_hud() -> void:
 	# ---- left column
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 14)
-	var team_name := "الدفاع" if G.settings["team"] == "ct" else "الهجوم"
-	left.add_child(_labeled("target", "الفريق: " + team_name, 64, _toggle_team))
+	left.add_child(_labeled("map", "الخريطة: " + _map_name(), 64, _toggle_map))
 	left.add_child(_labeled("friends", "الأصدقاء", 64, _show.bind("online")))
 	left.add_child(_labeled("trophy", "الإحصائيات", 64, _show.bind("stats")))
 	hud.add_child(left)
@@ -483,12 +502,15 @@ func _build_hud() -> void:
 	banners.add_theme_constant_override("separation", 10)
 	hud.add_child(banners)
 	var price := int(DB.CASES["kasbah"]["price"])
-	banners.add_child(_banner("crate", "صندوق القصبة", "طلاءات نادرة · %d" % price, UI.GOLD, _show.bind("cases")))
+	banners.add_child(_banner("crate", String(DB.CASES["kasbah"]["name"]), "طلاءات نادرة · %d" % price, UI.GOLD, _show.bind("cases")))
 	banners.add_child(_banner("bag", "المخزون", "%d طلاء لديك" % (G.profile["inv"] as Array).size(), UI.TEAL, _show.bind("inv")))
 	var last := "العب مباراتك الأولى"
 	if not G.last_result.is_empty():
 		var r: Dictionary = G.last_result
-		last = "%s %d:%d  ·  +%d" % [{"win": "فوز", "lose": "هزيمة", "draw": "تعادل"}[r["res"]], r["score"][0], r["score"][1], r["credits"]]
+		if r.get("br", false):
+			last = "المركز %d من %d  ·  %d قتل  ·  +%d" % [r["score"][0], r["score"][1], int(r.get("kills", 0)), r["credits"]]
+		else:
+			last = "%s  ·  +%d" % [{"win": "فوز", "lose": "هزيمة", "draw": "تعادل"}[r["res"]], r["credits"]]
 	banners.add_child(_banner("star", "آخر مباراة", last, UI.GREEN if (not G.last_result.is_empty() and G.last_result["res"] == "win") else UI.DIM, _show.bind("stats")))
 	banners.reset_size()
 	banners.position = Vector2(vs.x - m - banners.size.x, 84)
@@ -509,13 +531,10 @@ func _build_hud() -> void:
 	mv.add_theme_constant_override("separation", -4)
 	mv.position = Vector2(14, 5)
 	mv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var diff_name: String = ["مبتدئون", "مقاتلون", "محترفون"][int(G.settings["difficulty"])]
-	var br_mode := String(G.settings.get("mode", "br")) == "br"
-	var br_title := "باتل رويال — جزيرة بوروفايا" if String(G.settings.get("br_map", "island")) == "island" else "باتل رويال — وادي الذهب"
-	var ml := UI.label(br_title if br_mode else "كلاسيكي — القصبة", 20, UI.TEXT, true)
+	var ml := UI.label("باتل رويال — " + _map_name(), 20, UI.TEXT, true)
 	ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ml)
-	var ms := UI.label(("30 مقاتلاً · العاصفة · كل واحد لنفسه") if br_mode else ("زرع القنبلة · 5 ضد 5 · بوتات %s" % diff_name), 15, UI.GOLD)
+	var ms := UI.label("30 مقاتلاً · العاصفة · %s" % ("الشخص الثالث" if String(G.settings.get("view", "tpp")) == "tpp" else "الشخص الأول"), 15, UI.GOLD)
 	ms.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mv.add_child(ms)
 	mode.add_child(mv)
@@ -608,8 +627,7 @@ func _build_hud() -> void:
 		s.reset_size()
 		slots.append(s)
 	# ---- outfit selector under the stand
-	var team := String(G.settings["team"])
-	var oi := int(G.settings.get("outfit", 0)) % 2
+	var oi := posmod(int(G.settings.get("outfit", 0)), DB.OUTFITS.size())
 	var os := HBoxContainer.new()
 	os.add_theme_constant_override("separation", 10)
 	hud.add_child(os)
@@ -621,7 +639,7 @@ func _build_hud() -> void:
 	var opan := PanelContainer.new()
 	opan.add_theme_stylebox_override("panel", _box(Color(0.03, 0.035, 0.045, 0.82), 22, 1, Color(UI.GOLD.r, UI.GOLD.g, UI.GOLD.b, 0.5)))
 	opan.custom_minimum_size = Vector2(250, 44)
-	var ol := UI.label(OUTFIT_NAMES[team][oi], 18, UI.TEXT, true)
+	var ol := UI.label(DB.OUTFIT_NAMES[oi], 18, UI.TEXT, true)
 	ol.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ol.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	opan.add_child(ol)
@@ -669,10 +687,12 @@ func _banner(glyph: String, title: String, sub: String, accent: Color, cb: Calla
 	b.add_child(vb)
 	return b
 
-func _toggle_team() -> void:
-	G.settings["team"] = "t" if G.settings["team"] == "ct" else "ct"
+func _map_name() -> String:
+	return "جزيرة بوروفايا" if String(G.settings.get("br_map", "island")) == "island" else "وادي الذهب"
+
+func _toggle_map() -> void:
+	G.settings["br_map"] = "desert" if String(G.settings.get("br_map", "island")) == "island" else "island"
 	G.save_settings()
-	_hero()
 	built_for = Vector3(-1, -1, -1)
 
 func _start() -> void:
@@ -736,8 +756,6 @@ func _choice(vb: VBoxContainer, title: String, key: String, opts: Array) -> void
 			for x in btns:
 				x.button_pressed = x == b
 			G.save_settings()
-			if key == "team":
-				_hero()
 			built_for = Vector3(-1, -1, -1))
 		hb.add_child(b)
 		btns.append(b)
@@ -747,16 +765,14 @@ func _panel_play() -> Control:
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 10)
 	p.add_child(vb)
-	vb.add_child(UI.label("اختر الطور", 28, UI.TEXT, true))
-	_choice(vb, "الطور", "mode", [["باتل رويال", "br"], ["كلاسيكي 5 ضد 5 · القصبة", "classic"]])
-	_choice(vb, "خريطة الباتل رويال", "br_map", [["جزيرة بوروفايا", "island"], ["وادي الذهب", "desert"]])
+	vb.add_child(UI.label("باتل رويال", 28, UI.TEXT, true))
+	var about := UI.label("اقفز من الطائرة، اجمع السلاح والعتاد، ابقَ داخل المنطقة الآمنة من العاصفة، وكن آخر من يبقى.", 15, UI.DIM)
+	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	about.custom_minimum_size = Vector2(390, 0)
+	vb.add_child(about)
+	_choice(vb, "الخريطة", "br_map", [["جزيرة بوروفايا", "island"], ["وادي الذهب", "desert"]])
 	_choice(vb, "المنظور", "view", [["الشخص الثالث", "tpp"], ["الشخص الأول", "fpp"]])
-	vb.add_child(UI.label("باتل رويال: اقفز من الطائرة، اجمع السلاح والعتاد، ابقَ داخل المنطقة الآمنة من العاصفة، وكن آخر من يبقى.", 15, UI.DIM))
-	vb.add_child(UI.label("كلاسيكي: الهجوم يزرع القنبلة في «أ» أو «ب»، والدفاع يمنعه أو يفكّكها.", 15, UI.DIM))
-	_choice(vb, "فريقك في الشوط الأول", "team", [["الدفاع", "ct"], ["الهجوم", "t"]])
-	_choice(vb, "طول المباراة", "match_len", [["قصيرة · حتى 4", 4], ["عادية · حتى 7", 7], ["كاملة · حتى 13", 13]])
-	_choice(vb, "مستوى البوتات", "difficulty", [["مبتدئون", 0], ["مقاتلون", 1], ["محترفون", 2]])
-	var help := UI.label("العصا اليسرى للمشي · اسحب على يمين الشاشة للتصويب · زر الرصاصة للإطلاق" if G.touch else "الحركة: WASD · مشي: Shift · انحناء: Ctrl · المتجر: B · تفكيك: E · النتائج: Tab", 14, UI.DIM)
+	var help := UI.label("العصا اليسرى للمشي · اسحب على يمين الشاشة للتصويب · زر الرصاصة للإطلاق" if G.touch else "الحركة: WASD · قفز: Space · انحناء: Ctrl · انبطاح: Z · ميلان: C / V · التقاط وركوب: E · المنظور: T · الخريطة: Tab", 14, UI.DIM)
 	help.text_direction = Control.TEXT_DIRECTION_RTL
 	vb.add_child(help)
 	var go := UI.button("ابدأ المباراة", 24, UI.GOLD, Vector2(340, 58))
@@ -851,7 +867,7 @@ func _panel_cases() -> Control:
 	p.add_child(vb)
 	var c: Dictionary = DB.CASES["kasbah"]
 	vb.add_child(UI.label(String(c["name"]).to_upper(), 28, UI.TEXT, true))
-	var note := UI.label("ثمانية طلاءات لتسعة أسلحة وللسكين. تكسب الرصيد من المباريات: القتل، أفضل لاعب في الجولة، والفوز.", 15, UI.DIM)
+	var note := UI.label("ثمانية طلاءات للأسلحة وللسكين. تكسب الرصيد من المباريات: القتل، والمركز الذي تنهي به، والفوز.", 15, UI.DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vb.add_child(note)
 	roll = Control.new()
@@ -1123,8 +1139,8 @@ func _auto_shots() -> void:
 	await get_tree().create_timer(0.8).timeout
 	await G.shot("lobby_inv")
 	_show("")
-	_toggle_team()
+	_switch_outfit(1)
 	await get_tree().create_timer(0.6).timeout
-	await G.shot("lobby_team_t")
+	await G.shot("lobby_outfit_2")
 	if G.args.has("quit_after") or G.args.has("quit_menu"):
 		get_tree().quit()

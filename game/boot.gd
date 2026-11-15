@@ -2,8 +2,9 @@ extends Node
 ## Entry point. A normal start runs: studio logo -> credits -> loading screen (real loading) -> lobby.
 ## Test switches jump straight to the needed scene.
 
-const WARM := ["res://assets/maps/kasbah.glb", "res://assets/models/chars/anims.scn", "res://assets/models/chars/ct_1.scn",
-	"res://assets/models/chars/ct_2.scn", "res://assets/models/chars/t_1.scn", "res://assets/models/chars/t_2.scn",
+const WARM := ["res://assets/island/island_terrain.scn", "res://assets/island/island_static.scn",
+	"res://assets/island/island_foliage.scn", "res://assets/island/island_collision.scn", "res://assets/models/chars/anims.scn",
+	"res://assets/lc_chars/lc_a.scn", "res://assets/lc_chars/lc_b.scn", "res://assets/lc_chars/lc_c.scn", "res://assets/lc_chars/lc_d.scn",
 	"res://assets/brand/game_logo.png", "res://assets/brand/emblem.png"]
 
 func _ready() -> void:

@@ -140,6 +140,8 @@ func _load() -> void:
 		settings["fullscreen"] = false
 	if args.has("team"):
 		settings["team"] = args["team"]
+	if args.has("outfit"):
+		settings["outfit"] = int(args["outfit"])
 	if args.has("len"):
 		settings["match_len"] = int(args["len"])
 	if args.has("quality"):
@@ -223,12 +225,11 @@ func net_test_start() -> void:
 func start_match() -> void:
 	prepare_weapons()
 	get_tree().paused = false
-	if args.has("mode"):
-		settings["mode"] = args["mode"]
-	if String(settings.get("mode", "br")) == "br":
-		get_tree().change_scene_to_file("res://game/br/br.tscn")
-	else:
-		get_tree().change_scene_to_file("res://game/match.tscn")
+	settings["mode"] = "br"          # the game is battle royale only
+	if args.has("vmtest"):
+		get_tree().change_scene_to_file("res://game/match.tscn")      # development: the optics test bench
+		return
+	get_tree().change_scene_to_file("res://game/br/br.tscn")
 
 func quit() -> void:
 	save_settings()

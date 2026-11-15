@@ -1,6 +1,6 @@
 <div dir="rtl">
 
-# الأنيميشن في AURUM STRIKE
+# الأنيميشن في AURUM MOBILE
 
 ## ما الموجود الآن
 

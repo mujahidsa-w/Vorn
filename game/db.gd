@@ -135,8 +135,12 @@ const RAR_NAME := ["عسكري", "محظور", "سرّي", "خفيّ", "أسطو
 const RAR_COL := [Color(0.30, 0.42, 1.0), Color(0.53, 0.28, 1.0), Color(0.83, 0.17, 0.90), Color(0.92, 0.29, 0.29), Color(1.0, 0.84, 0.0)]
 const RAR_ODDS := [0.60, 0.24, 0.11, 0.04, 0.01]
 const SKIN_WEAPONS := ["ak", "m4", "awp", "deagle", "glock", "usp", "mac10", "mp9", "shotgun", "knife"]
+## the player's outfits (lobby stand and battle royale body): the island soldiers first, then the other four fighters
+const OUTFITS := ["lc_a", "lc_b", "lc_c", "lc_d", "t_1", "t_2", "ct_1", "ct_2"]
+const OUTFIT_NAMES := ["صقر", "ذئب", "فهد", "نمر", "عقاب", "شاهين", "ليث", "نسر"]
+
 const CASES := {
-	"kasbah": {"name": "صندوق «القصبة»", "price": 500, "skins": ["dune", "oasis", "ember", "bronze", "pixel", "night", "crimson", "gold"]},
+	"kasbah": {"name": "صندوق الذهب", "price": 500, "skins": ["dune", "oasis", "ember", "bronze", "pixel", "night", "crimson", "gold"]},
 }
 
 static func skin_id(weapon: String, skin: String) -> String:

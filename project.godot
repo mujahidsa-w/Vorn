@@ -1,12 +1,12 @@
 ; Engine configuration file.
-; AURUM STRIKE — Godot 4.6 (SAQR STUDIOS)
+; AURUM MOBILE — Godot 4.6 (SAQR STUDIOS)
 
 config_version=5
 
 [application]
 
-config/name="AURUM STRIKE"
-config/description="أوروم سترايك — لعبة تصويب تكتيكية 5 ضد 5 من استوديوهات صقر"
+config/name="AURUM MOBILE"
+config/description="أوروم موبايل — باتل رويال على الجزيرة من استوديوهات صقر"
 config/version="2.1.0"
 run/main_scene="res://game/boot.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")

@@ -206,8 +206,9 @@ func _spawn_people(humans: Array = [], roster: Array = []) -> void:
 			models.append(k)
 	var names := NICKS.duplicate()
 	names.shuffle()
-	var pteam := String(G.settings.get("team", "ct"))
-	var pmodel: String = {"ct": ["ct_1", "ct_2"], "t": ["t_1", "t_2"]}[pteam][int(G.settings.get("outfit", 0)) % 2]
+	var pmodel: String = DB.OUTFITS[posmod(int(G.settings.get("outfit", 0)), DB.OUTFITS.size())]
+	if not FighterBody.available(pmodel):
+		pmodel = "ct_1"
 	for i in BOTS + 1:
 		var is_p := i == 0
 		var remote := i > 0 and i < humans.size()        # another player in the room

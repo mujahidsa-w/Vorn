@@ -808,6 +808,31 @@ func _lights() -> void:
 	add_child(sun)
 	sun.look_at_from_position(Vector3.ZERO, Vector3(0.45, -0.62, 0.64).normalized(), Vector3.UP)
 
+## golden hour for the lobby and the key art: a low warm sun ahead of the camera (`from` = where the light comes from)
+func evening(from := Vector3(-0.50, 0.34, -0.80)) -> void:
+	var sm := env.sky.sky_material as ProceduralSkyMaterial
+	sm.sky_top_color = Color(0.16, 0.30, 0.56)
+	sm.sky_horizon_color = Color(0.94, 0.72, 0.52)
+	sm.ground_horizon_color = Color(0.56, 0.52, 0.42)
+	sm.ground_bottom_color = Color(0.22, 0.24, 0.18)
+	sm.sky_curve = 0.14
+	sm.sun_angle_max = 18.0
+	sm.sun_curve = 0.08
+	env.ambient_light_color = Color(0.74, 0.74, 0.70)
+	env.ambient_light_energy = 0.85
+	env.fog_light_color = Color(0.80, 0.74, 0.66)
+	env.fog_density = 0.0011
+	env.fog_sun_scatter = 0.22
+	env.fog_sky_affect = 0.15
+	env.tonemap_exposure = 1.0
+	env.glow_intensity = 0.55
+	env.adjustment_saturation = 1.10
+	env.adjustment_contrast = 1.08
+	sun.light_color = Color(1.0, 0.80, 0.60)
+	sun.light_energy = 1.75
+	sun.directional_shadow_max_distance = 220.0
+	sun.look_at_from_position(Vector3.ZERO, -from.normalized(), Vector3.UP)
+
 func _map_image() -> void:
 	## the minimap: sand shaded by slope, roads, square cobbles, houses as dark blocks
 	var s := 256
