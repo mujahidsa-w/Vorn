@@ -1023,6 +1023,9 @@ func net_over(winner: Actor) -> void:
 		if winner:
 			hud.announce("الفائز: %s" % winner.nick, 6.0, "", UI.GOLD)
 
+func _add_network_actor(_peer_id: int) -> void:
+	pass          # the classic mode's roster messages: the battle royale has its own (BRNet)
+
 func _bullet_done(shooter: Actor, wid: String, from: Vector3, to: Vector3) -> void:
 	if net_role == "host":
 		net.shot_fx(shooter, wid, from, to)

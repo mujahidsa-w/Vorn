@@ -169,55 +169,134 @@ func tick(dt: float) -> void:
 			_state_acc = 0.0
 			_send_state()
 
+## snapshots are packed into bytes (positions to 2 cm, angles, health, flags, weapon index) so 30 fighters and
+## 20 vehicles fit in one packet (~1 KB) instead of ~5 KB of variants that would be split and lost unreliably
+const STATES := ["plane", "fall", "chute", "ground"]
+static var _wids: Array = []
+
+static func wid_index(w: String) -> int:
+	if _wids.is_empty():
+		_wids = DB.W.keys()
+	return maxi(0, _wids.find(w))
+
+static func wid_at(i: int) -> String:
+	if _wids.is_empty():
+		_wids = DB.W.keys()
+	return String(_wids[i]) if i >= 0 and i < _wids.size() else "knife"
+
+static func _put_pos(b: StreamPeerBuffer, p: Vector3) -> void:
+	b.put_16(clampi(int(round(p.x * 50.0)), -32767, 32767))
+	b.put_16(clampi(int(round(p.y * 50.0)), -32767, 32767))
+	b.put_16(clampi(int(round(p.z * 50.0)), -32767, 32767))
+
+static func _get_pos(b: StreamPeerBuffer) -> Vector3:
+	var x := b.get_16() / 50.0
+	var y := b.get_16() / 50.0
+	var z := b.get_16() / 50.0
+	return Vector3(x, y, z)
+
+static func _put_angle(b: StreamPeerBuffer, a: float) -> void:
+	b.put_16(int(round(wrapf(a, -PI, PI) / PI * 32767.0)))
+
+static func _get_angle(b: StreamPeerBuffer) -> float:
+	return b.get_16() / 32767.0 * PI
+
 func _send_snapshot() -> void:
-	var fighters := []
-	for i in game.actors.size():
-		var a: Actor = game.actors[i]
+	var b := StreamPeerBuffer.new()
+	b.put_float(game.plane_t)
+	b.put_u8(game.actors.size())
+	for a in game.actors:
 		var st: String = game.fly[a]["st"] if game.fly.has(a) else "ground"
-		var vi: int = game.vehicles.find(a.vehicle) if a.vehicle else -1
-		fighters.append([a.global_position, a.view_yaw, a.view_pitch, a.crouch_t, a.prone_t, a.lean, a.hp, a.armor, a.alive, a.cur, st, a.helmet, vi])
-	var cars := []
+		_put_pos(b, a.global_position)
+		_put_angle(b, a.view_yaw)
+		b.put_8(int(clampf(a.view_pitch, -1.57, 1.57) / 1.57 * 127.0))
+		b.put_u8(int(clampf(a.crouch_t, 0.0, 1.0) * 255.0))
+		b.put_u8(int(clampf(a.prone_t, 0.0, 1.0) * 255.0))
+		b.put_8(int(clampf(a.lean, -1.0, 1.0) * 127.0))
+		b.put_u8(clampi(a.hp, 0, 255))
+		b.put_u8(clampi(a.armor, 0, 255))
+		b.put_u8((1 if a.alive else 0) | (2 if a.helmet else 0) | (maxi(0, STATES.find(st)) << 2))
+		b.put_u8(wid_index(a.cur))
+		b.put_8(game.vehicles.find(a.vehicle) if a.vehicle else -1)
+	b.put_u8(game.vehicles.size())
 	for v in game.vehicles:
 		var vh := v as Vehicle
-		cars.append([vh.global_position, vh.global_basis.get_rotation_quaternion(), vh.hp, vh.wrecked, game.actors.find(vh.driver) if vh.driver else -1, vh.steering, vh.linear_velocity])
-	rpc("h_snap", fighters, cars, game.plane_t)
+		_put_pos(b, vh.global_position)
+		var q := vh.global_basis.get_rotation_quaternion()
+		for c in [q.x, q.y, q.z, q.w]:
+			b.put_16(int(round(clampf(c, -1.0, 1.0) * 32767.0)))
+		b.put_u16(clampi(int(vh.hp), 0, 65535))
+		b.put_8((game.actors.find(vh.driver) if vh.driver else -1))
+		b.put_8(int(clampf(vh.steering, -1.0, 1.0) * 127.0))
+		b.put_u8(1 if vh.wrecked else 0)
+		var vel := vh.linear_velocity
+		b.put_8(clampi(int(vel.x * 2.0), -127, 127))
+		b.put_8(clampi(int(vel.y * 2.0), -127, 127))
+		b.put_8(clampi(int(vel.z * 2.0), -127, 127))
+	rpc("h_snap", b.data_array)
 
 @rpc("authority", "call_remote", "unreliable_ordered")
-func h_snap(fighters: Array, cars: Array, plane_t: float) -> void:
+func h_snap(raw: PackedByteArray) -> void:
 	if not started:
 		return
-	game.plane_t = maxf(game.plane_t, plane_t)
-	for i in mini(fighters.size(), game.actors.size()):
+	var b := StreamPeerBuffer.new()
+	b.data_array = raw
+	game.plane_t = maxf(game.plane_t, b.get_float())
+	var n := b.get_u8()
+	for i in n:
+		var pos := _get_pos(b)
+		var yaw := _get_angle(b)
+		var pitch := b.get_8() / 127.0 * 1.57
+		var crouch := b.get_u8() / 255.0
+		var prone_v := b.get_u8() / 255.0
+		var lean_v := b.get_8() / 127.0
+		var hp := b.get_u8()
+		var armor := b.get_u8()
+		var flags := b.get_u8()
+		var wid := wid_at(b.get_u8())
+		var vi := b.get_8()
+		if i >= game.actors.size():
+			continue
+		var alive := (flags & 1) != 0
+		var helmet := (flags & 2) != 0
+		var st: String = STATES[clampi(flags >> 2, 0, 3)]
 		var a: Actor = game.actors[i]
-		var f: Array = fighters[i]
 		if a == game.player:
-			# my own fighter: only what the host decides (health, armour, death)
-			a.hp = int(f[6])
-			a.armor = int(f[7])
-			a.helmet = bool(f[11])
-			if a.alive and not bool(f[8]):
+			# my own fighter: only what the host decides (health, armour, death, the vehicle I sit in)
+			a.hp = hp
+			a.armor = armor
+			a.helmet = helmet
+			if a.alive and not alive:
 				game.net_player_down()
-			_my_vehicle(int(f[12]))
+			_my_vehicle(vi)
 			continue
 		var p := a as NetPuppet
 		if p == null:
 			continue
-		p.apply_pose(f[0], f[1], f[2], f[3], f[4], f[5], f[9])
-		p.target_hp = int(f[6])
-		p.target_armor = int(f[7])
-		p.target_helmet = bool(f[11])
-		if p.alive and not bool(f[8]):
+		p.apply_pose(pos, yaw, pitch, crouch, prone_v, lean_v, wid)
+		p.target_hp = hp
+		p.target_armor = armor
+		p.target_helmet = helmet
+		if p.alive and not alive:
 			p.net_die()
-		game.net_flight(a, String(f[10]))
-		p.vehicle = game.vehicles[int(f[12])] if int(f[12]) >= 0 and int(f[12]) < game.vehicles.size() else null
-	for i in mini(cars.size(), game.vehicles.size()):
+		game.net_flight(a, st)
+		p.vehicle = game.vehicles[vi] if vi >= 0 and vi < game.vehicles.size() else null
+	var nv := b.get_u8()
+	for i in nv:
+		var vpos := _get_pos(b)
+		var q := Quaternion(b.get_16() / 32767.0, b.get_16() / 32767.0, b.get_16() / 32767.0, b.get_16() / 32767.0).normalized()
+		var vhp := b.get_u16()
+		var di := b.get_8()
+		var steer := b.get_8() / 127.0
+		var wrecked := b.get_u8() != 0
+		var vel := Vector3(b.get_8() / 2.0, b.get_8() / 2.0, b.get_8() / 2.0)
+		if i >= game.vehicles.size():
+			continue
 		var vh := game.vehicles[i] as Vehicle
-		var c: Array = cars[i]
-		vh.net_pose(c[0], c[1], c[6], float(c[5]))
-		vh.hp = float(c[2])
-		if bool(c[3]) and not vh.wrecked:
+		vh.net_pose(vpos, q, vel, steer)
+		vh.hp = float(vhp)
+		if wrecked and not vh.wrecked:
 			vh.net_wreck()
-		var di: int = int(c[4])
 		vh.driver = game.actors[di] if di >= 0 and di < game.actors.size() else null
 
 func _my_vehicle(vi: int) -> void:
