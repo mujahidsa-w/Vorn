@@ -51,6 +51,7 @@ func _run() -> void:
 		var renamed := 0
 		for sk in root.find_children("*", "Skeleton3D", true, false):
 			var s := sk as Skeleton3D
+			s.name = "Skeleton3D"          # the game's animation tracks and lookups use this node name
 			for i in s.get_bone_count():
 				var nn := mixamo(s.get_bone_name(i))
 				if nn != s.get_bone_name(i):
