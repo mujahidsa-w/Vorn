@@ -137,7 +137,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish the IPA as the "latest" release (direct download link)
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
