@@ -339,7 +339,7 @@ func aim_dir() -> Vector3:
 	return -aim_basis().z
 
 func max_speed() -> float:
-	var s: float = wd().get("speed", 6.0)
+	var s: float = wd().get("speed", 6.0) * 0.8          # a heavier, more realistic pace
 	if scoped and wd().has("sight"):
 		s *= float(DB.SIGHTS[wd()["sight"]]["move"])
 	if prone_t > 0.5:

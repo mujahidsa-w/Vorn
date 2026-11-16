@@ -528,6 +528,23 @@ func _flight(a: Actor, dt: float) -> void:
 	p.z = clampf(p.z, -BRLand.HALF + 20.0, BRLand.HALF - 20.0)
 	a.global_position = p
 	a.velocity = vel
+	if st == "chute" and f["chute"]:
+		# the canopy faces where it flies, banks into turns and pitches with speed; the body hangs under it
+		var hspd := Vector2(vel.x, vel.z).length()
+		var head := float(f.get("head", a.view_yaw))
+		if hspd > 0.8:
+			var want := atan2(-vel.x, -vel.z)
+			var nh := lerp_angle(head, want, 1.0 - exp(-2.5 * dt))
+			f["turn"] = lerpf(float(f.get("turn", 0.0)), angle_difference(head, nh) / maxf(dt, 0.001), 1.0 - exp(-4.0 * dt))
+			head = nh
+		else:
+			f["turn"] = lerpf(float(f.get("turn", 0.0)), 0.0, 1.0 - exp(-3.0 * dt))
+		f["head"] = head
+		var roll := clampf(-float(f["turn"]) * 0.45, -0.55, 0.55)
+		var pitch := clampf(hspd / 9.5, 0.0, 1.0) * -0.12
+		(f["chute"] as Node3D).rotation = Vector3(pitch, head, roll)
+		a.set_meta("air_yaw", head)
+		a.set_meta("air_roll", roll)
 	var ground := land.ground_at(p.x, p.z, p.y + 1.0)
 	var agl := p.y - ground
 	if st == "fall" and agl < CHUTE_AT:

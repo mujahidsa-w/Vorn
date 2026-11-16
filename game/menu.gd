@@ -200,7 +200,7 @@ func _stage() -> void:
 	# key light from the camera side and a cool rim light from behind: the hero reads against the busy street
 	var key := SpotLight3D.new()
 	key.light_color = Color(1.0, 0.86, 0.72)
-	key.light_energy = 3.0
+	key.light_energy = 1.3
 	key.spot_range = 9.0
 	key.spot_angle = 26.0
 	key.shadow_enabled = true

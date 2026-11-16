@@ -781,8 +781,8 @@ func _lights() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.tonemap_white = 6.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.5
-	env.glow_bloom = 0.05
+	env.glow_intensity = 0.25
+	env.glow_bloom = 0.0
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.86, 0.76, 0.62)
 	env.fog_density = 0.0009
@@ -792,8 +792,8 @@ func _lights() -> void:
 	var pc := not G.mobile
 	env.ssao_enabled = pc and int(G.settings["quality"]) >= 1
 	env.adjustment_enabled = true
-	env.adjustment_contrast = 1.12
-	env.adjustment_saturation = 1.08
+	env.adjustment_contrast = 1.02
+	env.adjustment_saturation = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -824,12 +824,12 @@ func evening(from := Vector3(-0.50, 0.34, -0.80)) -> void:
 	env.fog_density = 0.0011
 	env.fog_sun_scatter = 0.22
 	env.fog_sky_affect = 0.15
-	env.tonemap_exposure = 1.0
-	env.glow_intensity = 0.55
-	env.adjustment_saturation = 1.10
-	env.adjustment_contrast = 1.08
-	sun.light_color = Color(1.0, 0.80, 0.60)
-	sun.light_energy = 1.75
+	env.tonemap_exposure = 0.92
+	env.glow_intensity = 0.25
+	env.adjustment_saturation = 1.0
+	env.adjustment_contrast = 1.0
+	sun.light_color = Color(1.0, 0.86, 0.72)
+	sun.light_energy = 1.3
 	sun.directional_shadow_max_distance = 220.0
 	sun.look_at_from_position(Vector3.ZERO, -from.normalized(), Vector3.UP)
 

@@ -386,7 +386,7 @@ func _process(_dt: float) -> void:
 	air = _air_state()
 	if air != "":
 		# in the air: face down and spread out in free fall; hanging under the canopy, hands up on the risers
-		rotation.y = actor.view_yaw
+		rotation = Vector3(0, float(actor.get_meta("air_yaw", actor.view_yaw)) if air == "chute" else actor.view_yaw, float(actor.get_meta("air_roll", 0.0)) * 0.6 if air == "chute" else 0.0)
 		if weapon:
 			weapon.visible = false
 		# free fall: head first towards the ground, feet up (the dive)
@@ -394,6 +394,10 @@ func _process(_dt: float) -> void:
 		model.transform = Transform3D(Basis(Vector3.RIGHT, tilt) * Basis(Vector3.UP, PI), Vector3(0, 1.3 if air == "fall" else 0.0, 0))
 		_play("rifle_jump_loop")
 		return
+	if rotation.z != 0.0:
+		rotation.z = 0.0
+		actor.remove_meta("air_yaw")
+		actor.remove_meta("air_roll")
 	if weapon and not weapon.visible and not dead:
 		weapon.visible = true
 		model.transform = Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO)
@@ -474,6 +478,11 @@ func arms_in_air(sk: Skeleton3D) -> void:
 		# diving: arms back along the body; under the canopy: up on the toggles
 		var up_dir := Vector3(sx * 0.45, -0.85, -0.35) if air == "fall" else Vector3(sx * 0.32, 1.0, 0.08)
 		var fore_dir := Vector3(sx * 0.3, -0.9, -0.3) if air == "fall" else Vector3(sx * 0.05, 1.0, 0.12)
+		if air == "chute":
+			# turning: the hand on the inside of the turn pulls its toggle down
+			var pull := clampf(float(actor.get_meta("air_roll", 0.0)) * sx * 2.0, 0.0, 1.0)
+			up_dir = up_dir.lerp(Vector3(sx * 0.5, 0.35, 0.25), pull)
+			fore_dir = fore_dir.lerp(Vector3(sx * 0.15, 0.6, 0.4), pull)
 		_point(sk, b[0], b[1], up_dir.normalized())
 		_point(sk, b[1], b[2], fore_dir.normalized())
 

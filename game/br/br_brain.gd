@@ -115,7 +115,7 @@ func _scan() -> void:
 	if best:
 		if best != target:
 			see_t = 0.0
-			aim_err = Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * (0.10 + (1.0 - skill) * 0.16)
+			aim_err = Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * (0.14 + (1.0 - skill) * 0.2)
 		target = best
 		target_seen = true
 		lost_t = 0.0
@@ -163,12 +163,9 @@ func _fight(dt: float) -> Array:
 				burst_cd = 0.4
 		elif a.try_fire():
 			burst += 1
-			var lim := 1
-			if a.wd().get("auto", false):
-				lim = int(lerpf(3.0, 9.0, clampf(1.0 - d / 40.0, 0.0, 1.0)))
-			if burst >= lim:
-				burst = 0
-				burst_cd = rng.randf_range(0.35, 0.9) + (1.0 - skill) * 0.6
+			# one shot at a time, with a pause (no spraying)
+			burst = 0
+			burst_cd = rng.randf_range(0.45, 1.0) + (1.0 - skill) * 0.5
 	# movement: keep the distance the weapon likes, strafe
 	strafe_t -= dt
 	if strafe_t <= 0.0:

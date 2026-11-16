@@ -150,7 +150,7 @@ func _place_camera() -> void:
 		cam.position = Vector3.ZERO
 		tpp_target = Vector3.INF
 		return
-	var off := Vector3(0.0, 0.9, 4.6) if cam_mode == "sky" else Vector3(0.55, 0.32 + 0.25 * prone_t, 2.7 + 0.4 * prone_t)
+	var off := Vector3(0.0, 0.9, 4.6) if cam_mode == "sky" else Vector3(0.45, 0.26 + 0.25 * prone_t, 2.05 + 0.35 * prone_t)
 	var from := head.global_position
 	var to := head.global_transform * (off * tpp_k)
 	var space := get_world_3d().direct_space_state

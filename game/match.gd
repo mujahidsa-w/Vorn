@@ -869,7 +869,12 @@ func bullet(shooter: Actor, from: Vector3, dir: Vector3, wid: String, first: boo
 			var v: Actor = col.get_meta("actor")
 			var zone: String = col.get_meta("zone")
 			if hostile(v, shooter) and v.alive:
+				var vs_human := shooter != null and shooter.is_bot and not v.is_bot
+				if vs_human and zone == "head":
+					zone = "chest"          # bots never land headshots on real players
 				var dm := dmg * pow(float(d["rmod"]), travelled / 12.7) * float(DB.ZONE[zone])
+				if vs_human:
+					dm *= 0.55              # real players take about half the damage from bots
 				fx.blood(hp, -dir)
 				v.take_damage(dm, shooter, wid, zone, from)
 				if shooter == player:
