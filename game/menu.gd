@@ -393,6 +393,13 @@ func _build_ui() -> void:
 	panels["inv"] = _panel_inv()
 	panels["stats"] = _panel_stats()
 	panels["account"] = _panel_account()
+	var fp := _panel_box()
+	fp.custom_minimum_size = Vector2(640, 0)
+	var fvb := VBoxContainer.new()
+	fvb.add_theme_constant_override("separation", 10)
+	fp.add_child(fvb)
+	fp.set_meta("vb", fvb)
+	panels["friends"] = fp
 	for k in ["missions", "events", "rank", "mail"]:
 		var bp := _panel_box()
 		bp.custom_minimum_size = Vector2(600, 0)
@@ -569,7 +576,7 @@ func _build_hud() -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 14)
 	left.add_child(_labeled("map", "الخريطة: " + _map_name(), 64, _toggle_map))
-	left.add_child(_labeled("friends", "الأصدقاء", 64, _show.bind("online")))
+	left.add_child(_friend_strip())
 	left.add_child(_labeled("trophy", "ملفي", 64, _show.bind("stats")))
 	hud.add_child(left)
 	left.reset_size()
@@ -804,6 +811,9 @@ func _show(n: String) -> void:
 		Online.leave_queue()          # closing the waiting room leaves it
 	if cur_panel == "account":
 		_fill_account()
+	if cur_panel == "friends":
+		Online.ask_friends()
+		_fill_friends()
 	if cur_panel in ["missions", "events", "rank", "mail"]:
 		_fill_hub(cur_panel)
 	for k in panels:
@@ -882,6 +892,8 @@ func _on_online() -> void:
 	_room_at = Time.get_ticks_msec()
 	if cur_panel == "account":
 		_fill_account()
+	if cur_panel == "friends":
+		_fill_friends()
 	if cur_panel == "queue" and not Online.queued and not Online.playing:
 		_show("")
 	built_for = Vector3(-1, -1, -1)          # name, status and the mode card
@@ -1031,6 +1043,128 @@ func _queue_text() -> void:
 	var sec := int(ceil(maxf(0.0, left)))
 	q_time.text = "%d:%02d" % [sec / 60, sec % 60] if left >= 0.0 else "--"
 	q_note.text = "تبدأ المعركة عند انتهاء العد. إن لم يكتمل العدد تُكمل البوتات بقية المقاعد حتى 30 مقاتلاً."
+
+# ------------------------------------------------------------------ friends
+static func avatar(name: String, sz: float, state := "") -> Control:
+	## a round picture: the name's first letter on a colour of its own, a dot for online / in a battle
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(sz, sz)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := Color.from_hsv(float(abs(name.hash()) % 360) / 360.0, 0.55, 0.62)
+	p.add_theme_stylebox_override("panel", UI.box(col, int(sz / 2), 2, UI.GOLD if state == "online" else Color(1, 1, 1, 0.3)))
+	var l := UI.label(name.substr(0, 1).to_upper(), int(sz * 0.45), Color.WHITE, true)
+	l.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	p.add_child(l)
+	if state != "":
+		var dot := Panel.new()
+		dot.add_theme_stylebox_override("panel", UI.box({"online": UI.GREEN, "battle": UI.AMBER}.get(state, Color(0.45, 0.45, 0.5)), 7, 2, Color(0, 0, 0, 0.8)))
+		dot.size = Vector2(sz * 0.3, sz * 0.3)
+		dot.position = Vector2(sz * 0.72, sz * 0.72)
+		p.add_child(dot)
+	return p
+
+func _friend_strip() -> Control:
+	## the friends' pictures down the side; a tap opens the friends list
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.flat = true
+	b.add_theme_stylebox_override("normal", _box(Color(0.03, 0.035, 0.045, 0.6), 34, 1, Color(1, 1, 1, 0.2)))
+	b.add_theme_stylebox_override("hover", _box(Color(0.07, 0.07, 0.08, 0.8), 34, 1, UI.GOLD))
+	b.add_theme_stylebox_override("pressed", _box(Color(0.12, 0.10, 0.06, 0.9), 34, 1, UI.GOLD))
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.position = Vector2(8, 8)
+	var shown := 0
+	for f in Online.friends:
+		if shown >= 4:
+			break
+		vb.add_child(avatar(String(f["name"]), 52, String(f["state"])))
+		shown += 1
+	var plus := Panel.new()
+	plus.custom_minimum_size = Vector2(52, 52)
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plus.add_theme_stylebox_override("panel", UI.box(Color(1, 1, 1, 0.08), 26, 1, Color(1, 1, 1, 0.35)))
+	var g := Glyph.make("friends" if shown == 0 else "plus", 30)
+	g.position = Vector2(11, 11)
+	plus.add_child(g)
+	vb.add_child(plus)
+	var l := UI.label("الأصدقاء", 13, UI.TEXT, true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(l)
+	b.add_child(vb)
+	b.custom_minimum_size = Vector2(68, 16 + (shown + 1) * 58 + 22)
+	b.pressed.connect(_show.bind("friends"))
+	return b
+
+func _fill_friends() -> void:
+	var vb: VBoxContainer = panels["friends"].get_meta("vb")
+	for c in vb.get_children():
+		c.free()
+	vb.add_child(UI.label("الأصدقاء", 28, UI.TEXT, true))
+	if not Online.logged_in:
+		vb.add_child(UI.label("سجّل الدخول لتضيف أصدقاءك وتشوف مين متصل.", 17, UI.DIM))
+		var lb := UI.button("تسجيل الدخول", 20, UI.GOLD, Vector2(260, 52))
+		lb.pressed.connect(_show.bind("account"))
+		vb.add_child(lb)
+		var lan := UI.button("غرفة خاصة (نفس الواي فاي)", 18, UI.TEAL, Vector2(320, 48))
+		lan.pressed.connect(_show.bind("online"))
+		vb.add_child(lan)
+		return
+	# search
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	vb.add_child(hb)
+	var q := _field("ابحث عن لاعب بالاسم")
+	q.custom_minimum_size = Vector2(440, 52)
+	q.text = String(get_meta("fq", ""))
+	hb.add_child(q)
+	var sb := UI.button("بحث", 20, UI.GOLD, Vector2(140, 52))
+	sb.pressed.connect(func():
+		set_meta("fq", q.text)
+		Online.search(q.text))
+	q.text_submitted.connect(func(_t): sb.pressed.emit())
+	hb.add_child(sb)
+	var names := []
+	for f in Online.friends:
+		names.append(String(f["name"]).to_lower())
+	for n in Online.found:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		row.add_child(avatar(String(n), 40))
+		var nl := UI.label(String(n), 19, UI.TEXT)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(nl)
+		var already := String(n).to_lower() in names
+		var ab := UI.button("صديقك" if already else "+ إضافة", 17, UI.DIM if already else UI.GREEN, Vector2(140, 42))
+		ab.disabled = already
+		ab.pressed.connect(func(): Online.add_friend(String(n)))
+		row.add_child(ab)
+		vb.add_child(row)
+	# the list
+	var on := 0
+	for f in Online.friends:
+		if f["state"] != "off":
+			on += 1
+	vb.add_child(UI.label("أصدقائي (%d)  ·  متصل الآن %d" % [Online.friends.size(), on], 18, UI.GOLD, true))
+	if Online.friends.is_empty():
+		vb.add_child(UI.label("ما عندك أصدقاء بعد — ابحث عن اسم صاحبك وأضفه.", 16, UI.DIM))
+	for f in Online.friends:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		row.add_child(avatar(String(f["name"]), 46, String(f["state"])))
+		var tv := VBoxContainer.new()
+		tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tv.add_child(UI.label(String(f["name"]), 19, UI.TEXT, true))
+		tv.add_child(UI.label({"online": "متصل", "battle": "في معركة"}.get(f["state"], "غير متصل"), 14, {"online": UI.GREEN, "battle": UI.AMBER}.get(f["state"], UI.DIM)))
+		row.add_child(tv)
+		var rb := UI.button("حذف", 16, UI.RED, Vector2(100, 40))
+		rb.pressed.connect(func(): Online.remove_friend(String(f["name"])))
+		row.add_child(rb)
+		vb.add_child(row)
 
 # ------------------------------------------------------------------ missions, events, rank, mail
 func _fill_hub(k: String) -> void:
@@ -1453,6 +1587,14 @@ func _online_test() -> void:
 		if Online.logged_in:
 			break
 	G.log_line("online test: logged in %s as %s" % [Online.logged_in, Online.account])
+	if Online.logged_in and G.args.has("friend_test"):
+		Online.search(String(G.args["friend_test"]).substr(0, 3))
+		await get_tree().create_timer(1.5).timeout
+		G.log_line("online test: found %s" % [Online.found])
+		Online.add_friend(String(G.args["friend_test"]))
+		await get_tree().create_timer(1.5).timeout
+		G.log_line("online test: friends %s" % [Online.friends])
+		return
 	if Online.logged_in:
 		_start()
 		if G.shots_dir != "":

@@ -35,9 +35,45 @@ func _ready() -> void:
 	get_tree().root.size_changed.connect(fit_screen)
 	if args.has("mute"):
 		AudioServer.set_bus_mute(0, true)
+	get_tree().node_added.connect(_on_node_added)
 	if args.has("dev"):
 		# development driver (screenshots, simulated touches); only ever passed on the command line
 		add_child((load(args["dev"]) as GDScript).new())
+
+# ------------------------------------------------------------------ every tap: a click and a gold ring
+var _tap_layer: CanvasLayer
+var _tap_ms := 0
+
+func _on_node_added(n: Node) -> void:
+	if n is BaseButton:
+		(n as BaseButton).pressed.connect(_tap_fx.bind(n))
+
+func _tap_fx(b: BaseButton) -> void:
+	if not is_instance_valid(b) or not b.is_inside_tree():
+		return
+	if Time.get_ticks_msec() - _tap_ms > 60:
+		Sfx.ui("ui_click", -9.0)
+	_tap_ms = Time.get_ticks_msec()
+	if _tap_layer == null:
+		_tap_layer = CanvasLayer.new()
+		_tap_layer.layer = 120
+		add_child(_tap_layer)
+	var ring := TapRing.new()
+	ring.position = b.get_global_rect().get_center()
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tap_layer.add_child(ring)
+
+class TapRing extends Control:
+	var t := 0.0
+	func _process(dt: float) -> void:
+		t += dt
+		queue_redraw()
+		if t > 0.35:
+			queue_free()
+	func _draw() -> void:
+		var k := t / 0.35
+		draw_arc(Vector2.ZERO, 14.0 + 46.0 * k, 0, TAU, 40, Color(1.0, 0.8, 0.3, 0.8 * (1.0 - k)), 4.0 * (1.0 - k) + 1.0, true)
+		draw_circle(Vector2.ZERO, 30.0 * k, Color(1.0, 0.85, 0.4, 0.18 * (1.0 - k)))
 
 var _wkeep := {}
 var _weapons_ready := false

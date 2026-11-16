@@ -42,6 +42,8 @@ var queued := false
 var room := {}                        # the master's waiting-room report: state, n, t, online, battles
 var playing := false                  # an online battle is running (the battle royale scene is its client)
 var battle := {}                      # host, port, ticket
+var friends: Array = []               # [{name, state: "online" / "battle" / "off"}]
+var found: Array = []                 # search results (names)
 var _pending := {}                    # a login waiting for the connection
 var _retry := -1.0                    # seconds to the next reconnect to the master
 var _sync_t := -1.0                   # profile upload pending (debounced)
@@ -307,6 +309,7 @@ func c_welcome(token: String, name: String, profile: Dictionary, info: Dictionar
 		_push_profile()
 	G.settings["profile_dirty"] = false
 	G.save_settings()
+	ask_friends.call_deferred()
 	G.log_line("online: welcome %s (profile %s)" % [name, "uploaded" if (same and G.settings.get("profile_dirty", false)) else "from the server"])
 	message.emit("أهلاً %s — أنت متصل" % name)
 	changed.emit()
@@ -327,6 +330,33 @@ func c_room(info: Dictionary) -> void:
 @rpc("authority", "call_remote", "reliable")
 func c_notice(msg: String) -> void:
 	message.emit(msg)
+
+# ------------------------------------------------------------------ client: friends
+func ask_friends() -> void:
+	if logged_in and cstate == C.ON and link == "master":
+		rpc_id(1, "m_friends")
+
+func search(q: String) -> void:
+	if logged_in and cstate == C.ON and link == "master" and q.strip_edges().length() >= 1:
+		rpc_id(1, "m_search", q.strip_edges())
+
+func add_friend(name: String) -> void:
+	if logged_in and cstate == C.ON and link == "master":
+		rpc_id(1, "m_add_friend", name)
+
+func remove_friend(name: String) -> void:
+	if logged_in and cstate == C.ON and link == "master":
+		rpc_id(1, "m_remove_friend", name)
+
+@rpc("authority", "call_remote", "reliable")
+func c_friends(list: Array) -> void:
+	friends = list
+	changed.emit()
+
+@rpc("authority", "call_remote", "reliable")
+func c_found(list: Array) -> void:
+	found = list
+	changed.emit()
 
 # ------------------------------------------------------------------ client: waiting room and battle
 func join_queue() -> void:
@@ -586,6 +616,69 @@ func _clean(p: Dictionary) -> Dictionary:
 		out["equip"] = p["equip"]
 	return out
 
+func _state_of(key: String) -> String:
+	for p in by_peer:
+		if by_peer[p] == key:
+			return "online"
+	for port in battles:
+		if key in battles[port].get("keys", []):
+			return "battle"
+	return "off"
+
+func _send_friends(id: int) -> void:
+	var key: String = by_peer[id]
+	var out: Array = []
+	for f in accounts[key].get("friends", []):
+		if accounts.has(f):
+			out.append({"name": String(accounts[f]["name"]), "state": _state_of(f)})
+	rpc_id(id, "c_friends", out)
+
+@rpc("any_peer", "call_remote", "reliable")
+func m_friends() -> void:
+	var id := _sender_ok()
+	if id != 0 and by_peer.has(id):
+		_send_friends(id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func m_search(q: String) -> void:
+	var id := _sender_ok()
+	if id == 0 or not by_peer.has(id):
+		return
+	q = q.to_lower().substr(0, 16)
+	var out: Array = []
+	for k in accounts:
+		if String(k).contains(q) and k != by_peer[id]:
+			out.append(String(accounts[k]["name"]))
+			if out.size() >= 20:
+				break
+	rpc_id(id, "c_found", out)
+
+@rpc("any_peer", "call_remote", "reliable")
+func m_add_friend(name: String) -> void:
+	var id := _sender_ok()
+	if id == 0 or not by_peer.has(id):
+		return
+	var me: String = by_peer[id]
+	var k := name.strip_edges().to_lower()
+	if not accounts.has(k) or k == me:
+		return
+	var fl: Array = accounts[me].get("friends", [])
+	if not k in fl and fl.size() < 200:
+		fl.append(k)
+		accounts[me]["friends"] = fl
+		_dirty = true
+	_send_friends(id)
+
+@rpc("any_peer", "call_remote", "reliable")
+func m_remove_friend(name: String) -> void:
+	var id := _sender_ok()
+	if id == 0 or not by_peer.has(id):
+		return
+	var fl: Array = accounts[by_peer[id]].get("friends", [])
+	fl.erase(name.strip_edges().to_lower())
+	_dirty = true
+	_send_friends(id)
+
 @rpc("any_peer", "call_remote", "reliable")
 func m_queue(outfit: int, _map_name: String) -> void:
 	var id := _sender_ok()
@@ -725,7 +818,10 @@ func _launch() -> void:
 		for q in group:
 			rpc_id(q["peer"], "c_notice", "تعذّر تشغيل المعركة على الخادم")
 		return
-	battles[port] = {"pid": pid, "group": group, "t": 0.0, "sent": false, "map": map_name}
+	var keys: Array = []
+	for q in group:
+		keys.append(by_peer.get(q["peer"], ""))
+	battles[port] = {"pid": pid, "group": group, "t": 0.0, "sent": false, "map": map_name, "keys": keys}
 	print("[online] battle on %d: %d players, pid %d" % [port, group.size(), pid])
 	for q in group:
 		rpc_id(q["peer"], "c_room", {"state": "launch", "n": group.size(), "t": 0.0, "online": by_peer.size(), "battles": battles.size(), "max": ROOM_MAX})
