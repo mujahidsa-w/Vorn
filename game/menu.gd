@@ -115,6 +115,50 @@ func _backdrop() -> void:
 	cam_at = hero_at + CAM_BACK.rotated(Vector3.UP, deg_to_rad(sp.z))
 	cam_at.y = maxf(cam_at.y, land.height_at(cam_at.x, cam_at.z) + 1.0)
 	land.evening()
+	_weather_cycle.call_deferred()
+
+const WEATHER := ["sunset", "day", "rain", "night"]
+var rain: GPUParticles3D
+
+func _weather_cycle() -> void:
+	## the lobby's sky changes every 45 seconds: sunset, day, rain, night
+	var i := 0
+	while is_inside_tree():
+		await get_tree().create_timer(45.0).timeout
+		if not is_inside_tree():
+			return
+		i = (i + 1) % WEATHER.size()
+		_set_weather(WEATHER[i])
+
+func _set_weather(kind: String) -> void:
+	(world as BRLand).weather(kind)
+	if kind == "rain" and rain == null:
+		rain = GPUParticles3D.new()
+		rain.amount = 1400 if G.mobile else 3000
+		rain.lifetime = 1.2
+		rain.visibility_aabb = AABB(Vector3(-20, -15, -20), Vector3(40, 30, 40))
+		var pm := ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = Vector3(14, 0.5, 14)
+		pm.direction = Vector3(0.1, -1, 0)
+		pm.spread = 3.0
+		pm.initial_velocity_min = 18.0
+		pm.initial_velocity_max = 22.0
+		pm.gravity = Vector3(0, -9.8, 0)
+		rain.process_material = pm
+		var q := QuadMesh.new()
+		q.size = Vector2(0.015, 0.45)
+		var qm := StandardMaterial3D.new()
+		qm.albedo_color = Color(0.8, 0.85, 0.95, 0.35)
+		qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		qm.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+		q.material = qm
+		rain.draw_pass_1 = q
+		add_child(rain)
+		rain.global_position = hero_at + Vector3(0, 9, 0)
+	if rain:
+		rain.emitting = kind == "rain"
 
 func _stage() -> void:
 	stage = Node3D.new()
@@ -349,6 +393,14 @@ func _build_ui() -> void:
 	panels["inv"] = _panel_inv()
 	panels["stats"] = _panel_stats()
 	panels["account"] = _panel_account()
+	for k in ["missions", "events", "rank", "mail"]:
+		var bp := _panel_box()
+		bp.custom_minimum_size = Vector2(600, 0)
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 10)
+		bp.add_child(vb)
+		bp.set_meta("vb", vb)
+		panels[k] = bp
 	panels["queue"] = _panel_queue()
 	var st := SettingsPanel.new()
 	st.closed.connect(_show.bind(""))
@@ -518,7 +570,7 @@ func _build_hud() -> void:
 	left.add_theme_constant_override("separation", 14)
 	left.add_child(_labeled("map", "الخريطة: " + _map_name(), 64, _toggle_map))
 	left.add_child(_labeled("friends", "الأصدقاء", 64, _show.bind("online")))
-	left.add_child(_labeled("trophy", "الإحصائيات", 64, _show.bind("stats")))
+	left.add_child(_labeled("trophy", "ملفي", 64, _show.bind("stats")))
 	hud.add_child(left)
 	left.reset_size()
 	left.position = Vector2(m + 4, 118)
@@ -615,10 +667,13 @@ func _build_hud() -> void:
 	var nav := HBoxContainer.new()
 	nav.add_theme_constant_override("separation", 18)
 	hud.add_child(nav)
-	nav.add_child(_labeled("trophy", "الموسم", 56, _show.bind("stats")))
-	nav.add_child(_labeled("crate", "الصناديق", 56, _show.bind("cases")))
+	nav.add_child(_labeled("cart", "المتجر", 56, _show.bind("cases")))
+	nav.add_child(_labeled("star", "المهام", 56, _show.bind("missions")))
+	nav.add_child(_labeled("gem", "الفعاليات", 56, _show.bind("events")))
+	nav.add_child(_labeled("trophy", "الرانك", 56, _show.bind("rank")))
+	nav.add_child(_labeled("mail", "البريد" + (" (%d)" % Hub.unread() if Hub.unread() > 0 else ""), 56, _show.bind("mail")))
 	nav.add_child(_labeled("bag", "المخزون", 56, _show.bind("inv")))
-	nav.add_child(_labeled("gear", "الإعدادات", 56, _show.bind("settings")))
+	nav.add_child(_labeled("target", "الورشة", 56, _show.bind("inv")))
 	nav.reset_size()
 	nav.position = Vector2(vs.x - m - nav.size.x, vs.y - mb - nav.size.y)
 	# ---- name over the hero, invite plates beside him
@@ -749,6 +804,8 @@ func _show(n: String) -> void:
 		Online.leave_queue()          # closing the waiting room leaves it
 	if cur_panel == "account":
 		_fill_account()
+	if cur_panel in ["missions", "events", "rank", "mail"]:
+		_fill_hub(cur_panel)
 	for k in panels:
 		panels[k].visible = k == cur_panel
 	overlay.visible = cur_panel != ""
@@ -943,6 +1000,15 @@ func _panel_queue() -> Control:
 	q_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	q_note.custom_minimum_size = Vector2(520, 0)
 	vb.add_child(q_note)
+	if world is BRLand and (world as BRLand).map_tex:
+		var mp := TextureRect.new()
+		mp.texture = (world as BRLand).map_tex
+		mp.custom_minimum_size = Vector2(220, 220)
+		mp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		mp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		mp.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		vb.add_child(UI.label("خريطة المعركة: جزيرة بوروفايا", 16, UI.DIM))
+		vb.add_child(mp)
 	var cancel := UI.button("إلغاء", 22, UI.RED, Vector2(520, 56))
 	cancel.pressed.connect(_show.bind(""))
 	vb.add_child(cancel)
@@ -965,6 +1031,84 @@ func _queue_text() -> void:
 	var sec := int(ceil(maxf(0.0, left)))
 	q_time.text = "%d:%02d" % [sec / 60, sec % 60] if left >= 0.0 else "--"
 	q_note.text = "تبدأ المعركة عند انتهاء العد. إن لم يكتمل العدد تُكمل البوتات بقية المقاعد حتى 30 مقاتلاً."
+
+# ------------------------------------------------------------------ missions, events, rank, mail
+func _fill_hub(k: String) -> void:
+	var vb: VBoxContainer = panels[k].get_meta("vb")
+	for c in vb.get_children():
+		c.free()
+	match k:
+		"missions":
+			vb.add_child(UI.label("المهام اليومية", 28, UI.TEXT, true))
+			vb.add_child(UI.label("تتجدد كل يوم. أنهِ المهمة واستلم رصيدها.", 15, UI.DIM))
+			var d := Hub.daily()
+			for i in Hub.MISSIONS.size():
+				var ms: Array = Hub.MISSIONS[i]
+				var hb := HBoxContainer.new()
+				hb.add_theme_constant_override("separation", 12)
+				var l := UI.label("%s   %d/%d" % [ms[0], Hub.progress(i), ms[2]], 19, UI.TEXT)
+				l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				hb.add_child(l)
+				var done: bool = i in d["claimed"]
+				var ready: bool = Hub.progress(i) >= int(ms[2])
+				var b := UI.button("تم الاستلام" if done else ("استلم +%d" % ms[3]), 17, UI.GREEN if ready and not done else UI.DIM, Vector2(170, 46))
+				b.disabled = done or not ready
+				b.pressed.connect(func():
+					if Hub.claim(i):
+						Sfx.ui("ui_click", -4.0)
+					_fill_hub("missions")
+					_refresh())
+				hb.add_child(b)
+				vb.add_child(hb)
+		"events":
+			vb.add_child(UI.label("الفعاليات", 28, UI.TEXT, true))
+			var on := Hub.weekend()
+			vb.add_child(UI.label("رصيد مضاعف بنهاية الأسبوع", 22, UI.GOLD_HI if on else UI.TEXT, true))
+			vb.add_child(UI.label(("شغّالة الآن! " if on else "كل جمعة وسبت: ") + "كل رصيد تكسبه من المباريات يتضاعف.", 16, UI.DIM))
+			vb.add_child(UI.label("الموسم الأول: جزيرة بوروفايا", 22, UI.TEXT, true))
+			vb.add_child(UI.label("ارفع رانكك من البرونزي حتى الفاتح قبل نهاية الموسم.", 16, UI.DIM))
+		"rank":
+			var tr: Array = Hub.tier()
+			vb.add_child(UI.label("الرانك", 28, UI.TEXT, true))
+			vb.add_child(UI.label(String(tr[0]), 40, UI.GOLD_HI, true))
+			var bar := ProgressBar.new()
+			bar.custom_minimum_size = Vector2(540, 14)
+			bar.show_percentage = false
+			bar.value = float(tr[2]) * 100.0
+			var fg := StyleBoxFlat.new()
+			fg.bg_color = UI.GOLD
+			bar.add_theme_stylebox_override("fill", fg)
+			vb.add_child(bar)
+			vb.add_child(UI.label("نقاطك: %d   ·   الفوز 60 نقطة، القتل 8، كل مباراة 12" % Hub.points(), 16, UI.DIM))
+			var names := ""
+			for t in Hub.TIERS:
+				names += "%s (%d)   " % [t[0], t[1]]
+			var all := UI.label(names, 15, UI.DIM)
+			all.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			all.custom_minimum_size = Vector2(540, 0)
+			vb.add_child(all)
+		"mail":
+			vb.add_child(UI.label("البريد والهدايا", 28, UI.TEXT, true))
+			for i in Hub.MAIL.size():
+				var ml: Array = Hub.MAIL[i]
+				var hb := HBoxContainer.new()
+				hb.add_theme_constant_override("separation", 12)
+				var tv := VBoxContainer.new()
+				tv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				tv.add_child(UI.label(ml[1], 19, UI.TEXT, true))
+				tv.add_child(UI.label(ml[2], 15, UI.DIM))
+				hb.add_child(tv)
+				var open := Hub.mail_open(ml[0])
+				var b := UI.button("مستلَمة" if open else ("استلم +%d" % ml[3]), 17, UI.DIM if open else UI.GOLD, Vector2(170, 46))
+				b.disabled = open
+				b.pressed.connect(func():
+					Hub.mail_claim(i)
+					Sfx.ui("ui_click", -4.0)
+					_fill_hub("mail")
+					_refresh()
+					built_for = Vector3(-1, -1, -1))
+				hb.add_child(b)
+				vb.add_child(hb)
 
 func _panel_online() -> Control:
 	var p := _panel_box()
@@ -1019,11 +1163,14 @@ func _fill_stats() -> void:
 	for c in stats_box.get_children():
 		c.free()
 	var lv: Array = _level()
-	stats_box.add_child(UI.label("الموسم الأول — إحصائياتك", 28, UI.TEXT, true))
+	stats_box.add_child(UI.label("الملف الشخصي — %s" % String(G.settings["name"]), 28, UI.TEXT, true))
 	var m := int(G.profile["matches"])
 	var w := int(G.profile["wins"])
 	var k := int(G.profile["kills"])
+	var tr: Array = Hub.tier()
 	var rows := [
+		["الرانك", "%s" % tr[0]],
+		["نسبة القتل (K/D)", "%.2f" % (float(k) / maxf(1.0, m - w))],
 		["المستوى", "%d  (%d%%)" % [int(lv[0]), int(float(lv[1]) * 100.0)]],
 		["المباريات", str(m)],
 		["الانتصارات", str(w)],

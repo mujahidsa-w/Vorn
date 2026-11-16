@@ -833,6 +833,29 @@ func evening(from := Vector3(-0.50, 0.34, -0.80)) -> void:
 	sun.directional_shadow_max_distance = 220.0
 	sun.look_at_from_position(Vector3.ZERO, -from.normalized(), Vector3.UP)
 
+## the lobby's weather: sunset, day, rain or night
+func weather(kind: String) -> void:
+	if kind == "sunset":
+		evening()
+		return
+	var sm := env.sky.sky_material as ProceduralSkyMaterial
+	var top: Color = {"day": Color(0.24, 0.45, 0.76), "rain": Color(0.33, 0.36, 0.40), "night": Color(0.02, 0.03, 0.07)}[kind]
+	var hor: Color = {"day": Color(0.72, 0.78, 0.84), "rain": Color(0.50, 0.52, 0.55), "night": Color(0.08, 0.10, 0.16)}[kind]
+	sm.sky_top_color = top
+	sm.sky_horizon_color = hor
+	sm.ground_horizon_color = hor.darkened(0.2)
+	sm.ground_bottom_color = hor.darkened(0.6)
+	sm.sun_angle_max = 12.0 if kind == "night" else 25.0
+	env.ambient_light_color = {"day": Color(0.74, 0.78, 0.76), "rain": Color(0.62, 0.65, 0.68), "night": Color(0.28, 0.33, 0.50)}[kind]
+	env.ambient_light_energy = 0.5 if kind == "night" else 0.85
+	env.fog_light_color = hor
+	env.fog_density = {"day": 0.0011, "rain": 0.0045, "night": 0.0022}[kind]
+	env.tonemap_exposure = 1.0
+	sun.light_color = {"day": Color(1.0, 0.96, 0.88), "rain": Color(0.85, 0.88, 0.92), "night": Color(0.62, 0.72, 1.0)}[kind]
+	sun.light_energy = {"day": 1.6, "rain": 0.55, "night": 0.35}[kind]
+	var from: Vector3 = {"day": Vector3(-0.4, 0.8, -0.3), "rain": Vector3(-0.3, 0.9, 0.2), "night": Vector3(0.3, 0.6, -0.6)}[kind]
+	sun.look_at_from_position(Vector3.ZERO, -(from as Vector3).normalized(), Vector3.UP)
+
 func _map_image() -> void:
 	## the minimap: sand shaded by slope, roads, square cobbles, houses as dark blocks
 	var s := 256

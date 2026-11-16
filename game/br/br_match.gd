@@ -1155,6 +1155,8 @@ func _check_end() -> void:
 func _results(won: bool) -> void:
 	var kills := player.kills
 	var credits := 60 + kills * 35 + (600 if won else maxi(0, (12 - player_place) * 20))
+	if Hub.weekend():
+		credits *= 2          # the weekend event
 	G.profile["matches"] = int(G.profile["matches"]) + 1
 	G.profile["kills"] = int(G.profile["kills"]) + kills
 	if won:
