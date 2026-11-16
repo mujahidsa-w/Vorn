@@ -7,10 +7,10 @@ extends "res://game/match.gd"
 const BOTS := 29
 const ALT := 300.0
 const PLANE_SPEED := 32.0
-const FALL_V := -46.0
-const DIVE_V := -62.0
-const CHUTE_V := -5.2
-const CHUTE_AT := 105.0
+const FALL_V := -32.0
+const DIVE_V := -48.0
+const CHUTE_V := -4.2
+const CHUTE_AT := 150.0
 const STORM := [  # wait before it moves, time to close, radius after, damage per second while caught
 	[80.0, 45.0, 330.0, 1.0],
 	[55.0, 40.0, 190.0, 2.0],
@@ -423,22 +423,19 @@ func _chute_model() -> Node3D:
 	canopy.scale = Vector3(1.0, 0.42, 0.8)
 	canopy.position = Vector3(0, 5.6, 0)
 	var m := StandardMaterial3D.new()
-	var t := load("res://assets/maps/kasbah_fabric_stripes_base.jpg") as Texture2D
-	m.albedo_texture = t
-	m.uv1_scale = Vector3(3, 1, 1)
-	m.albedo_color = Color(1.0, 0.85, 0.6)
+	m.albedo_texture = _chute_tex()
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.roughness = 0.85
 	canopy.material_override = m
 	root.add_child(canopy)
 	var line_m := StandardMaterial3D.new()
-	line_m.albedo_color = Color(0.15, 0.13, 0.1)
+	line_m.albedo_color = Color(0.12, 0.11, 0.1)
 	for p in [Vector3(-2.8, 5.6, -2.0), Vector3(2.8, 5.6, -2.0), Vector3(-2.8, 5.6, 2.0), Vector3(2.8, 5.6, 2.0)]:
-		var from := Vector3(sign(p.x) * 0.3, 2.3, sign(p.z) * 0.15)
+		var from := Vector3(sign(p.x) * 0.32, 2.15, 0.05)          # the risers end at the hands
 		var ln := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
-		cm.top_radius = 0.006
-		cm.bottom_radius = 0.006
+		cm.top_radius = 0.014
+		cm.bottom_radius = 0.014
 		cm.height = from.distance_to(p)
 		ln.mesh = cm
 		ln.material_override = line_m
@@ -448,6 +445,19 @@ func _chute_model() -> Node3D:
 		ln.basis = Basis(x, up, x.cross(up))
 		root.add_child(ln)
 	return root
+
+static var _ctex: ImageTexture
+
+static func _chute_tex() -> ImageTexture:
+	## the canopy: gold and black panels (the studio's colours)
+	if _ctex == null:
+		var img := Image.create(64, 8, false, Image.FORMAT_RGB8)
+		for x in 64:
+			var c := Color(0.95, 0.70, 0.18) if (x / 8) % 2 == 0 else Color(0.08, 0.08, 0.09)
+			for y in 8:
+				img.set_pixel(x, y, c)
+		_ctex = ImageTexture.create_from_image(img)
+	return _ctex
 
 func _land(a: Actor, ground: float) -> void:
 	var f: Dictionary = fly[a]

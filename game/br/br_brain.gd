@@ -39,7 +39,7 @@ func setup(actor: Actor, g) -> void:
 	a = actor
 	game = g
 	rng.randomize()
-	skill = rng.randf_range(0.3, 0.85)
+	skill = rng.randf_range(0.3, 0.85) * 0.5          # half strength: slower to react, worse aim
 	loot_left = rng.randf_range(70.0, 160.0)
 
 func hear(pos: Vector3) -> void:
@@ -115,7 +115,7 @@ func _scan() -> void:
 	if best:
 		if best != target:
 			see_t = 0.0
-			aim_err = Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * (0.05 + (1.0 - skill) * 0.08)
+			aim_err = Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * (0.10 + (1.0 - skill) * 0.16)
 		target = best
 		target_seen = true
 		lost_t = 0.0
@@ -139,8 +139,8 @@ func _fight(dt: float) -> Array:
 	var d := to.length()
 	var yaw := atan2(-to.x, -to.z)
 	var pitch := atan2(to.y, Vector2(to.x, to.z).length())
-	aim_err = aim_err.lerp(Vector2.ZERO, 1.0 - exp(-(0.8 + skill * 2.0) * dt))
-	var turn := (2.2 + skill * 6.5) * dt
+	aim_err = aim_err.lerp(Vector2.ZERO, 1.0 - exp(-(0.4 + skill * 1.0) * dt))
+	var turn := (1.1 + skill * 3.2) * dt
 	a.view_yaw = rotate_toward(a.view_yaw, yaw + aim_err.x, turn)
 	a.view_pitch = move_toward(a.view_pitch, clampf(pitch + aim_err.y - deg_to_rad(a.punch.x) * 0.5 * skill, -1.4, 1.4), turn)
 	var off := absf(angle_difference(a.view_yaw, yaw)) + absf(a.view_pitch - pitch)
@@ -150,7 +150,7 @@ func _fight(dt: float) -> Array:
 			a.start_reload()
 		else:
 			_best_weapon(true)
-	var react := 0.55 - skill * 0.35
+	var react := 1.1 - skill * 0.5
 	if target_seen and see_t > react and burst_cd <= 0.0 and off < 0.05 + 0.6 / maxf(d, 1.0):
 		if cls == "knife":
 			if d < 1.7:
@@ -168,7 +168,7 @@ func _fight(dt: float) -> Array:
 				lim = int(lerpf(3.0, 9.0, clampf(1.0 - d / 40.0, 0.0, 1.0)))
 			if burst >= lim:
 				burst = 0
-				burst_cd = rng.randf_range(0.15, 0.45) + (1.0 - skill) * 0.3
+				burst_cd = rng.randf_range(0.35, 0.9) + (1.0 - skill) * 0.6
 	# movement: keep the distance the weapon likes, strafe
 	strafe_t -= dt
 	if strafe_t <= 0.0:

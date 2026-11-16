@@ -367,9 +367,35 @@ func _steps(dt: float) -> void:
 				if G.args.has("sndlog"):
 					print("EV %d foot %s %d" % [Time.get_ticks_msec(), actor.name, k])
 
+var air := ""
+
+func _air_state() -> String:
+	## "fall" or "chute" while the battle royale has this fighter in the air
+	var g = actor.game
+	if g == null or not ("fly" in g):
+		return ""
+	var f: Dictionary = g.fly
+	if not f.has(actor):
+		return ""
+	var st := String(f[actor]["st"])
+	return st if st in ["fall", "chute"] else ""
+
 func _process(_dt: float) -> void:
 	if actor == null or dead:
 		return
+	air = _air_state()
+	if air != "":
+		# in the air: face down and spread out in free fall; hanging under the canopy, hands up on the risers
+		rotation.y = actor.view_yaw
+		if weapon:
+			weapon.visible = false
+		var tilt := -1.25 if air == "fall" else 0.0
+		model.transform = Transform3D(Basis(Vector3.RIGHT, tilt) * Basis(Vector3.UP, PI), Vector3(0, 0.9 if air == "fall" else 0.0, 0))
+		_play("rifle_jump_loop")
+		return
+	if weapon and not weapon.visible and not dead:
+		weapon.visible = true
+		model.transform = Transform3D(Basis(Vector3.UP, PI), Vector3.ZERO)
 	if actor.vehicle:
 		# seated: the body faces the way the vehicle goes, in a low crouched pose
 		global_basis = (actor.vehicle as Node3D).global_basis * Basis(Vector3.UP, PI)
@@ -432,6 +458,33 @@ func _process(_dt: float) -> void:
 			_play("pistol_run_backward" if back else ("pistol_strafe" if di == 6 else ("pistol_strafe_b" if di == 2 else "pistol_run")), clampf(sp / 5.4, 0.8, 1.4) * (1.5 if side else 1.0))
 
 
+var _arm := {}          # side -> [upper arm, forearm, hand] bone indices
+
+func arms_in_air(sk: Skeleton3D) -> void:
+	## free fall: arms spread out; under the canopy: both hands up on the risers
+	if _arm.is_empty():
+		for side in ["Left", "Right"]:
+			_arm[side] = [sk.find_bone("mixamorig_%sArm" % side), sk.find_bone("mixamorig_%sForeArm" % side), sk.find_bone("mixamorig_%sHand" % side)]
+	for side in ["Left", "Right"]:
+		var b: Array = _arm[side]
+		if b.has(-1):
+			continue
+		var sx := 1.0 if side == "Left" else -1.0          # the model faces +Z, its left is +X
+		var up_dir := Vector3(sx * 0.95, 0.35, 0.0) if air == "fall" else Vector3(sx * 0.32, 1.0, 0.08)
+		var fore_dir := Vector3(sx * 0.9, 0.55, 0.15) if air == "fall" else Vector3(sx * 0.05, 1.0, 0.12)
+		_point(sk, b[0], b[1], up_dir.normalized())
+		_point(sk, b[1], b[2], fore_dir.normalized())
+
+func _point(sk: Skeleton3D, bone: int, child: int, dir: Vector3) -> void:
+	var gp := sk.get_bone_global_pose(bone)
+	var cur := sk.get_bone_global_pose(child).origin - gp.origin
+	if cur.length() < 0.001:
+		return
+	var q := Quaternion(cur.normalized(), dir)
+	gp.basis = Basis(q) * gp.basis
+	sk.set_bone_global_pose(bone, gp)
+
+
 class AimMod extends SkeletonModifier3D:
 	## наклон корпуса вверх-вниз по прицелу: поворот трёх костей позвоночника вокруг поперечной оси модели
 	var body: FighterBody
@@ -440,6 +493,9 @@ class AimMod extends SkeletonModifier3D:
 		if body == null or body.dead or body.actor == null:
 			return
 		var sk := get_skeleton()
+		if body.air != "":
+			body.arms_in_air(sk)
+			return
 		var pitch := body.actor.view_pitch + body.prone_bend()
 		var roll := body.actor.lean * 0.38
 		if absf(pitch) < 0.01 and absf(roll) < 0.01:
