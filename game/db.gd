@@ -135,6 +135,16 @@ const RAR_NAME := ["عسكري", "محظور", "سرّي", "خفيّ", "أسطو
 const RAR_COL := [Color(0.30, 0.42, 1.0), Color(0.53, 0.28, 1.0), Color(0.83, 0.17, 0.90), Color(0.92, 0.29, 0.29), Color(1.0, 0.84, 0.0)]
 const RAR_ODDS := [0.60, 0.24, 0.11, 0.04, 0.01]
 const SKIN_WEAPONS := ["ak", "m4", "awp", "deagle", "glock", "usp", "mac10", "mp9", "shotgun", "knife"]
+## parachutes: name, centre colour, side colour, rarity
+const CHUTES := [
+	["الصقر الذهبي", Color(0.98, 0.84, 0.22), Color(0.07, 0.08, 0.10), 2],
+	["الجمر", Color(0.92, 0.22, 0.12), Color(0.96, 0.94, 0.90), 3],
+	["ليل الصحراء", Color(0.12, 0.18, 0.40), Color(0.30, 0.85, 0.90), 3],
+	["الكثبان", Color(0.86, 0.72, 0.48), Color(0.45, 0.30, 0.16), 1],
+	["الغابة", Color(0.30, 0.42, 0.20), Color(0.12, 0.16, 0.10), 1],
+	["الملكي", Color(0.55, 0.20, 0.70), Color(0.98, 0.80, 0.30), 4],
+]
+
 ## the player's outfits (lobby stand and battle royale body): the island soldiers first, then the other four fighters
 const OUTFITS := ["lc_a", "lc_b", "lc_c", "lc_d", "t_1", "t_2", "ct_1", "ct_2"]
 const OUTFIT_NAMES := ["صقر", "ذئب", "فهد", "نمر", "عقاب", "شاهين", "ليث", "نسر"]

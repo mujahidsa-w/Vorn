@@ -400,7 +400,7 @@ func _open_chute(a: Actor) -> void:
 	if f["st"] != "fall":
 		return
 	f["st"] = "chute"
-	var c := _chute_model()
+	var c := _chute_model(int(G.settings.get("chute", 0)) if a == player else rng.randi() % DB.CHUTES.size())
 	a.add_child(c)
 	f["chute"] = c
 	a._set_hit_enabled(true)
@@ -409,7 +409,7 @@ func _open_chute(a: Actor) -> void:
 		player.shake(0.6)
 	sound_at("draw", a.global_position + Vector3(0, 3, 0), -2.0, a)
 
-func _chute_model() -> Node3D:
+func _chute_model(scheme := 0) -> Node3D:
 	## a ram-air canopy (rectangular, arched, made of cells): yellow centre, black sides; lines to the hands
 	var root := Node3D.new()
 	root.name = "Chute"
@@ -418,10 +418,10 @@ func _chute_model() -> Node3D:
 	var chord := 2.6
 	var arch := 1.1
 	var yel := StandardMaterial3D.new()
-	yel.albedo_color = Color(0.98, 0.84, 0.22)
+	yel.albedo_color = DB.CHUTES[scheme % DB.CHUTES.size()][1]
 	yel.roughness = 0.7
 	var blk := StandardMaterial3D.new()
-	blk.albedo_color = Color(0.07, 0.08, 0.10)
+	blk.albedo_color = DB.CHUTES[scheme % DB.CHUTES.size()][2]
 	blk.roughness = 0.7
 	var tops: Array = []
 	for i in cells:

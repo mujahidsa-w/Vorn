@@ -287,7 +287,11 @@ func _mannequin() -> Node3D:
 func _process(dt: float) -> void:
 	t += dt
 	var look := stage.position + Vector3(0, 0.98, 0)
-	cam.position = cam_at + Vector3(sin(t * 0.21) * 0.06, sin(t * 0.17) * 0.03, cos(t * 0.19) * 0.05)
+	# the inventory open: the camera slides so the fighter stands in the left part of the screen
+	_shift = lerpf(_shift, 1.25 if (wardrobe and wardrobe.visible) else 0.0, minf(1.0, dt * 6.0))
+	var side := (cam_at - stage.position).cross(Vector3.UP).normalized()
+	look += side * _shift * -1.0
+	cam.position = side * _shift * -1.0 + cam_at + Vector3(sin(t * 0.21) * 0.06, sin(t * 0.17) * 0.03, cos(t * 0.19) * 0.05)
 	cam.look_at(look, Vector3.UP)
 	yaw = lerp_angle(yaw, yaw_to, minf(1.0, dt * 8.0))
 	stage.rotation.y = yaw
@@ -802,8 +806,29 @@ func _refresh() -> void:
 	if stats_box and cur_panel == "stats":
 		_fill_stats()
 
+var wardrobe: Wardrobe
+var _shift := 0.0
+
+func _open_wardrobe() -> void:
+	if cur_panel != "":
+		_show("")
+	if wardrobe == null:
+		wardrobe = Wardrobe.new()
+		wardrobe.menu = self
+		wardrobe.closed.connect(func():
+			wardrobe.visible = false
+			hud.visible = true)
+		ui.add_child(wardrobe)
+	else:
+		wardrobe.open(wardrobe.sec)
+	wardrobe.visible = true
+	hud.visible = false
+
 func _show(n: String) -> void:
 	if roll_active:
+		return
+	if n == "inv":
+		_open_wardrobe()          # the inventory has its own whole-screen view
 		return
 	var was := cur_panel
 	cur_panel = "" if n == cur_panel else n
