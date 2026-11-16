@@ -410,40 +410,54 @@ func _open_chute(a: Actor) -> void:
 	sound_at("draw", a.global_position + Vector3(0, 3, 0), -2.0, a)
 
 func _chute_model() -> Node3D:
+	## a ram-air canopy (rectangular, arched, made of cells): yellow centre, black sides; lines to the hands
 	var root := Node3D.new()
 	root.name = "Chute"
-	var canopy := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = 3.4
-	sm.height = 6.8
-	sm.is_hemisphere = true
-	sm.radial_segments = 20
-	sm.rings = 6
-	canopy.mesh = sm
-	canopy.scale = Vector3(1.0, 0.42, 0.8)
-	canopy.position = Vector3(0, 5.6, 0)
-	var m := StandardMaterial3D.new()
-	m.albedo_texture = _chute_tex()
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.roughness = 0.85
-	canopy.material_override = m
-	root.add_child(canopy)
+	var cells := 9
+	var span := 7.2
+	var chord := 2.6
+	var arch := 1.1
+	var yel := StandardMaterial3D.new()
+	yel.albedo_color = Color(0.98, 0.84, 0.22)
+	yel.roughness = 0.7
+	var blk := StandardMaterial3D.new()
+	blk.albedo_color = Color(0.07, 0.08, 0.10)
+	blk.roughness = 0.7
+	var tops: Array = []
+	for i in cells:
+		var t := (i + 0.5) / cells * 2.0 - 1.0          # -1 .. 1 across the span
+		var x := t * span * 0.5
+		var y := 6.0 - arch * t * t
+		var cell := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.36
+		cm.height = chord
+		cell.mesh = cm
+		cell.material_override = yel if absf(t) < 0.45 else blk
+		cell.position = Vector3(x, y, 0)
+		cell.rotation = Vector3(PI * 0.5, 0, -atan(2.0 * arch * t / (span * 0.5)) * 0.9)
+		cell.scale = Vector3(span / cells / 0.72, 1.0, 0.75)
+		root.add_child(cell)
+		tops.append(Vector3(x, y - 0.3, 0))
 	var line_m := StandardMaterial3D.new()
-	line_m.albedo_color = Color(0.12, 0.11, 0.1)
-	for p in [Vector3(-2.8, 5.6, -2.0), Vector3(2.8, 5.6, -2.0), Vector3(-2.8, 5.6, 2.0), Vector3(2.8, 5.6, 2.0)]:
-		var from := Vector3(sign(p.x) * 0.32, 2.15, 0.05)          # the risers end at the hands
-		var ln := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.014
-		cm.bottom_radius = 0.014
-		cm.height = from.distance_to(p)
-		ln.mesh = cm
-		ln.material_override = line_m
-		ln.position = (from + p) * 0.5
-		var up: Vector3 = (p - from).normalized()
-		var x: Vector3 = up.cross(Vector3.FORWARD).normalized()
-		ln.basis = Basis(x, up, x.cross(up))
-		root.add_child(ln)
+	line_m.albedo_color = Color(0.92, 0.92, 0.9)
+	for p in tops:
+		for z in [-0.9, 0.9]:
+			var top: Vector3 = p + Vector3(0, 0, z)
+			var from := Vector3(signf(top.x) * 0.32 if absf(top.x) > 0.01 else 0.0, 2.15, 0.05)
+			var ln := MeshInstance3D.new()
+			var lm := CylinderMesh.new()
+			lm.top_radius = 0.008
+			lm.bottom_radius = 0.008
+			lm.height = from.distance_to(top)
+			lm.radial_segments = 4
+			ln.mesh = lm
+			ln.material_override = line_m
+			ln.position = (from + top) * 0.5
+			var up: Vector3 = (top - from).normalized()
+			var xx: Vector3 = up.cross(Vector3.FORWARD).normalized()
+			ln.basis = Basis(xx, up, xx.cross(up))
+			root.add_child(ln)
 	return root
 
 static var _ctex: ImageTexture

@@ -389,8 +389,9 @@ func _process(_dt: float) -> void:
 		rotation.y = actor.view_yaw
 		if weapon:
 			weapon.visible = false
-		var tilt := -1.25 if air == "fall" else 0.0
-		model.transform = Transform3D(Basis(Vector3.RIGHT, tilt) * Basis(Vector3.UP, PI), Vector3(0, 0.9 if air == "fall" else 0.0, 0))
+		# free fall: head first towards the ground, feet up (the dive)
+		var tilt := -2.35 if air == "fall" else 0.0
+		model.transform = Transform3D(Basis(Vector3.RIGHT, tilt) * Basis(Vector3.UP, PI), Vector3(0, 1.3 if air == "fall" else 0.0, 0))
 		_play("rifle_jump_loop")
 		return
 	if weapon and not weapon.visible and not dead:
@@ -470,8 +471,9 @@ func arms_in_air(sk: Skeleton3D) -> void:
 		if b.has(-1):
 			continue
 		var sx := 1.0 if side == "Left" else -1.0          # the model faces +Z, its left is +X
-		var up_dir := Vector3(sx * 0.95, 0.35, 0.0) if air == "fall" else Vector3(sx * 0.32, 1.0, 0.08)
-		var fore_dir := Vector3(sx * 0.9, 0.55, 0.15) if air == "fall" else Vector3(sx * 0.05, 1.0, 0.12)
+		# diving: arms back along the body; under the canopy: up on the toggles
+		var up_dir := Vector3(sx * 0.45, -0.85, -0.35) if air == "fall" else Vector3(sx * 0.32, 1.0, 0.08)
+		var fore_dir := Vector3(sx * 0.3, -0.9, -0.3) if air == "fall" else Vector3(sx * 0.05, 1.0, 0.12)
 		_point(sk, b[0], b[1], up_dir.normalized())
 		_point(sk, b[1], b[2], fore_dir.normalized())
 

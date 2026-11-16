@@ -800,7 +800,7 @@ func _lights() -> void:
 	sun = DirectionalLight3D.new()
 	sun.light_color = Color(1.0, 0.90, 0.76)
 	sun.light_energy = 1.8
-	sun.shadow_enabled = true
+	sun.shadow_enabled = int(G.settings.get("shadows", 1)) == 1
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_max_distance = 140.0 if pc else 90.0
 	sun.shadow_bias = 0.04

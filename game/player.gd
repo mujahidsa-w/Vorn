@@ -106,7 +106,7 @@ func init_player() -> void:
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		look((e as InputEventMouseMotion).relative, 0.0022 * float(G.settings["sens"]))
+		look((e as InputEventMouseMotion).relative, 0.0022 * float(G.settings["sens"]) * (float(G.settings.get("ads_sens", 1.0)) if scoped else 1.0))
 
 func look(rel: Vector2, k: float) -> void:
 	## Turns the view; shared by the mouse and the touch screen (k = radians per unit of motion).

@@ -752,6 +752,7 @@ func _show(n: String) -> void:
 	for k in panels:
 		panels[k].visible = k == cur_panel
 	overlay.visible = cur_panel != ""
+	(overlay.get_meta("close") as Control).visible = cur_panel != "settings"          # the settings screen has its own «back»
 	(overlay.get_meta("close") as Control).offset_left = -84 - G.inset
 	(overlay.get_meta("close") as Control).offset_right = -30 - G.inset
 	if cur_panel == "inv":

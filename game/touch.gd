@@ -200,8 +200,16 @@ func _alt_label() -> String:
 		return "قريبة"
 	return ""
 
+func _in_air() -> bool:
+	## in the plane, falling or under the canopy: no fighting buttons
+	if not ("fly" in game) or not game.fly.has(game.player):
+		return false
+	return String(game.fly[game.player]["st"]) != "ground"
+
 func _vis(id: String) -> bool:
 	var p: Player = game.player
+	if _in_air() and id != "use":
+		return false
 	match id:
 		"alt": return p.wd().has("sight") or p.wd()["cls"] in ["knife", "nade"]
 		"use": return _use_mode() != ""
@@ -291,7 +299,7 @@ func _drag(i: int, pos: Vector2, rel: Vector2) -> void:
 		joy_raw = d
 	elif role in ["look", "fire", "jump", "use"]:
 		var p: Player = game.player
-		var k: float = LOOK * float(G.settings["sens"]) * (0.55 if p.aim_on_enemy() else 1.0)
+		var k: float = LOOK * float(G.settings["sens"]) * (0.55 if p.aim_on_enemy() else 1.0) * (float(G.settings.get("ads_sens", 1.0)) if p.scoped else 1.0)
 		p.look(Vector2(rel.x, rel.y * 0.8), k)
 
 func _up(i: int) -> void:
@@ -477,6 +485,11 @@ func _draw_all() -> void:
 	var kp: Vector2 = joy_c + joy_raw * JOY_TRAVEL
 	pad.draw_circle(kp, 58, Color(AMBER, 0.55) if joy_on else Color(1, 1, 1, 0.26))
 	pad.draw_arc(kp, 58, 0, TAU, 48, Color(1, 1, 1, 0.85 * ja), 3.0, true)
+	if _in_air():
+		var um2 := _use_mode()
+		if um2 == "br":
+			_cbtn("use", "", game.touch_use_label(), true)
+		return
 	# action buttons
 	_cbtn("fire", "fire")
 	_cbtn("jump", "jump")

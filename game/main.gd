@@ -8,7 +8,7 @@ const VERSION := "2.2.0"
 var settings := {
 	"sens": 1.0, "fov": 90.0, "vol_master": 0.8, "vol_music": 0.45, "vol_sfx": 0.9,
 	"quality": 2, "fullscreen": true, "vsync": true, "crosshair": 0, "cross_color": 0,
-	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "outfit": 0, "mode": "br", "br_map": "island", "view": "tpp", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false,
+	"name": "اللاعب", "team": "ct", "muted": false, "last_version": "", "outfit": 0, "mode": "br", "br_map": "island", "view": "tpp", "match_len": 7, "difficulty": 1, "viewmodel_fov": 54.0, "show_fps": false, "fps_limit": 60, "shadows": 1, "ads_sens": 1.0,
 }
 var profile := {"credits": 1500, "inv": [], "equip": {}, "cases": 0, "matches": 0, "wins": 0, "kills": 0}
 var args := {}
@@ -178,6 +178,11 @@ func apply_settings() -> void:
 		vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_4X][q]
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 		vp.scaling_3d_scale = [0.77, 1.0, 1.0, 1.0][q]
+	Engine.max_fps = int(settings.get("fps_limit", 60))
+	var sc := get_tree().current_scene if is_inside_tree() else null
+	if sc:
+		for l in sc.find_children("*", "DirectionalLight3D", true, false):
+			(l as DirectionalLight3D).shadow_enabled = int(settings.get("shadows", 1)) == 1
 	if has_node("/root/Sfx"):
 		Sfx.apply_volumes()
 
